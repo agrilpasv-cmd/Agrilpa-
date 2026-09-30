@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,13 +12,14 @@ import {
   User, Mail, Phone, Building2, Globe, MapPin, FileText,
   Edit2, Save, X, Loader, CheckCircle2, AlertCircle,
   Package, ShoppingCart, Star, TrendingUp, Calendar, Link as LinkIcon, Camera,
-  ShieldCheck, Ship, Award, Trash2, Upload
+  ShieldCheck, Ship, Award, Trash2, Upload, ExternalLink
 } from "lucide-react"
 
 type Status = { type: "success" | "error"; message: string } | null
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
+  const [profileId, setProfileId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<Status>(null)
@@ -48,6 +50,7 @@ export default function ProfilePage() {
         if (res.ok) {
           const data = await res.json()
           if (data.user) {
+            setProfileId(data.user.id)
             const userData = {
               fullName: data.user.full_name || "",
               email: data.user.email || "",
@@ -204,7 +207,14 @@ export default function ProfilePage() {
           <h1 className="text-3xl font-bold">Mi Perfil</h1>
           <p className="text-muted-foreground">Gestiona tu información personal y profesional</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {profileId && !isEditing && (
+            <Button variant="outline" asChild className="gap-2">
+              <Link href={`/vendedor/${profileId}`}>
+                <ExternalLink className="w-4 h-4" aria-hidden="true" /> Ver perfil público
+              </Link>
+            </Button>
+          )}
           {isEditing ? (
             <>
               <Button

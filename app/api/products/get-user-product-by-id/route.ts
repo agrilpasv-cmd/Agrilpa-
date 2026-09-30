@@ -55,10 +55,11 @@ export async function GET(request: NextRequest) {
         let sellerCompany = null
         let sellerCountry = null
         let sellerAddress = null
+        let sellerAvatar = null
         if (data.user_id) {
             const { data: sellerProfile } = await supabase
                 .from("users")
-                .select("plan_type, plan_expires_at, company_name, full_name, country, address")
+                .select("plan_type, plan_expires_at, company_name, full_name, country, address, avatar_url")
                 .eq("id", data.user_id)
                 .single()
 
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
                 sellerCompany = sellerProfile.company_name || sellerProfile.full_name
                 sellerCountry = sellerProfile.country
                 sellerAddress = sellerProfile.address
+                sellerAvatar = sellerProfile.avatar_url || null
 
                 if (sellerProfile.plan_type === "pro") {
                     if (sellerProfile.plan_expires_at) {
@@ -119,7 +121,8 @@ export async function GET(request: NextRequest) {
                 reviews_data: formattedReviews,
                 seller_company: sellerCompany,
                 seller_country: sellerCountry,
-                seller_address: sellerAddress
+                seller_address: sellerAddress,
+                seller_avatar: sellerAvatar
             }
         }, { status: 200 })
     } catch (error) {

@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     if (userIds.length > 0) {
       const { data: usersData, error: usersError } = await supabase
         .from("users")
-        .select("id, plan_type, plan_expires_at, company_name")
+        .select("id, plan_type, plan_expires_at, company_name, avatar_url")
         .in("id", userIds)
 
       if (!usersError && usersData) {
@@ -136,6 +136,7 @@ export async function GET(request: Request) {
         shipping_unit_type: p.shipping_unit_type || null,
         container_size: p.container_size || null,
         company_name: user?.company_name || null,
+        seller_avatar: user?.avatar_url || null,
         seller_is_pro: sellerIsPro,
         rating: Number(averageRating),
         reviews: reviewsCount,

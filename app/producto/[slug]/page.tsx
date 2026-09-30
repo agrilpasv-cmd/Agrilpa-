@@ -252,7 +252,8 @@ export default function ProductPage() {
                 }] : []),
               ],
               certifications: data.product.certifications || null,
-              sellerIsPro: data.product.seller_is_pro || false
+              sellerIsPro: data.product.seller_is_pro || false,
+              sellerAvatar: data.product.seller_avatar || null,
             }
             setUserProduct(transformed)
           } else {
