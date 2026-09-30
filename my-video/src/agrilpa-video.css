@@ -1,0 +1,23 @@
+@import './agrilpa-page.css';
+
+html, body { margin: 0; background: white; }
+.auth-video { width: 1280px; height: 896px; color: var(--foreground); font-family: var(--font-sans); }
+.auth-video > .min-h-screen { min-height: 896px; height: 896px; }
+.auth-video > .min-h-screen > div:last-child { scrollbar-width: none; height: 896px; min-height: 0; scroll-behavior: auto !important; }
+.auth-video > .min-h-screen > div:last-child > div { flex: 0 0 auto; min-height: 896px; }
+.auth-video > .min-h-screen > div:last-child::-webkit-scrollbar { display: none; }
+.auth-video > .min-h-screen > div:last-child > div { opacity: var(--step-opacity, 1); translate: 0 var(--step-offset, 0px); }
+.auth-video *, .auth-video *::before, .auth-video *::after { animation: none !important; transition: none !important; }
+.auth-video input[data-active='true'] { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--primary); }
+.product-video { width: 1280px; height: 896px; color: var(--foreground); font-family: var(--font-sans); }
+.product-video *, .product-video *::before, .product-video *::after { animation: none !important; transition: none !important; }
+.product-video > div { min-height: 896px; height: 896px; }
+.product-video aside { height: 816px; flex-shrink: 0; }
+.product-video main { position: relative; min-width: 0; height: 816px; overflow: hidden; }
+.product-video main > div { min-height: 816px; }
+.product-video form > .space-y-8 { opacity: var(--step-opacity, 1); translate: 0 var(--step-offset, 0px); }
+.product-video input[data-active='true'], .product-video textarea[data-active='true'] { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--primary); }
+.catalog-video { width: 1280px; height: 896px; color: var(--foreground); font-family: var(--font-sans); }
+.catalog-video *, .catalog-video *::before, .catalog-video *::after { animation: none !important; transition: none !important; }
+.catalog-content { height: 816px; overflow: hidden; position: relative; }
+.catalog-video input[data-active='true'], .catalog-video select[data-active='true'] { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--primary); }

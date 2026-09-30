@@ -38,6 +38,40 @@ interface User {
   company_website?: string
   how_heard_about_us?: string
   how_heard_other?: string
+  last_sign_in_at?: string | null
+}
+
+const formatLastSignIn = (dateString?: string | null) => {
+  if (!dateString) {
+    return <span className="text-muted-foreground text-xs italic">Nunca</span>
+  }
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) {
+    return <span className="text-muted-foreground text-xs italic">Nunca</span>
+  }
+
+  const now = new Date()
+  const diffHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+  const isRecent = diffHours <= 24
+
+  return (
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+      {isRecent && (
+        <span
+          className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"
+          title="Inició sesión en las últimas 24 horas"
+        />
+      )}
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-foreground">
+          {date.toLocaleDateString("es-ES")}
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          {date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 const HOW_HEARD_LABELS: Record<string, string> = {
@@ -183,7 +217,7 @@ export default function AdminUsersPage() {
     const headers = [
       "Nombre", "Email", "Empresa", "Web/Link", "Teléfono", "País", "Estado",
       "Dirección", "Certificados", "Productos de Interés", "Países Destino",
-      "Países Proveedores", "Volumen Anual", "Tipo", "Sub Tipo", "¿Cómo supo de Agrilpa?", "Rol", "Registro"
+      "Países Proveedores", "Volumen Anual", "Tipo", "Sub Tipo", "¿Cómo supo de Agrilpa?", "Rol", "Registro", "Último Inicio de Sesión"
     ]
 
     const csvContent = [
@@ -207,7 +241,8 @@ export default function AdminUsersPage() {
           `"${(u.user_sub_type || "").replace(/"/g, '""')}"`,
           `"${(u.how_heard_about_us ? HOW_HEARD_LABELS[u.how_heard_about_us] || u.how_heard_about_us : "").replace(/"/g, '""')}"`,
           `"${(u.role || "").replace(/"/g, '""')}"`,
-          `"${new Date(u.created_at).toLocaleDateString()}"`
+          `"${new Date(u.created_at).toLocaleDateString()}"`,
+          `"${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "Nunca"}"`
         ].join(";")
       })
     ].join("\n")
@@ -286,6 +321,7 @@ export default function AdminUsersPage() {
                     <th className="text-left p-4 font-medium">Rol</th>
                     <th className="text-left p-4 font-medium">Plan</th>
                     <th className="text-left p-4 font-medium">Registro</th>
+                    <th className="text-left p-4 font-medium">Última Sesión</th>
                     <th className="text-left p-4 font-medium">Acción</th>
                   </tr>
                 </thead>
@@ -431,6 +467,9 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="p-4 whitespace-nowrap text-sm text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {formatLastSignIn(user.last_sign_in_at)}
                       </td>
                       <td className="p-4">
                         <Button

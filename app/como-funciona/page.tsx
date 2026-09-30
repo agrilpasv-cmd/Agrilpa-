@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { RegistrationVideo, ProductPublishingVideo, CatalogSearchVideo } from "@/components/registration-video"
 import { Search, FileText, MessageSquare, CheckCircle, TrendingUp, Shield, ArrowRight } from 'lucide-react'
 
 export default function ComoFunciona() {
@@ -68,13 +69,8 @@ export default function ComoFunciona() {
                 </ul>
               </div>
               <div className="order-1 lg:order-2">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
-                  <Image
-                    src="/farmer-registering-on-agricultural-platform.jpg"
-                    alt="Registro de vendedor"
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl bg-transparent">
+                  <RegistrationVideo />
                 </div>
               </div>
             </div>
@@ -82,13 +78,8 @@ export default function ComoFunciona() {
             {/* Step 2 */}
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
               <div className="order-1">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
-                  <Image
-                    src="/farmer-uploading-products-catalog-laptop.jpg"
-                    alt="Publicar productos"
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl bg-transparent">
+                  <ProductPublishingVideo />
                 </div>
               </div>
               <div className="order-2">
@@ -245,13 +236,8 @@ export default function ComoFunciona() {
                 </ul>
               </div>
               <div className="order-1 lg:order-2">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
-                  <Image
-                    src="/searching-agricultural-products-online.jpg"
-                    alt="Buscar productos"
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl bg-transparent">
+                  <CatalogSearchVideo />
                 </div>
               </div>
             </div>

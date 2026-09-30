@@ -19,8 +19,11 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Fetch auth users to get metadata (products of interest, volume, etc.)
-    const { data: { users: authUsers }, error: authError } = await supabaseAdmin.auth.admin.listUsers()
+    // Fetch auth users to get metadata (products of interest, volume, etc.) and last sign-in
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000,
+    })
+    const authUsers = authData?.users
 
     if (authError) {
       console.error("[Agrilpa] Error fetching auth users:", authError)
@@ -33,6 +36,7 @@ export async function GET() {
       const authUser = authUsers?.find(u => u.id === profile.id)
       return {
         ...profile,
+        last_sign_in_at: authUser?.last_sign_in_at || null,
         products_of_interest: profile?.products_of_interest || authUser?.user_metadata?.products_of_interest || [],
         supply_countries: profile?.supply_countries || authUser?.user_metadata?.supply_countries || [],
         provider_countries: profile?.provider_countries || authUser?.user_metadata?.provider_countries || [],
