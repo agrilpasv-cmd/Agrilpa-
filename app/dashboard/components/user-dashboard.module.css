@@ -1,0 +1,185 @@
+.dashboard { font-family:var(--font-sans); width:100%; max-width:none; margin:0; padding:24px; color:var(--foreground); background:var(--background); font-size:16px; line-height:1.5 }
+.dashboard button,.dashboard summary { cursor:pointer }
+.dashboard button:disabled { cursor:wait; opacity:.55 }
+.dashboard :is(button,a,select,summary):focus-visible { outline:2px solid var(--ring); outline-offset:3px }
+.header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:25px }
+.eyebrow { font-size:13px; letter-spacing:1.7px; color:var(--muted-foreground); font-weight:600; margin-bottom:6px }
+.header h1 { font-size:36px; line-height:1.25; letter-spacing:-1.1px; font-weight:700; margin:0 0 7px }
+.header p { color:var(--muted-foreground); font-size:15px; margin:0 }
+.profileIdentity { display:flex; align-items:center; gap:12px; margin-top:12px }
+.profileIdentity>a { flex-shrink:0; border-radius:50% }
+.dot { padding:0 6px; color:var(--muted-foreground) }
+.blackButton { display:inline-flex; align-items:center; justify-content:center; gap:8px; background:var(--foreground); color:var(--background); border:1px solid var(--foreground); border-radius:8px; padding:11px 15px; white-space:nowrap; font-weight:500; font-size:15px; min-height:44px }
+.blackButton:hover { background:var(--foreground) }
+.toolbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:23px; padding-bottom:20px; border-bottom:1px solid var(--border) }
+.roles { display:flex; background:color-mix(in srgb,var(--muted) 40%,var(--background)); border:1px solid var(--border); border-radius:9px; padding:3px; gap:3px }
+.roles button { display:flex; align-items:center; gap:7px; border:0; border-radius:6px; padding:8px 17px; background:transparent; color:var(--muted-foreground); font-size:15px; min-height:44px }
+.roles button { transition:background-color .15s,color .15s }
+.roles button:hover { background:color-mix(in srgb,var(--muted) 40%,var(--background)); color:var(--foreground) }
+.roles .selectedRole,.roles .selectedRole:hover { background:var(--foreground); color:var(--background); font-weight:600 }
+.dateControls { display:flex; align-items:center; gap:12px; color:var(--muted-foreground); font-size:14px }
+.dateControls>span { display:flex; align-items:center; gap:7px }
+.refreshButton { display:flex; align-items:center; justify-content:center; width:44px; height:44px; padding:10px; border:1px solid var(--border); border-radius:12px; background:var(--background); color:var(--muted-foreground) }
+.selectTrigger[data-size] { height:44px; width:220px; max-width:100%; border-radius:12px; font-size:15px; background:transparent }
+.currencySelect[data-size] { width:96px; flex-shrink:0 }
+.historyToolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:12px }
+.historyControls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; max-width:100% }
+.historyControls .refreshButton { flex-shrink:0 }
+.dateRangeButton { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; border:1px solid var(--border); background:var(--background); border-radius:12px; padding:8px 12px; font-size:14px; color:var(--foreground); flex:1 }
+.dateRangeButton svg { flex-shrink:0 }
+.periodNote { color:var(--muted-foreground); font-size:13px; margin:0 0 20px; max-width:1050px; line-height:1.6 }
+@media(prefers-reduced-motion:reduce) { .roles button { transition:none } }
+.kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:17px }
+.kpi { border:1px solid var(--border); border-radius:12px; padding:22px 22px 18px; min-height:205px; display:flex; flex-direction:column }
+.metricHeading { display:flex; justify-content:space-between; gap:5px }
+.metricHeading h2 { font-size:16px; font-weight:500; color:var(--muted-foreground); margin:0; line-height:1.5 }
+.metricValue { font-size:clamp(30px,2.4vw,42px); font-weight:600; letter-spacing:-.8px; margin:12px 0 6px; line-height:1.25; overflow-wrap:anywhere }
+.metricDetail { font-size:13px; color:var(--muted-foreground); margin:0; line-height:1.5 }
+.metricBottom { display:flex; align-items:center; gap:5px; margin-top:auto; min-height:44px; padding-top:8px }
+.comparison { color:var(--muted-foreground); font-size:13px; flex:1 }
+.sparkline { width:82px; height:36px; flex-shrink:0 }
+.moneyNote { font-size:13px; color:var(--foreground); margin:5px 0 0 }
+.secondary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--border); border-radius:10px; margin-bottom:23px; padding:22px 0; background:color-mix(in srgb,var(--muted) 40%,var(--background)) }
+.secondary>div { padding:0 22px; display:flex; flex-direction:column; gap:3px; border-right:1px solid var(--border) }
+.secondary>div:last-child { border:0 }
+.secondary span { font-size:14px; color:var(--muted-foreground) }
+.secondary strong { font-size:26px; font-weight:600; letter-spacing:-.3px }
+.secondary small { font-size:12px; color:var(--muted-foreground) }
+.columns { display:grid; grid-template-columns:minmax(0,2fr) minmax(320px,1fr); gap:18px; margin-bottom:18px }
+.panel { min-width:0; border:1px solid var(--border); border-radius:12px; padding:24px; background:var(--background) }
+.panelHeader { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:15px; margin-bottom:20px }
+.panelHeader h2 { font-size:18px; font-weight:600; letter-spacing:-.15px; margin:0 0 3px }
+.panelHeader p { font-size:13px; color:var(--muted-foreground); margin:0 }
+.mutedIcon { color:var(--muted-foreground); flex-shrink:0 }
+.chartSummary { display:flex; gap:9px; align-items:baseline; flex-wrap:wrap }
+.chartSummary strong { font-size:38px; font-weight:600; letter-spacing:-1px }
+.chartSummary>span { font-size:14px; color:var(--muted-foreground) }
+.chartSummary small { font-size:13px; color:var(--muted-foreground); margin-left:auto }
+.legend { display:flex; gap:18px; justify-content:flex-end; margin:10px 0 }
+.legend span,.orderLegend span { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--muted-foreground) }
+.legend i,.orderLegend i { height:7px; width:7px; border-radius:50%; display:inline-block; flex-shrink:0 }
+.activityChart { height:310px; min-width:0 }
+.chartEmpty { color:var(--muted-foreground); font-size:13px; text-align:center; margin:5px 0 }
+.caption { font-size:12px; color:var(--muted-foreground); margin:10px 0 0; line-height:1.6 }
+.dataTable { font-size:13px; color:var(--muted-foreground); margin-top:12px }
+.dataTable>div { max-height:230px; overflow:auto; margin-top:10px }
+.dataTable table { width:100%; border-collapse:collapse; text-align:left }
+.dataTable th,.dataTable td { border-bottom:1px solid var(--border); padding:6px; font-weight:400 }
+.dataTable thead th { font-weight:600 }
+.dataTable caption { text-align:left; margin-bottom:6px }
+.donut { position:relative; height:256px; display:grid; place-items:center; margin:-5px 0 4px }
+.donutChart { width:256px; height:256px; display:grid; place-items:center }
+.donutCenter { position:absolute; display:flex; flex-direction:column; align-items:center; pointer-events:none }
+.donutCenter strong { font-size:42px; font-weight:600; line-height:1.2; letter-spacing:-1px }
+.donutCenter span { font-size:13px; color:var(--muted-foreground) }
+.emptyRing { border:24px solid var(--muted); border-radius:50%; width:212px; height:212px }
+.orderLegend { list-style:none; padding:0; margin:4px 0 16px; display:grid; grid-template-columns:1fr 1fr; gap:9px 17px }
+.orderLegend li { display:flex; justify-content:space-between; gap:5px }
+.orderLegend span { font-size:13px }
+.orderLegend strong { font-size:14px; font-weight:500 }
+.textLink { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:var(--foreground); white-space:nowrap; min-height:40px }
+.textLink:hover { text-decoration:underline; color:var(--foreground) }
+.bottomColumns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; margin-bottom:18px }
+.bottomColumns .panel { padding:24px; min-height:310px }
+.ranking { display:flex; flex-direction:column; gap:17px }
+.ranking>a { display:flex; align-items:center; gap:12px; min-width:0 }
+.rankIndex { font-size:13px; color:var(--muted-foreground) }
+.ranking>a>div { flex:1; min-width:0 }
+.rankLabel { display:flex; justify-content:space-between; gap:12px; font-size:14px; margin-bottom:7px }
+.rankLabel>span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--foreground) }
+.rankLabel strong { font-weight:500 }
+.barTrack { height:5px; background:var(--muted); border-radius:3px; overflow:hidden }
+.barTrack>div { height:100%; background:var(--primary); border-radius:3px }
+.responseOverview { display:flex; justify-content:space-between; gap:12px; margin-top:23px }
+.responseOverview>div { display:flex; flex-direction:column; gap:3px }
+.responseOverview strong { font-size:32px; font-weight:600; letter-spacing:-.6px }
+.responseOverview span { font-size:12px; color:var(--muted-foreground) }
+.responseProgress { height:5px; border-radius:3px; overflow:hidden; background:var(--muted); margin-top:18px }
+.responseProgress>div { height:100%; background:var(--primary) }
+.responseCounts { display:flex; gap:16px; color:var(--muted-foreground); font-size:12px; margin:16px 0 9px }
+.responseCounts strong { color:var(--foreground); font-size:14px; font-weight:500 }
+.countBadge { font-size:14px; border:1px solid var(--border); border-radius:6px; background:color-mix(in srgb,var(--muted) 40%,var(--background)); min-width:24px; padding:2px 6px; text-align:center }
+.actions { display:flex; flex-direction:column }
+.actions>a { display:flex; align-items:center; gap:7px; justify-content:space-between; min-height:58px; border-bottom:1px solid var(--border); padding:10px 0 }
+.actions>a:last-child { border:0 }
+.actions>a>div { min-width:0 }
+.actions strong { display:block; font-size:14px; font-weight:500 }
+.actions span { display:block; font-size:13px; color:var(--muted-foreground); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:3px }
+.actions svg { color:var(--muted-foreground); flex-shrink:0 }
+.recent { display:flex; flex-direction:column }
+.conversation { display:flex; align-items:center; gap:12px; padding:15px 0; border-top:1px solid var(--border) }
+.avatar { width:44px; height:44px; flex-shrink:0; border-radius:50%; background:color-mix(in srgb,var(--primary) 10%,var(--background)); color:var(--foreground); display:grid; place-items:center; font-size:13px; font-weight:600 }
+.conversationText { min-width:0; flex:1; display:flex; flex-direction:column; gap:3px }
+.conversationText strong { font-weight:500; font-size:14px }
+.conversationText>span { font-size:13px; color:var(--muted-foreground); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.conversationMeta { display:flex; align-items:flex-end; flex-direction:column; gap:4px; font-size:12px; color:var(--muted-foreground) }
+.pendingTag { background:color-mix(in srgb,var(--primary) 10%,var(--background)); color:var(--foreground); font-size:12px; border-radius:4px; padding:2px 6px }
+.outlineButton { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:7px; padding:7px 10px; font-size:13px; color:var(--foreground); min-height:44px; white-space:nowrap }
+.outlineButton:hover { background:color-mix(in srgb,var(--muted) 40%,var(--background)) }
+.empty { font-size:14px; color:var(--muted-foreground); padding:15px 0; line-height:1.7 }
+.empty strong { font-weight:500; color:var(--foreground) }
+.empty p { margin:6px 0 0 }
+.footer { text-align:right; color:var(--muted-foreground); font-size:12px; padding-top:18px }
+.welcome { display:flex; justify-content:space-between; align-items:center; gap:20px; border:1px solid color-mix(in srgb,var(--primary) 25%,var(--border)); background:color-mix(in srgb,var(--primary) 10%,var(--background)); border-radius:10px; padding:16px 20px; margin-bottom:20px }
+.welcome strong { font-size:15px; font-weight:600 }
+.welcome p { font-size:14px; color:var(--muted-foreground); margin:5px 0 0 }
+.welcome>a { display:flex; align-items:center; gap:5px; white-space:nowrap; font-size:14px }
+.inlineError { padding:12px 16px; border:1px solid color-mix(in srgb,var(--destructive) 25%,var(--border)); background:color-mix(in srgb,var(--destructive) 5%,var(--background)); color:var(--foreground); font-size:15px; border-radius:8px; margin-bottom:15px }
+.inlineError button { text-decoration:underline; margin-left:5px }
+.updateStatus { font-size:14px; color:var(--muted-foreground); margin:0 0 12px }
+.error { max-width:560px; margin:50px auto; padding:32px; border:1px solid var(--border); border-radius:12px }
+.error h1 { font-size:28px; font-weight:600 }
+.error p { color:var(--muted-foreground); margin:12px 0 22px }
+.skeletonTitle { height:50px; width:50%; background:var(--muted); border-radius:8px; margin-bottom:40px }
+.skeleton { background:linear-gradient(90deg,color-mix(in srgb,var(--muted) 40%,var(--background)),color-mix(in srgb,var(--muted) 40%,var(--background)),color-mix(in srgb,var(--muted) 40%,var(--background))); background-size:200% 100%; animation:shimmer 1.8s infinite }
+.skeletonChart { height:320px; border-radius:12px }
+@keyframes shimmer { to { background-position:-200% 0 } }
+@media(prefers-reduced-motion:reduce) { .skeleton { animation:none } }
+@media(max-width:1400px) {
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)) }
+  .bottomColumns { grid-template-columns:1fr 1fr } .bottomColumns>section:last-child { grid-column:1/-1 }
+  .actions { display:grid; grid-template-columns:1fr 1fr; gap:0 24px }
+  .dateControls>span { display:none }
+}
+@media(max-width:1200px) {
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)) }
+  .secondary { grid-template-columns:1fr 1fr; gap:20px 0 } .secondary>div:nth-child(2) { border:0 }
+}
+@media(max-width:1100px) {
+  .header { align-items:flex-start; flex-direction:column; gap:18px }
+  .toolbar { flex-wrap:wrap }
+  .columns { grid-template-columns:minmax(0,1fr) }
+  .orderLegend { grid-template-columns:1fr 1fr }
+  .bottomColumns { grid-template-columns:1fr } .bottomColumns>section:last-child { grid-column:auto } .actions { display:flex }
+  .conversation { flex-wrap:wrap } .conversationMeta { margin-left:56px; align-items:flex-start }
+}
+@media(min-width:768px) and (max-width:900px) {
+  .kpis { grid-template-columns:1fr }
+}
+@media(max-width:767px) {
+  .historyControls { width:100% } .dateRangeButton { min-width:180px }
+  .dashboard { padding:16px } .header { align-items:flex-start; flex-direction:column; gap:18px; margin-bottom:24px }
+  .header h1 { font-size:30px } .header p { font-size:16px } .eyebrow { font-size:12px }
+  .toolbar { gap:14px; flex-wrap:wrap; padding-bottom:18px } .roles button { padding:9px 18px; font-size:16px }
+  .dateControls { gap:10px; flex-wrap:wrap } .selectTrigger[data-size] { font-size:16px; width:220px }
+  .kpis { gap:12px } .kpi { padding:18px 16px; min-height:210px } .metricHeading { flex-wrap:wrap }
+  .metricHeading h2 { font-size:15px } .metricValue { font-size:32px } .moneyValue { font-size:26px }
+  .metricHeading:has(.currencySelect) h2 { flex-basis:100% }
+  .metricDetail { font-size:13px } .metricBottom { flex-wrap:wrap } .sparkline { width:60px }
+  .secondary { padding:20px 0 } .secondary>div { padding:0 16px } .secondary strong { font-size:24px }
+  .bottomColumns { grid-template-columns:1fr } .bottomColumns>section:last-child { grid-column:auto } .actions { display:flex }
+  .panel,.bottomColumns .panel { padding:20px } .panelHeader h2 { font-size:18px }
+  .panelHeader .selectTrigger[data-size] { width:100% } .chartSummary small { margin-left:0; width:100% }
+  .legend { justify-content:flex-start; gap:14px } .activityChart { height:260px }
+  .orderLegend { grid-template-columns:1fr 1fr }
+  .conversation { flex-wrap:wrap; gap:12px } .conversationText { flex-basis:calc(100% - 58px) }
+  .conversationMeta { margin-left:56px; align-items:flex-start } .conversation .outlineButton { margin-left:auto }
+  .welcome { align-items:flex-start; flex-direction:column; gap:12px } .footer { text-align:left; line-height:1.8 }
+}
+@media(max-width:480px) {
+  .kpis { grid-template-columns:1fr } .metricValue,.moneyValue { font-size:36px }
+}
+@media(max-width:380px) {
+  .secondary { grid-template-columns:1fr } .secondary>div { border:0 }
+  .responseOverview { flex-wrap:wrap } .responseCounts { flex-direction:column; gap:8px }
+}

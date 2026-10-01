@@ -13,9 +13,9 @@ import { useGlobalChat } from "@/components/chat/chat-context"
 import { companyMemberSince, companyProductPrice, publicWebUrl, type PublicCompanyProfile, type CompanyProduct } from "@/lib/public-company-profile"
 
 const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4"
-const muted = "text-slate-600 dark:text-muted-foreground"
-const green = "text-emerald-800 dark:text-primary"
-const action = "h-11 rounded-xl bg-emerald-800 text-white hover:bg-emerald-900"
+const muted = "text-muted-foreground"
+const green = "text-primary"
+const action = "h-11 rounded-xl bg-foreground text-background hover:bg-foreground/90"
 
 export function CompanyProfile() {
   const { userId } = useParams<{ userId: string }>()
@@ -85,7 +85,7 @@ export function CompanyProfile() {
 
   if (status === "loading") return <ProfileSkeleton />
   if (status !== "ready" || !profile) return (
-    <main className="grid min-h-[70vh] place-items-center bg-muted/30 px-5 py-16">
+    <main className="grid min-h-[70vh] place-items-center bg-background px-5 py-16">
       <div className="max-w-md text-center">
         <div className="mx-auto mb-6 grid size-20 place-items-center rounded-3xl border border-border bg-background"><Building2 aria-hidden="true" className="size-8 text-muted-foreground" /></div>
         <h1 className="text-2xl font-semibold tracking-tight">{status === "missing" ? "Perfil no encontrado" : "No pudimos cargar este perfil"}</h1>
@@ -129,7 +129,7 @@ export function CompanyProfile() {
   }
 
   return (
-    <main className="bg-slate-50/70 text-slate-900 dark:bg-background dark:text-foreground">
+    <main className="font-sans bg-background text-foreground">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <nav aria-label="Ruta de navegación" className={`mb-5 flex min-h-11 flex-wrap items-center gap-2 text-sm ${muted}`}>
           <Link href="/productos" className={`inline-flex min-h-11 items-center gap-2 rounded-md hover:text-foreground ${focus}`}><ArrowLeft aria-hidden="true" className="size-4" /> Catálogo</Link>
@@ -137,14 +137,14 @@ export function CompanyProfile() {
         </nav>
 
         <section aria-labelledby="company-name" className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-          <div className="relative h-40 overflow-hidden bg-emerald-950 sm:h-48">
-            <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-emerald-300/15" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid slice" fill="none">
+          <div className="relative h-40 overflow-hidden bg-primary/10 sm:h-48">
+            <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-primary/20" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid slice" fill="none">
               {Array.from({ length: 11 }, (_, index) => <path key={index} d={`M ${500 + index * 35} -40 C ${280 + index * 40} 80, ${680 + index * 40} 110, ${400 + index * 40} 280`} stroke="currentColor" strokeWidth="1.5" />)}
               <circle cx="1120" cy="40" r="170" stroke="currentColor" /><circle cx="1120" cy="40" r="135" stroke="currentColor" /><circle cx="1120" cy="40" r="100" stroke="currentColor" />
             </svg>
             <div className="relative flex items-start justify-between gap-4 p-6 sm:p-8">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-emerald-100"><Sprout aria-hidden="true" className="size-4" /> Red de empresas Agrilpa</div>
-              <span className="hidden rounded-full border border-white/20 px-3 py-1.5 text-xs text-emerald-50 sm:block">Comercio agrícola B2B</span>
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-foreground"><Sprout aria-hidden="true" className="size-4" /> Red de empresas Agrilpa</div>
+              <span className="hidden rounded-full border border-primary/20 px-3 py-1.5 text-xs text-foreground sm:block">Comercio agrícola B2B</span>
             </div>
           </div>
           <div className="relative px-5 pb-7 sm:px-8">
@@ -152,11 +152,11 @@ export function CompanyProfile() {
               <div className="min-w-0 flex-1">
                 <Avatar className="-mt-12 mb-5 size-24 rounded-2xl border-[5px] border-card bg-card shadow-sm sm:-mt-14 sm:size-28">
                   <AvatarImage src={profile.avatar_url || undefined} alt={`Logo de ${name}`} className="object-cover" />
-                  <AvatarFallback className="rounded-xl bg-emerald-50 text-3xl font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-100">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-xl bg-primary/10 text-3xl font-semibold text-foreground">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 id="company-name" className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{name}</h1>
-                  {profile.is_pro && <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"><Leaf aria-hidden="true" className="size-3.5" /> Agrilpa Pro</span>}
+                  <h1 id="company-name" className="min-w-0 break-words text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{name}</h1>
+                  {profile.is_pro && <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-foreground"><Leaf aria-hidden="true" className="size-3.5" /> Agrilpa Pro</span>}
                 </div>
                 <div className={`mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm ${muted}`}>
                   {profile.country && <span className="inline-flex items-center gap-1.5"><MapPin aria-hidden="true" className="size-4" />{profile.country}</span>}
@@ -202,14 +202,14 @@ export function CompanyProfile() {
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                   <div className="relative flex-1">
                     <label htmlFor="company-search" className="sr-only">Buscar productos de esta empresa</label>
-                    <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-slate-500" />
+                    <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-muted-foreground" />
                     <Input id="company-search" type="search" data-no-auto-caps="true" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar en el catálogo de la empresa" className="h-11 rounded-xl border-border bg-card pl-10 pr-11 [&::-webkit-search-cancel-button]:appearance-none" />
                     {query && <button aria-label="Borrar búsqueda" onClick={() => setQuery("")} className={`absolute right-0 top-0 grid size-11 place-items-center rounded-xl text-muted-foreground ${focus}`}><X aria-hidden="true" className="size-4" /></button>}
                   </div>
                   <div><label htmlFor="company-sort" className="sr-only">Ordenar productos</label><select id="company-sort" value={sort} onChange={event => setSort(event.target.value)} className={`h-11 w-full cursor-pointer rounded-xl border border-border bg-card px-3 text-sm sm:w-44 ${focus}`}><option value="recent">Más recientes</option><option value="name">Nombre: A a Z</option></select></div>
                 </div>
                 <div aria-label="Filtrar por categoría" className="mb-6 flex flex-wrap gap-2">
-                  {["", ...categories].map(value => <button key={value} aria-pressed={category === value} onClick={() => setCategory(value)} className={`min-h-11 cursor-pointer rounded-full border px-4 text-sm font-medium transition-colors ${focus} ${category === value ? "border-emerald-800 bg-emerald-800 text-white" : `border-border bg-card hover:border-emerald-600 ${muted}`}`}>{value || "Todos"}</button>)}
+                  {["", ...categories].map(value => <button key={value} aria-pressed={category === value} onClick={() => setCategory(value)} className={`min-h-11 cursor-pointer rounded-full border px-4 text-sm font-medium transition-colors ${focus} ${category === value ? "border-foreground bg-foreground text-background" : `border-border bg-card hover:border-primary ${muted}`}`}>{value || "Todos"}</button>)}
                 </div>
                 {filteredProducts.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center"><Search aria-hidden="true" className="mx-auto mb-3 size-7 text-muted-foreground" /><h3 className="font-semibold">No encontramos productos</h3><p className="mt-2 text-sm text-muted-foreground">Prueba otro nombre o cambia la categoría.</p><Button variant="outline" onClick={() => { setQuery(""); setCategory("") }} className="mt-5">Limpiar filtros</Button></div>
@@ -222,8 +222,8 @@ export function CompanyProfile() {
                 <SectionHeading id="documents-title" eyebrow="Información compartida">Documentos y exportaciones</SectionHeading>
                 <p className={`mt-3 text-sm leading-6 ${muted}`}>Material publicado por la empresa. Consulta su vigencia y alcance directamente con el proveedor.</p>
                 {certificates.length > 0 && <div className="mt-5 grid gap-3 sm:grid-cols-2">{certificates.map((item, index) => (
-                  <a key={`${item.url}-${index}`} href={publicWebUrl(item.url)!} target="_blank" rel="noopener noreferrer" className={`flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-emerald-600 ${focus}`}>
-                    <span className={`grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-50 dark:bg-muted ${green}`}><FileText aria-hidden="true" className="size-5" /></span>
+                  <a key={`${item.url}-${index}`} href={publicWebUrl(item.url)!} target="_blank" rel="noopener noreferrer" className={`flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary ${focus}`}>
+                    <span className={`grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 ${green}`}><FileText aria-hidden="true" className="size-5" /></span>
                     <span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium">{item.label || "Documento de la empresa"}</span><span className="mt-1 block text-xs text-muted-foreground">Abrir documento · Nueva pestaña</span></span><ExternalLink aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
                   </a>
                 ))}</div>}
@@ -248,7 +248,7 @@ export function CompanyProfile() {
               </dl>
               {!profile.country && !profile.address && !memberSince && !website && <p className="mt-4 text-sm leading-6 text-muted-foreground">La empresa aún no ha añadido sus datos comerciales.</p>}
             </section>
-            <section className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-6 dark:border-emerald-900 dark:bg-emerald-950/30">
+            <section className="rounded-2xl border border-primary/20 bg-primary/5 p-6">
               <div className={`mb-4 grid size-11 place-items-center rounded-xl bg-card ${green}`}><MessageSquare aria-hidden="true" className="size-5" /></div>
               <h2 className="text-lg font-semibold tracking-tight">{isOwner ? "Tu empresa, al alcance del mercado" : "La próxima oportunidad empieza con una conversación"}</h2>
               <p className={`mt-3 text-sm leading-6 ${muted}`}>{isOwner ? "Este es el perfil que ven los compradores. Mantén tu presentación y catálogo actualizados." : "Pregunta por disponibilidad, volúmenes y condiciones comerciales directamente al proveedor."}</p>
@@ -274,7 +274,7 @@ export function CompanyProfile() {
 }
 
 function SectionHeading({ id, eyebrow, children }: { id: string; eyebrow: string; children: React.ReactNode }) {
-  return <div><p className={`mb-2 text-xs font-semibold uppercase tracking-[0.16em] ${green}`}>{eyebrow}</p><h2 id={id} className="text-2xl font-semibold tracking-tight">{children}</h2></div>
+  return <div><p className={`mb-2 text-xs font-semibold uppercase tracking-[0.16em] ${green}`}>{eyebrow}</p><h2 id={id} className="text-2xl font-bold tracking-tight">{children}</h2></div>
 }
 
 function CompanyProductCard({ product, onContact }: { product: CompanyProduct; onContact?: (product: CompanyProduct) => void }) {
@@ -286,12 +286,12 @@ function CompanyProductCard({ product, onContact }: { product: CompanyProduct; o
         {product.category && <span className="absolute left-3 top-3 max-w-[calc(100%-24px)] truncate rounded-lg bg-card/95 px-2.5 py-1 text-xs font-medium shadow-sm">{product.category}</span>}
       </Link>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-base font-semibold leading-6"><Link href={`/producto/${product.id}`} className={`rounded-sm hover:text-emerald-800 dark:hover:text-primary ${focus}`}>{product.title}</Link></h3>
+        <h3 className="line-clamp-2 text-base font-semibold leading-6"><Link href={`/producto/${product.id}`} className={`rounded-sm hover:text-primary ${focus}`}>{product.title}</Link></h3>
         {product.country && <p className={`mt-2 flex items-start gap-1.5 text-xs leading-5 ${muted}`}><MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{[product.state, product.country].filter(Boolean).join(", ")}</p>}
         <div className="mt-auto pt-5"><p className={`text-base font-semibold ${green}`}>{companyProductPrice(product)}</p><p className={`mt-1 text-xs leading-5 ${muted}`}>{minimum ? `Pedido mínimo: ${minimum}` : "Consulta las condiciones de compra"}</p></div>
         <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
           <Link href={`/producto/${product.id}`} className={`inline-flex min-h-11 items-center gap-1 text-sm font-medium ${focus}`}>Ver producto <ArrowRight aria-hidden="true" className="size-3.5" /></Link>
-          {onContact && <button onClick={() => onContact(product)} className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-muted ${green} ${focus}`}><MessageSquare aria-hidden="true" className="size-4" />Consultar</button>}
+          {onContact && <button onClick={() => onContact(product)} className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-medium hover:bg-primary/10 ${green} ${focus}`}><MessageSquare aria-hidden="true" className="size-4" />Consultar</button>}
         </div>
       </div>
     </article>
@@ -303,5 +303,5 @@ function EmptyCatalogue() {
 }
 
 function ProfileSkeleton() {
-  return <main aria-busy="true" aria-label="Cargando perfil empresarial" className="min-h-screen bg-muted/30 px-4 py-8"><div className="mx-auto max-w-7xl"><p role="status" className="sr-only">Cargando perfil empresarial…</p><div className="mb-6 h-5 w-48 rounded bg-muted motion-safe:animate-pulse" /><div className="overflow-hidden rounded-3xl border border-border bg-card"><div className="h-48 bg-emerald-950/10 motion-safe:animate-pulse" /><div className="space-y-5 p-8"><div className="-mt-20 size-28 rounded-2xl border-4 border-card bg-muted" /><div className="h-8 w-2/3 rounded bg-muted motion-safe:animate-pulse" /><div className="h-4 w-1/2 rounded bg-muted motion-safe:animate-pulse" /><div className="h-16 rounded-xl bg-muted/60 motion-safe:animate-pulse" /></div></div><div className="mt-8 grid gap-6 lg:grid-cols-[1fr_300px]"><div className="h-72 rounded-2xl bg-muted motion-safe:animate-pulse" /><div className="h-64 rounded-2xl bg-muted motion-safe:animate-pulse" /></div></div></main>
+  return <main aria-busy="true" aria-label="Cargando perfil empresarial" className="min-h-screen bg-background px-4 py-8"><div className="mx-auto max-w-7xl"><p role="status" className="sr-only">Cargando perfil empresarial…</p><div className="mb-6 h-5 w-48 rounded bg-muted motion-safe:animate-pulse" /><div className="overflow-hidden rounded-3xl border border-border bg-card"><div className="h-48 bg-primary/10 motion-safe:animate-pulse" /><div className="space-y-5 p-8"><div className="-mt-20 size-28 rounded-2xl border-4 border-card bg-muted" /><div className="h-8 w-2/3 rounded bg-muted motion-safe:animate-pulse" /><div className="h-4 w-1/2 rounded bg-muted motion-safe:animate-pulse" /><div className="h-16 rounded-xl bg-muted/60 motion-safe:animate-pulse" /></div></div><div className="mt-8 grid gap-6 lg:grid-cols-[1fr_300px]"><div className="h-72 rounded-2xl bg-muted motion-safe:animate-pulse" /><div className="h-64 rounded-2xl bg-muted motion-safe:animate-pulse" /></div></div></main>
 }

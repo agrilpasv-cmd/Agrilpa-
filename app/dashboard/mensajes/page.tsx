@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { ChatDashboard } from '@/components/chat/chat-dashboard'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -37,7 +37,9 @@ export default function MensajesPage() {
 
   return (
     <div className="w-full px-2 sm:px-4 md:px-6 py-6">
-      <ChatDashboard currentUserId={currentUserId} />
+      <Suspense fallback={<p role="status">Cargando conversaciones…</p>}>
+        <ChatDashboard currentUserId={currentUserId} />
+      </Suspense>
     </div>
   )
 }

@@ -14,59 +14,78 @@ export function ProcessVideo({ src, poster, label, descriptionId, description }:
   useEffect(() => {
     const video = ref.current
     if (!video) return
+
+    // Requerido por iOS Safari y Android Chrome para permitir autoplay sin interacción
+    video.muted = true
+    video.defaultMuted = true
+
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
     let visible = false
-    let manuallyPaused = false
+
+    const playVideo = () => {
+      if (video && !reducedMotion.matches) {
+        const promise = video.play()
+        if (promise !== undefined) {
+          promise.catch(() => {
+            // Autoplay bloqueado temporalmente por política de navegador
+          })
+        }
+      }
+    }
+
     const updatePlayback = () => {
-      if (visible && !document.hidden && !reducedMotion.matches && !manuallyPaused) {
-        void video.play().catch(() => {})
-      } else {
+      if (visible && !document.hidden && !reducedMotion.matches) {
+        playVideo()
+      } else if (video) {
         video.pause()
       }
     }
-    const onPause = () => {
-      if (visible && !document.hidden && !reducedMotion.matches) manuallyPaused = true
-    }
-    const onPlay = () => { manuallyPaused = false }
+
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting
       updatePlayback()
-    }, { threshold: 0.35 })
+    }, { threshold: 0.2 })
+
     observer.observe(video)
-    video.addEventListener("pause", onPause)
-    video.addEventListener("play", onPlay)
+
+    // Intento de reproducción inmediata en montaje
+    playVideo()
+
     document.addEventListener("visibilitychange", updatePlayback)
     reducedMotion.addEventListener("change", updatePlayback)
+
     return () => {
       observer.disconnect()
-      video.removeEventListener("pause", onPause)
-      video.removeEventListener("play", onPlay)
       document.removeEventListener("visibilitychange", updatePlayback)
       reducedMotion.removeEventListener("change", updatePlayback)
     }
   }, [])
 
   return (
-    <>
+    <div className="relative w-full h-full overflow-hidden select-none" onContextMenu={(e) => e.preventDefault()}>
       <video
         ref={ref}
-        controls
+        autoPlay
         loop
         muted
         playsInline
-        preload="none"
+        preload="auto"
+        controls={false}
+        disablePictureInPicture
+        disableRemotePlayback
         poster={poster}
         aria-label={label}
         aria-describedby={descriptionId}
-        className="block w-full h-full object-cover border-0 outline-none bg-transparent"
+        onContextMenu={(e) => e.preventDefault()}
+        className="block w-full h-full object-cover border-0 outline-none bg-transparent pointer-events-none"
       >
         <source src={src} type="video/mp4" />
-        Tu navegador no admite video. <a href={src}>Ver demostración</a>
+        Tu navegador no admite video.
       </video>
       <p id={descriptionId} className="sr-only">
         {description}
       </p>
-    </>
+    </div>
   )
 }
 

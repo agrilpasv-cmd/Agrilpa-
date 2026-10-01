@@ -27,6 +27,7 @@ import { playMessageNotificationSound } from '@/lib/sound'
 import { downloadAttachment } from '@/lib/download'
 import { MediaLightbox } from './media-lightbox'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useGlobalChat } from '@/components/chat/chat-context'
 import { Toaster as SileoToaster, sileo } from 'sileo'
 import 'sileo/styles.css'
@@ -36,6 +37,10 @@ interface ChatDashboardProps {
 }
 
 export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
+  const requestedConversation = useSearchParams().get('conversation')
+  const requestedConversationRef = useRef(requestedConversation)
+  requestedConversationRef.current = requestedConversation
+  const selectedRequestRef = useRef<string | null>(null)
   const { isUserOnline } = useGlobalChat()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -74,6 +79,16 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
 
   const activeConversation = conversations.find(c => c.id === activeConversationId)
 
+  useEffect(() => {
+    if (!requestedConversation) { selectedRequestRef.current = null; return }
+    const target = conversations.find(c => c.id === requestedConversation && (c.buyer_id === currentUserId || c.seller_id === currentUserId))
+    if (target && selectedRequestRef.current !== requestedConversation) {
+      selectedRequestRef.current = requestedConversation
+      hasInitiallySelectedRef.current = true
+      setActiveConversationId(target.id)
+    }
+  }, [requestedConversation, conversations, currentUserId])
+
   const fetchConversations = async () => {
     try {
       const res = await fetch(`/api/chat/conversations?userId=${currentUserId}&_t=${Date.now()}`, {
@@ -89,7 +104,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         if (!hasInitiallySelectedRef.current) {
           hasInitiallySelectedRef.current = true
           const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768
-          if (isDesktop && !activeConversationIdRef.current && data.conversations.length > 0) {
+          if (isDesktop && !requestedConversationRef.current && !activeConversationIdRef.current && data.conversations.length > 0) {
             setActiveConversationId(data.conversations[0].id)
           }
         }

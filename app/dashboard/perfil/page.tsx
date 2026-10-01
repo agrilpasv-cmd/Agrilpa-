@@ -249,14 +249,14 @@ export default function ProfilePage() {
       {saveStatus && (
         <div
           className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${saveStatus.type === "success"
-            ? "bg-green-50 border-green-200 text-green-800"
-            : "bg-red-50 border-red-200 text-red-800"
+            ? "bg-primary/10 border-primary/20 text-foreground"
+            : "bg-destructive/10 border-destructive/20 text-destructive"
             }`}
         >
           {saveStatus.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-primary" />
           ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <AlertCircle className="w-4 h-4 shrink-0 text-destructive" />
           )}
           {saveStatus.message}
         </div>
@@ -284,7 +284,7 @@ export default function ProfilePage() {
                 )}
               </div>
               {/* Green dot */}
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-500 border-2 border-background rounded-full flex items-center justify-center">
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary border-2 border-background rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-4 h-4 text-white" />
               </div>
               {/* Hidden file input */}
@@ -302,11 +302,11 @@ export default function ProfilePage() {
               <p className="text-muted-foreground mt-0.5">{formData.company || "Sin empresa"}</p>
 
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-foreground rounded-full text-xs font-medium">
                   <CheckCircle2 className="w-3 h-3" /> Verificado
                 </span>
                 {formData.country && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted text-foreground rounded-full text-xs font-medium">
                     <Globe className="w-3 h-3" /> {formData.country}
                   </span>
                 )}
@@ -336,8 +336,8 @@ export default function ProfilePage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
-            <div className="p-3 rounded-lg bg-blue-500/10">
-              <ShoppingCart className="w-5 h-5 text-blue-500" />
+            <div className="p-3 rounded-lg bg-primary/10">
+              <ShoppingCart className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{stats.purchases}</p>
@@ -347,8 +347,8 @@ export default function ProfilePage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-4 pt-6">
-            <div className="p-3 rounded-lg bg-amber-500/10">
-              <TrendingUp className="w-5 h-5 text-amber-500" />
+            <div className="p-3 rounded-lg bg-primary/10">
+              <TrendingUp className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{stats.quotations}</p>
@@ -639,9 +639,9 @@ export default function ProfilePage() {
                   <div key={index} className="flex items-center gap-3 p-3 border border-border rounded-lg bg-background">
                     <div className="shrink-0">
                       {item.type === "certificate" ? (
-                        <Award className="w-5 h-5 text-green-500" />
+                        <Award className="w-5 h-5 text-primary" />
                       ) : (
-                        <Ship className="w-5 h-5 text-blue-500" />
+                        <Ship className="w-5 h-5 text-primary" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -676,7 +676,7 @@ export default function ProfilePage() {
                           setSaveStatus({ type: "error", message: "Error al eliminar" })
                         }
                       }}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors shrink-0"
+                      className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
                       title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />

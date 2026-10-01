@@ -1,13 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
-    Menu,
-    X,
-    LogOut,
     Settings,
     FileText,
     MessageSquare,
@@ -38,8 +34,7 @@ import {
     Phone,
     Check
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { PanelSidebar } from "@/components/dashboard/panel-sidebar"
 import { useDashboard } from "./context"
 import { AuthStorage } from "@/lib/auth-storage"
 import { CountryPicker, PhoneCodePicker } from "@/components/ui/country-picker"
@@ -429,102 +424,11 @@ export default function DashboardShell({
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Navbar */}
-            <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="px-6 lg:px-10">
-                    <div className="flex justify-between items-center h-20">
-                        <Link href="/" className="flex items-center space-x-2">
-                            <Image src="/agrilpa-logo.svg" alt="Agrilpa Logo" width={130} height={130} priority />
-                        </Link>
-
-                        <div className="hidden md:flex items-center space-x-3">
-                            {/* Hide profile link and show only logout when setup is pending */}
-                            {!isProfileIncomplete && (
-                                <Link
-                                    href="/dashboard/perfil"
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-base font-medium text-foreground hover:text-primary transition-colors group"
-                                >
-                                    <span>Mi Perfil</span>
-                                </Link>
-                            )}
-                            {isProfileIncomplete && (
-                                <span className="text-sm text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                                    ⚠ Completa tu perfil para continuar
-                                </span>
-                            )}
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-base font-medium text-foreground hover:text-red-600 transition-colors group cursor-pointer disabled:opacity-70"
-                            >
-                                <span>{isLoggingOut ? "Cerrando..." : "Cerrar Sesión"}</span>
-                                <LogOut className={`w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5 ${isLoggingOut ? "animate-spin" : ""}`} />
-                            </button>
-                        </div>
-
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-muted"
-                        >
-                            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-                        </button>
-                    </div>
-                </div>
-            </nav>
-
             <div className="flex">
-                {/* Sidebar - locked if profile is incomplete */}
-                <aside
-                    className={`${
-                        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-                    } md:translate-x-0 fixed md:relative w-64 h-[calc(100vh-64px)] bg-card border-r border-border transition-transform duration-300 ease-in-out z-40 overflow-y-auto`}
-                >
-                    <div className="p-6">
-                        {isProfileIncomplete ? (
-                            // Blocked sidebar placeholder
-                            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
-                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                                    <span className="text-2xl">🔒</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground font-medium">
-                                    Completa tu perfil para acceder al panel
-                                </p>
-                            </div>
-                        ) : (
-                            <nav className="space-y-2">
-                                {menuItems.map((item) => {
-                                    const Icon = item.icon
-                                    return (
-                                        <Link
-                                            key={item.href}
-                                            href={item.href}
-                                            className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted transition-colors hover:text-primary group"
-                                            onClick={() => setIsSidebarOpen(false)}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <Icon className="w-5 h-5" />
-                                                <span className="font-medium">{item.label}</span>
-                                            </div>
-
-                                            {item.notifications > 0 && (
-                                                <Badge
-                                                    variant="destructive"
-                                                    className="min-w-[20px] h-5 flex items-center justify-center rounded-full text-xs px-1.5"
-                                                >
-                                                    {item.notifications > 99 ? "99+" : item.notifications}
-                                                </Badge>
-                                            )}
-                                        </Link>
-                                    )
-                                })}
-                            </nav>
-                        )}
-                    </div>
-                </aside>
+                <PanelSidebar items={menuItems} admin={isAdmin} open={isSidebarOpen} onOpenChange={setIsSidebarOpen} locked={isProfileIncomplete} onLogout={handleLogout} loggingOut={isLoggingOut} />
 
                 {/* Main Content - blurred and blocked when profile is incomplete */}
-                <main className={`flex-1 overflow-auto bg-[#f5f7f5] ${isProfileIncomplete ? "pointer-events-none select-none filter blur-sm" : ""}`}>
+                <main className={`min-w-0 flex-1 bg-white pt-16 md:pt-0 ${isProfileIncomplete ? "pointer-events-none select-none filter blur-sm" : ""}`}>
                     {children}
                 </main>
             </div>
