@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getAllTicketMeta } from "@/lib/support-state";
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
@@ -30,24 +32,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ conversations: [] });
     }
 
+    const ticketMeta = getAllTicketMeta();
+
     // 2. Fetch related products, users, last messages and unread counts in parallel
     const enrichedConversations = await Promise.all(
       convos.map(async (conv) => {
         const otherUserId = conv.buyer_id === userId ? conv.seller_id : conv.buyer_id;
 
         // Fetch other user info
-        const { data: otherUserData } = await adminClient
+        let userResult = await adminClient
           .from("users")
-          .select("id, full_name, company_name, email, role")
+          .select("id, full_name, company_name, email, role, avatar_url")
           .eq("id", otherUserId)
           .maybeSingle();
 
+        // Keep older databases without the optional avatar column working.
+        if (userResult.error?.message.includes("avatar_url")) {
+          userResult = await adminClient.from("users")
+            .select("id, full_name, company_name, email, role")
+            .eq("id", otherUserId).maybeSingle();
+        }
+        const otherUserData = userResult.data;
+
         // Fetch product info
-        const { data: productData } = await adminClient
+        const { data: productData } = conv.product_id ? await adminClient
           .from("user_products")
           .select("id, title, price, currency, unit, image, packaging, min_order")
           .eq("id", conv.product_id)
-          .maybeSingle();
+          .maybeSingle() : { data: null };
 
         // Fetch last message
         const { data: lastMsgData } = await adminClient
@@ -80,8 +92,10 @@ export async function GET(request: NextRequest) {
           updated_at: conv.updated_at,
           unread_count: unreadCount || 0,
           is_support: Boolean(isSupport),
+          support_status: isSupport ? (ticketMeta[conv.id]?.status || "open") : undefined,
           other_user: {
             id: otherUserId,
+            avatar_url: otherUserData?.avatar_url || undefined,
             name: otherName,
             companyName: isSupport && otherUserData?.role === 'admin' ? "Equipo Oficial de Asistencia" : (otherUserData?.company_name || otherName),
             email: otherUserData?.email,

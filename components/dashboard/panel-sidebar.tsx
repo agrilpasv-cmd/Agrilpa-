@@ -26,6 +26,7 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
   const desktopSearch = useRef<HTMLInputElement>(null)
   const mobileSearch = useRef<HTMLInputElement>(null)
   useEffect(() => {
+    if (!admin) return
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !locked) {
         event.preventDefault()
@@ -35,11 +36,11 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
     }
     document.addEventListener("keydown", shortcut)
     return () => document.removeEventListener("keydown", shortcut)
-  }, [locked, onOpenChange])
-  const footerRoutes = admin ? ["/admin/soporte"] : ["/dashboard/perfil", "/dashboard/configuracion"]
+  }, [admin, locked, onOpenChange])
+  const footerRoutes = admin ? ["/admin/soporte"] : ["/dashboard/perfil", "/dashboard/configuracion", "/dashboard/soporte"]
   const filtered = items.filter(item => normalize(item.label).includes(normalize(search)))
   const primary = filtered.filter(item => !footerRoutes.includes(item.href))
-  const footer = filtered.filter(item => footerRoutes.includes(item.href))
+  const footer = filtered.filter(item => footerRoutes.includes(item.href)).sort((a, b) => footerRoutes.indexOf(a.href) - footerRoutes.indexOf(b.href))
   const row = (item: PanelMenuItem) => {
     const active = pathname === item.href || (!["/", "/admin", "/dashboard"].includes(item.href) && pathname.startsWith(`${item.href}/`))
     const Icon = item.icon
@@ -51,10 +52,12 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
     </Link>
   }
   const contents = (mobile: boolean) => <>
-    <div className="px-5 pb-4 pt-6">
-      <Link href="/" aria-label="Agrilpa, inicio" onClick={() => onOpenChange(false)}><Image src="/agrilpa-logo.svg" alt="Agrilpa" width={229} height={66} style={{ width: "auto", height: "auto", maxWidth: 145 }} /></Link>
-      <p className="mb-5 mt-2 text-sm text-muted-foreground">{admin ? "Administración" : "Tu espacio de negocio"}</p>
-      {!locked && <label className="flex h-12 items-center gap-2.5 rounded-xl border border-border px-3 focus-within:ring-2 focus-within:ring-primary">
+    <div className={`px-5 pt-6 ${admin ? "pb-4" : "flex flex-col items-center pb-4 text-center"}`}>
+      <Link href="/" aria-label="Agrilpa, inicio" onClick={() => onOpenChange(false)} className={admin ? "inline-block" : "flex justify-center"}>
+        <Image src="/agrilpa-logo.svg" alt="Agrilpa" width={229} height={66} style={{ width: "auto", height: "auto", maxWidth: 145 }} priority />
+      </Link>
+      <p className={`mt-2 text-sm text-muted-foreground ${admin ? "mb-5" : "mb-2 text-center"}`}>{admin ? "Administración" : "Tu espacio de negocio"}</p>
+      {admin && !locked && <label className="flex h-12 items-center gap-2.5 rounded-xl border border-border px-3 focus-within:ring-2 focus-within:ring-primary">
         <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input ref={mobile ? mobileSearch : desktopSearch} value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar sección" aria-label="Buscar sección del panel" className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground" />
       </label>}

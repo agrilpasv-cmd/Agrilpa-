@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { isSupportConversation } from '@/lib/chat-channels'
 import { ConversationProduct } from '@/types/chat'
 import { playMessageNotificationSound } from '@/lib/sound'
 
@@ -13,6 +14,7 @@ export interface ActiveChat {
 }
 
 export interface PendingMessageNotification {
+  isSupport?: boolean;
   conversationId: string;
   senderName: string;
   senderAvatar?: string;
@@ -31,6 +33,8 @@ interface ChatContextType {
   onlineUsers: Set<string>;
   currentUserId: string | null;
   unreadCount: number;
+  b2bUnreadCount: number;
+  supportUnreadCount: number;
   pendingNotification: PendingMessageNotification | null;
   clearPendingNotification: () => void;
   openChatForNotification: (notif?: PendingMessageNotification | null) => void;
@@ -110,7 +114,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           return {
             conversationId: latestUnreadConvo.id,
             senderName: latestUnreadConvo.other_user?.companyName || latestUnreadConvo.other_user?.name || "Usuario de Agrilpa",
-            senderAvatar: latestUnreadConvo.other_user?.avatar,
+            senderAvatar: latestUnreadConvo.other_user?.avatar_url,
+            isSupport: isSupportConversation(latestUnreadConvo),
             content: lastMsg?.content || (lastMsg?.attachment_type === 'image' ? "📷 Foto adjunta" : "Tienes mensajes pendientes"),
             attachmentType: lastMsg?.attachment_type,
             productTitle: latestUnreadConvo.product?.title || "Producto",
@@ -291,7 +296,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const sendHeartbeat = async () => {
       try {
         const inMessagesPage = 
-          (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard/mensajes')) ||
+          (typeof window !== 'undefined' && (window.location.pathname.startsWith('/dashboard/mensajes') || window.location.pathname.startsWith('/dashboard/soporte'))) ||
           isOpenRef.current
         
         await fetch('/api/chat/presence/heartbeat', {
@@ -385,6 +390,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
             // 2. Increment unread count
             setUnreadCount((c) => c + 1)
+            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: (c.unread_count || 0) + 1, last_message: newMsg } : c))
 
             // 3. If chat widget is already open and showing this specific vendor/product, don't show the floating notification card
             if (isOpenRef.current && activeChatRef.current?.vendorId === conv.other_user?.id) {
@@ -395,7 +401,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const notificationItem: PendingMessageNotification = {
               conversationId: conv.id,
               senderName: conv.other_user?.companyName || conv.other_user?.name || "Nuevo mensaje",
-              senderAvatar: conv.other_user?.avatar,
+              senderAvatar: conv.other_user?.avatar_url,
+              isSupport: isSupportConversation(conv),
               content: newMsg.content || (newMsg.attachment_type === 'image' ? "📷 Foto adjunta" : "📎 Archivo adjunto"),
               attachmentType: newMsg.attachment_type,
               productTitle: conv.product?.title || "Producto",
@@ -451,6 +458,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setActiveChat({
         sellerName: target.senderName,
         sellerOnline: onlineUsers.has(target.otherUserId),
+        isSupport: target.isSupport,
         product: target.product,
         vendorId: target.otherUserId
       })
@@ -470,6 +478,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           image: '/placeholder.svg',
           quantity: ''
         },
+        isSupport: isSupportConversation(firstConvo),
         vendorId: firstConvo.other_user?.id
       })
       setIsOpen(true)
@@ -515,6 +524,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         onlineUsers,
         currentUserId,
         unreadCount,
+        b2bUnreadCount: conversations.reduce((n, c) => n + (isSupportConversation(c) ? 0 : Number(c.unread_count) || 0), 0),
+        supportUnreadCount: conversations.reduce((n, c) => n + (isSupportConversation(c) ? Number(c.unread_count) || 0 : 0), 0),
         pendingNotification,
         clearPendingNotification,
         openChatForNotification,

@@ -1,47 +1,35 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent } from '@/components/ui/dialog'
-import {
-  Search, Paperclip, Send, Check, CheckCheck, FileText, Download,
-  Box, Eye, X, MessageSquare, Loader, ExternalLink, Inbox, Circle, MoreVertical,
-  Copy, Info, Bell, Headphones, ArrowLeft
-} from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu'
 import { Conversation, Message } from '@/types/chat'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage } from '@/lib/compress-image'
 import { playMessageNotificationSound } from '@/lib/sound'
 import { downloadAttachment } from '@/lib/download'
-import { MediaLightbox } from './media-lightbox'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { ChatWorkspace, type ChatAttachment } from './chat-workspace'
+import { conversationPath, isSupportConversation, type ChatChannel } from '@/lib/chat-channels'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useGlobalChat } from '@/components/chat/chat-context'
 import { Toaster as SileoToaster, sileo } from 'sileo'
 import 'sileo/styles.css'
 
 interface ChatDashboardProps {
   currentUserId: string;
+  channel?: ChatChannel;
 }
 
-export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
+export function ChatDashboard({ currentUserId, channel = "b2b" }: ChatDashboardProps) {
+  const router = useRouter()
+  const inChannel = (conversation: Conversation) => isSupportConversation(conversation) === (channel === "support")
+  const selectIncoming = (conversation: Conversation) => {
+    if (inChannel(conversation)) setActiveConversationId(conversation.id)
+    else router.push(conversationPath(conversation))
+  }
   const requestedConversation = useSearchParams().get('conversation')
   const requestedConversationRef = useRef(requestedConversation)
   requestedConversationRef.current = requestedConversation
   const selectedRequestRef = useRef<string | null>(null)
-  const { isUserOnline } = useGlobalChat()
+  const { isUserOnline, refreshUnreadCount } = useGlobalChat()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -52,6 +40,10 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
   const [filterStatus, setFilterStatus] = useState<"all" | "unread" | "read">("all")
 
   const [isLoadingConvos, setIsLoadingConvos] = useState(true)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [conversationError, setConversationError] = useState(false)
+  const [messageError, setMessageError] = useState(false)
+  const [messagesRetry, setMessagesRetry] = useState(0)
   const [isSending, setIsSending] = useState(false)
   
   // Attachments
@@ -68,6 +60,20 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
   const activeConversationIdRef = useRef<string | null>(activeConversationId)
   const conversationsRef = useRef<Conversation[]>(conversations)
   const hasInitiallySelectedRef = useRef(false)
+  const draftsRef = useRef<Record<string, { text: string; attachment: ChatAttachment | null }>>({})
+  const currentDraftRef = useRef({ text: inputValue, attachment })
+  currentDraftRef.current = { text: inputValue, attachment }
+  const previousDraftConversation = useRef<string | null>(null)
+
+  useEffect(() => {
+    const previousId = previousDraftConversation.current
+    if (previousId) draftsRef.current[previousId] = currentDraftRef.current
+    const next = activeConversationId ? draftsRef.current[activeConversationId] : null
+    setInputValue(next?.text || "")
+    setAttachment(next?.attachment || null)
+    setPreviewImage(null)
+    previousDraftConversation.current = activeConversationId
+  }, [activeConversationId])
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId
@@ -95,22 +101,27 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         cache: 'no-store'
       })
       const data = await res.json()
+      if (!res.ok || !Array.isArray(data.conversations)) throw new Error("Conversations unavailable")
+      const requested = data.conversations.find((c: Conversation) => c.id === requestedConversationRef.current)
+      if (requested && !inChannel(requested)) { router.replace(conversationPath(requested)); return }
+      setConversationError(false)
       if (data.conversations) {
-        setConversations(data.conversations)
+        setConversations(data.conversations.filter(inChannel))
         
-        // Solo autoseleccionar en la carga inicial de pantalla grande (escritorio >= 768px).
+        // Solo autoseleccionar en la carga inicial de pantalla grande (escritorio >= 1024px).
         // En teléfonos móviles o en las actualizaciones en segundo plano (cada 8s), NUNCA
         // forzar la apertura de un chat si el usuario está en la bandeja de entrada.
         if (!hasInitiallySelectedRef.current) {
           hasInitiallySelectedRef.current = true
-          const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768
-          if (isDesktop && !requestedConversationRef.current && !activeConversationIdRef.current && data.conversations.length > 0) {
-            setActiveConversationId(data.conversations[0].id)
+          const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
+          if (isDesktop && !requestedConversationRef.current && !activeConversationIdRef.current && data.conversations.filter(inChannel).length > 0) {
+            setActiveConversationId(data.conversations.find(inChannel).id)
           }
         }
       }
     } catch (err) {
       console.error("Error fetching conversations:", err)
+      setConversationError(true)
     } finally {
       setIsLoadingConvos(false)
     }
@@ -150,7 +161,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
                 const convList: Conversation[] = data.conversations || []
                 const found = convList.find(c => c.id === incomingMsg.conversation_id)
                 if (found && (found.buyer_id === currentUserId || found.seller_id === currentUserId)) {
-                  setConversations(convList)
+                  setConversations(convList.filter(inChannel))
                   playMessageNotificationSound()
                   const sender = found.other_user?.companyName || found.other_user?.name || "Usuario de Agrilpa"
                   sileo.action({
@@ -159,7 +170,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
                     position: "top-right",
                     button: {
                       title: "Ver chat",
-                      onClick: () => setActiveConversationId(incomingMsg.conversation_id)
+                      onClick: () => selectIncoming(found)
                     }
                   })
                 }
@@ -174,7 +185,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
           }
 
           // If incoming message is for the currently open conversation:
-          if (incomingMsg.conversation_id === activeConversationIdRef.current) {
+          if (incomingMsg.conversation_id === activeConversationIdRef.current && document.visibilityState === "visible") {
             setMessages(prev => {
               if (prev.some(m => m.id === incomingMsg.id)) return prev
               return [...prev, incomingMsg]
@@ -195,7 +206,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
               position: "top-right",
               button: {
                 title: "Ver chat",
-                onClick: () => setActiveConversationId(incomingMsg.conversation_id)
+                onClick: () => selectIncoming(targetConv)
               }
             })
           }
@@ -206,7 +217,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
               ? { 
                   ...c, 
                   last_message: incomingMsg, 
-                  unread_count: incomingMsg.conversation_id === activeConversationIdRef.current ? 0 : (c.unread_count || 0) + 1 
+                  unread_count: incomingMsg.conversation_id === activeConversationIdRef.current && document.visibilityState === "visible" ? 0 : (c.unread_count || 0) + 1
                 } 
               : c
           ))
@@ -224,13 +235,16 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
       clearInterval(convoSyncTimer)
       supabase.removeChannel(globalChannel)
     }
-  }, [currentUserId])
+  }, [currentUserId, channel])
 
   // 2. Fetch messages & mark as read when active conversation changes, with 2.5s real-time sync guarantee
   useEffect(() => {
     if (!activeConversationId) return
 
     let isMounted = true
+    setMessages([])
+    setIsLoadingMessages(true)
+    setMessageError(false)
     const supabase = createClient()
     let channel: any = null
 
@@ -242,17 +256,21 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
           .eq('conversation_id', activeConversationId)
           .order('created_at', { ascending: true })
 
-        if (isMounted && msgs && !error) {
+        if (error) throw error
+        if (!isMounted) return
+        if (msgs) {
           setMessages(msgs as Message[])
+          setMessageError(false)
         }
 
         // Mark as read in DB
-        if (currentUserId) {
+        if (currentUserId && document.visibilityState === "visible") {
           await fetch('/api/chat/mark-as-read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ conversationId: activeConversationId, userId: currentUserId })
           }).catch(console.error)
+          void refreshUnreadCount()
         }
 
         // Update unread count locally
@@ -263,6 +281,9 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         }
       } catch (err) {
         console.error("Error loading messages:", err)
+        if (isMounted) setMessageError(true)
+      } finally {
+        if (isMounted) setIsLoadingMessages(false)
       }
     }
 
@@ -300,7 +321,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
               position: "top-right"
             })
 
-            if (currentUserId) {
+            if (currentUserId && document.visibilityState === "visible") {
               fetch('/api/chat/mark-as-read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -326,6 +347,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         (payload) => {
           if (!isMounted) return
           const updatedMsg = payload.new as Message
+          setConversations(prev => prev.map(c => c.last_message?.id === updatedMsg.id ? { ...c, last_message: updatedMsg } : c))
           setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
         }
       )
@@ -341,6 +363,8 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         .order('created_at', { ascending: true })
         .then(({ data: msgs, error }) => {
           if (!isMounted || !msgs || error) return
+          const latestMessage = msgs[msgs.length - 1]
+          if (latestMessage) setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, last_message: latestMessage } : c))
           setMessages(prev => {
             const prevIds = new Set(prev.map(m => m.id))
             const hasNew = msgs.some(m => !prevIds.has(m.id))
@@ -352,7 +376,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
               const newFromOther = msgs.filter(m => !prevIds.has(m.id) && m.sender_id !== currentUserId)
               if (newFromOther.length > 0) {
                 playMessageNotificationSound()
-                if (currentUserId) {
+                if (currentUserId && document.visibilityState === "visible") {
                   fetch('/api/chat/mark-as-read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -375,23 +399,26 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
       }
     }
     window.addEventListener('focus', handleWindowFocus)
+    const handleVisibility = () => { if (document.visibilityState === 'visible') handleWindowFocus() }
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
       isMounted = false
       clearInterval(syncInterval)
       window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
       if (channel) {
         supabase.removeChannel(channel)
       }
     }
-  }, [activeConversationId, currentUserId])
+  }, [activeConversationId, currentUserId, messagesRetry])
 
   // Scroll to bottom when messages or attachment change
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !isLoadingMessages) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, attachment])
+  }, [messages, attachment, isLoadingMessages])
 
   // File select handler
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -512,29 +539,24 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
         position: "top-right"
       })
       setMessages(prev => prev.filter(m => m.id !== tempId))
-      if (!presetText) setInputValue(content)
-      setAttachment(currentAttachment)
+      if (activeConversationIdRef.current === activeConversationId) {
+        if (!presetText) setInputValue(content)
+        setAttachment(currentAttachment)
+      } else {
+        draftsRef.current[activeConversationId] = { text: content, attachment: currentAttachment }
+      }
     } finally {
       setIsSending(false)
     }
   }
 
-  const formatMessageTime = (dateStr?: string) => {
-    if (!dateStr) return ""
-    try {
-      const d = new Date(dateStr)
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } catch {
-      return ""
-    }
-  }
-
   // Derived filtered conversations
   const filteredConversations = conversations.filter(c => {
-    const q = searchQuery.toLowerCase()
-    const otherName = (c.other_user?.companyName || c.other_user?.name || "").toLowerCase()
-    const prodTitle = (c.product?.title || "").toLowerCase()
-    const matchesSearch = otherName.includes(q) || prodTitle.includes(q)
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    const q = normalize(searchQuery.trim())
+    const otherName = normalize(c.other_user?.companyName || c.other_user?.name || "")
+    const prodTitle = normalize(c.product?.title || "")
+    const matchesSearch = otherName.includes(q) || prodTitle.includes(q) || (channel === "support" && normalize(`ticket #${c.id} ${{ open: "Abierto", in_progress: "En revisión", resolved: "Resuelto" }[c.support_status || "open"]}`).includes(q))
     
     let matchesStatus = true
     if (filterStatus === "unread") {
@@ -547,6 +569,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
   })
 
   const handleOpenSupport = async () => {
+    if (channel !== "support") { router.push("/dashboard/soporte"); return }
     let adminId = '57b0c950-5397-42c9-b560-1459b21f8d8f'
     try {
       const res = await fetch('/api/chat/support/info')
@@ -557,7 +580,7 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
     } catch (e) {}
 
     const existingSupport = conversations.find(
-      (c) => !c.product_id || (c as any).is_support || c.other_user?.id === adminId
+      (c) => isSupportConversation(c) || c.other_user?.id === adminId
     )
 
     if (existingSupport) {
@@ -576,596 +599,68 @@ export function ChatDashboard({ currentUserId }: ChatDashboardProps) {
           }),
         })
         const d = await res.json()
+        if (!res.ok) throw new Error(d.error || "Support unavailable")
         if (d.conversationId) {
           await fetchConversations()
           setActiveConversationId(d.conversationId)
         }
       } catch (err) {
         console.error('Error starting support conversation:', err)
+        sileo.error({ title: 'No pudimos abrir tu solicitud', description: 'Inténtalo de nuevo.', position: 'top-right' })
       }
     }
   }
 
+  const copyConversationLink = async () => {
+    if (!activeConversationId) return
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('conversation', activeConversationId)
+      url.pathname = channel === "support" ? "/dashboard/soporte" : "/dashboard/mensajes"
+      await navigator.clipboard.writeText(url.href)
+      sileo.success({ title: "Enlace copiado", description: "Puedes volver directamente a esta conversación.", position: "top-right" })
+    } catch {
+      sileo.error({ title: "No pudimos copiar el enlace", description: "Inténtalo de nuevo desde tu navegador.", position: "top-right" })
+    }
+  }
+
   return (
-    <div className="space-y-6 px-2 sm:px-4 md:px-6 py-6 w-full">
+    <>
       <SileoToaster position="top-right" theme="light" />
-      {/* HEADER SECTION (Like Cotizaciones) */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <MessageSquare className="w-8 h-8 text-primary" />
-            Centro de Mensajes
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Gestiona tus contactos, dudas de compradores y negociaciones directas.
-          </p>
-        </div>
-        <Button
-          onClick={handleOpenSupport}
-          className="rounded-xl gap-2 bg-white hover:bg-emerald-50 text-foreground border border-border shadow-xs hover:text-primary font-semibold text-xs h-10 px-4"
-        >
-          <Headphones className="w-4 h-4 text-primary" />
-          <span>Contactar a Soporte</span>
-        </Button>
-      </div>
-
-      {/* SEARCH AND FILTERS */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por empresa, comprador o producto..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={filterStatus === "all" ? "default" : "outline"}
-                onClick={() => setFilterStatus("all")}
-                className={filterStatus === "all" ? "bg-primary text-white" : ""}
-              >
-                Todos
-              </Button>
-              <Button
-                variant={filterStatus === "unread" ? "default" : "outline"}
-                onClick={() => setFilterStatus("unread")}
-                className={filterStatus === "unread" ? "bg-primary text-white" : ""}
-              >
-                No Leídos
-              </Button>
-              <Button
-                variant={filterStatus === "read" ? "default" : "outline"}
-                onClick={() => setFilterStatus("read")}
-                className={filterStatus === "read" ? "bg-primary text-white" : ""}
-              >
-                Leídos
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* CHAT INTERFACE - FULL WIDTH CARD */}
-      <Card className="border-border/60 shadow-md overflow-hidden bg-white">
-        <div className="flex h-[calc(100vh-320px)] min-h-[600px]">
-          
-          {/* LEFT SIDEBAR - CONVERSATIONS LIST */}
-          <div className={`w-full md:w-80 lg:w-[400px] border-r border-border/50 flex-col bg-gray-50/40 ${activeConversation ? 'hidden md:flex' : 'flex'}`}>
-            <div className="p-4 border-b border-border/50 bg-gray-50 flex items-center justify-between">
-              <h2 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Historial de Chats</h2>
-              <Badge variant="outline" className="bg-white">{filteredConversations.length}</Badge>
-            </div>
-
-            <ScrollArea className="flex-1">
-              {isLoadingConvos ? (
-                <div className="p-12 text-center">
-                  <Loader className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">Cargando tus mensajes...</p>
-                </div>
-              ) : filteredConversations.length === 0 ? (
-                <div className="p-12 text-center flex flex-col items-center justify-center h-full">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                    <Inbox className="w-8 h-8 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg mb-1">Sin resultados</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery || filterStatus !== 'all' 
-                      ? "No hay conversaciones que coincidan con los filtros." 
-                      : "Aún no tienes conversaciones. Los mensajes aparecerán aquí."}
-                  </p>
-                </div>
-              ) : (
-                filteredConversations.map((conv) => {
-                  const isActive = activeConversationId === conv.id;
-                  const isUnread = (conv.unread_count || 0) > 0;
-
-                  return (
-                    <div 
-                      key={conv.id}
-                      onClick={() => setActiveConversationId(conv.id)}
-                      className={`p-4 border-b border-border/40 cursor-pointer transition-all hover:bg-slate-50 ${isActive ? 'bg-slate-50 border-l-[6px] border-l-primary' : 'border-l-[6px] border-l-transparent bg-white'}`}
-                    >
-                      <div className="flex gap-3">
-                        <div className="relative shrink-0">
-                          <Avatar className="w-12 h-12 border border-border shadow-xs">
-                            <AvatarImage src={conv.other_user?.avatar_url} />
-                            <AvatarFallback className="bg-primary text-white font-bold text-sm">
-                              {(conv.other_user?.name || "U").slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div
-                            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white transition-colors duration-200 ${
-                              isUserOnline(conv.other_user?.id) ? 'bg-emerald-500 shadow-xs' : 'bg-slate-300'
-                            }`}
-                            title={isUserOnline(conv.other_user?.id) ? 'En línea' : 'Desconectado'}
-                          />
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className={`font-bold text-sm truncate pr-2 ${isUnread ? 'text-foreground' : 'text-foreground/80'}`}>
-                              {conv.other_user?.companyName || conv.other_user?.name}
-                            </h4>
-                            <span className={`text-[11px] whitespace-nowrap ${isUnread ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-                              {formatMessageTime(conv.last_message?.created_at || conv.updated_at)}
-                            </span>
-                          </div>
-                          {conv.product && (
-                            <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 rounded-lg px-2 py-1 mb-1.5 max-w-full">
-                              {conv.product.image ? (
-                                <img
-                                  src={conv.product.image}
-                                  alt=""
-                                  className="w-4 h-4 rounded object-cover shrink-0 border border-emerald-200/50"
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              ) : (
-                                <Box className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                              )}
-                              <span className="text-[11px] text-emerald-900 font-bold truncate">
-                                {conv.product.title}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center gap-2">
-                            <p className={`text-xs truncate flex-1 ${isUnread ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                              {conv.last_message?.attachment_type === 'image' 
-                                ? "📷 Imagen adjunta" 
-                                : conv.last_message?.attachment_type 
-                                ? "📎 Documento adjunto" 
-                                : (conv.last_message?.content || "Nueva conversación")}
-                            </p>
-                            {isUnread && (
-                              <Badge className="bg-primary text-white rounded-full min-w-[20px] h-5 flex items-center justify-center p-0 px-1.5 text-[10px] font-bold shrink-0 shadow-sm">
-                                {conv.unread_count}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </ScrollArea>
-          </div>
-
-          {/* RIGHT SIDE - CHAT AREA */}
-          {activeConversation ? (
-            <div className="flex-1 flex flex-col bg-[#fdfcf9] relative min-w-0">
-              
-              {/* Chat Header */}
-              <div className="h-16 border-b border-border/50 bg-white flex items-center justify-between px-4 md:px-6 shrink-0 shadow-sm z-10 relative gap-2">
-                <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="md:hidden h-8 w-8 -ml-1 text-muted-foreground hover:bg-slate-100 rounded-full"
-                    onClick={() => setActiveConversationId(null)}
-                    title="Volver a la lista de mensajes"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </Button>
-                  <div className="relative shrink-0">
-                    <Avatar className="w-10 h-10 border border-border/50 shadow-sm">
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                        {(activeConversation.other_user?.name || "U").slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div
-                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white transition-colors duration-200 ${
-                        isUserOnline(activeConversation.other_user?.id) ? 'bg-emerald-500 shadow-xs' : 'bg-slate-300'
-                      }`}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-foreground text-base leading-tight truncate">
-                      {activeConversation.other_user?.companyName || activeConversation.other_user?.name}
-                    </h3>
-                    {isUserOnline(activeConversation.other_user?.id) ? (
-                      <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5 mt-0.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        En línea
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                        <span className="w-2 h-2 rounded-full bg-slate-400" />
-                        Desconectado
-                      </p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-                  {activeConversation.product && (
-                    <Button variant="outline" size="sm" asChild className="h-8 text-xs font-medium bg-primary/5 text-primary hover:bg-primary/10 border-primary/20 px-2 sm:px-3">
-                      <Link href={`/producto/${activeConversation.product.id}`}>
-                        <span className="hidden sm:inline">Ver Producto</span> <ExternalLink className="w-3.5 h-3.5 sm:ml-1.5" />
-                      </Link>
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-slate-100 rounded-full">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          if (navigator?.clipboard) {
-                            navigator.clipboard.writeText(window.location.href)
-                            sileo.success({
-                              title: "Enlace copiado",
-                              description: "Enlace de la conversación copiado al portapapeles.",
-                              position: "top-right"
-                            })
-                          }
-                        }}
-                        className="cursor-pointer gap-2"
-                      >
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                        <span>Copiar enlace de chat</span>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          const isOnline = isUserOnline(activeConversation.other_user?.id)
-                          sileo.show({
-                            title: activeConversation.other_user?.companyName || activeConversation.other_user?.name || "Usuario",
-                            description: isOnline ? "Está activo y en línea ahora mismo." : "No está conectado en este momento.",
-                            type: isOnline ? "success" : "info",
-                            position: "top-right"
-                          })
-                        }}
-                        className="cursor-pointer gap-2"
-                      >
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                        <span>Ver estado de usuario</span>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem
-                        onClick={() => {
-                          sileo.action({
-                            title: "Notificaciones Sileo",
-                            description: "Las alertas en tiempo real están activas.",
-                            position: "top-right",
-                            button: {
-                              title: "Entendido",
-                              onClick: () => {}
-                            }
-                          })
-                        }}
-                        className="cursor-pointer gap-2"
-                      >
-                        <Bell className="w-4 h-4 text-muted-foreground" />
-                        <span>Probar notificación Sileo</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Contextual Sticky Product Banner - Clickable to Product Page */}
-              {activeConversation.product && (
-                <Link
-                  href={`/producto/${activeConversation.product.id}`}
-                  target="_blank"
-                  className="group bg-slate-50 hover:bg-emerald-50/60 px-6 py-3 border-b border-border/40 shrink-0 flex items-center justify-between z-0 transition-colors cursor-pointer"
-                  title="Ver página de este producto en una pestaña nueva"
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 rounded-lg bg-white overflow-hidden shrink-0 border border-border shadow-xs group-hover:scale-105 transition-transform">
-                      {activeConversation.product.image ? (
-                        <img src={activeConversation.product.image} alt={activeConversation.product.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                      ) : (
-                        <Box className="w-6 h-6 m-3 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                        Producto de Interés
-                        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors opacity-70" />
-                      </p>
-                      <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
-                        {activeConversation.product.title}
-                      </h4>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 bg-white px-3 py-1.5 rounded-lg border border-border/50 shadow-xs group-hover:border-primary/40 transition-colors">
-                    <p className="text-[10px] text-muted-foreground uppercase mb-0.5 font-semibold">Precio / Vol.</p>
-                    <p className="font-bold text-primary text-sm leading-tight">
-                      {activeConversation.product.price} {activeConversation.product.currency} 
-                      <span className="text-xs font-normal text-muted-foreground ml-1">
-                        / {activeConversation.product.quantity}
-                      </span>
-                    </p>
-                  </div>
-                </Link>
-              )}
-
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5" ref={scrollRef}>
-                 <div className="flex justify-center my-4">
-                   <span className="bg-border/40 text-muted-foreground text-xs font-semibold px-4 py-1.5 rounded-full shadow-xs">
-                     Historial de mensajes
-                   </span>
-                 </div>
-
-                 {messages.length === 0 ? (
-                   <div className="flex flex-col items-center justify-center h-[200px] opacity-70">
-                     <MessageSquare className="w-12 h-12 text-primary/40 mb-3" />
-                     <p className="text-sm font-medium text-foreground">El inicio de la negociación</p>
-                     <p className="text-xs text-muted-foreground mt-1 max-w-sm text-center">
-                       Envía un mensaje para concretar detalles de compra, precios o documentación.
-                     </p>
-                   </div>
-                 ) : (
-                   messages.map((msg, idx) => {
-                     const isMe = msg.sender_id === currentUserId
-                     return (
-                       <div key={msg.id} className={`flex flex-col gap-1 max-w-[80%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                         <div className={`rounded-2xl p-4 text-sm shadow-sm ${isMe ? 'bg-primary text-white rounded-tr-sm' : 'bg-white border border-border text-foreground rounded-tl-sm'}`}>
-                           
-                           {/* Image attachment */}
-                           {msg.attachment_url && msg.attachment_type === 'image' && (
-                             <div className="mb-3 relative group rounded-xl overflow-hidden border border-black/10 bg-black/5">
-                               <div 
-                                 className="cursor-pointer max-h-64 overflow-hidden"
-                                 onClick={() => setPreviewImage(msg.attachment_url || null)}
-                                 title="Hacer clic para ampliar y dar zoom"
-                               >
-                                 <img src={msg.attachment_url} alt="Adjunto" loading="lazy" decoding="async" className="w-full h-auto object-cover rounded-xl transition-transform duration-300 group-hover:scale-105" />
-                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white backdrop-blur-[2px]">
-                                   <span className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-medium shadow-md">
-                                     <Eye className="w-4 h-4" /> Ampliar y dar zoom
-                                   </span>
-                                 </div>
-                               </div>
-
-                               {/* Quick download button */}
-                               <button
-                                 type="button"
-                                 onClick={(e) => {
-                                   e.stopPropagation()
-                                   downloadAttachment(msg.attachment_url!, 'imagen-chat.jpg')
-                                   sileo.success({
-                                     title: "Descarga iniciada",
-                                     description: "Descargando imagen a tu dispositivo...",
-                                     position: "top-right"
-                                   })
-                                 }}
-                                 className="absolute top-2.5 right-2.5 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
-                                 title="Descargar imagen"
-                               >
-                                 <Download className="w-4 h-4" />
-                               </button>
-                             </div>
-                           )}
-
-                           {/* Document attachment */}
-                           {msg.attachment_url && msg.attachment_type !== 'image' && (
-                             <div 
-                               onClick={() => {
-                                 downloadAttachment(msg.attachment_url!, `documento-${msg.attachment_type || 'adjunto'}`)
-                                 sileo.success({
-                                   title: "Descarga iniciada",
-                                   description: "Descargando documento a tu dispositivo...",
-                                   position: "top-right"
-                                 })
-                               }}
-                               className={`cursor-pointer flex items-center gap-3 p-3 rounded-xl mb-3 transition-all hover:opacity-95 active:scale-[0.99] ${
-                                 isMe ? 'bg-white/15 hover:bg-white/25 text-white' : 'bg-gray-50 hover:bg-gray-100 text-foreground border border-border/60'
-                               }`}
-                               title="Hacer clic para descargar documento"
-                             >
-                               <div className={`p-2.5 rounded-lg ${isMe ? 'bg-white/20' : 'bg-primary/10 text-primary shadow-xs'}`}>
-                                 <FileText className="w-5 h-5" />
-                               </div>
-                               <div className="min-w-0 flex-1 pr-2">
-                                 <p className="font-semibold text-sm truncate">Documento adjunto</p>
-                                 <p className="text-xs opacity-80 uppercase font-medium">{msg.attachment_type || 'archivo'}</p>
-                               </div>
-                               <button
-                                 type="button"
-                                 className={`p-2 rounded-full transition-colors ${isMe ? 'hover:bg-white/20' : 'hover:bg-gray-200'}`}
-                                 title="Descargar archivo"
-                               >
-                                 <Download className="w-4 h-4" />
-                               </button>
-                             </div>
-                           )}
-
-                           {/* Content */}
-                           {msg.content && (
-                             <p className="leading-relaxed whitespace-pre-wrap break-words break-all sm:break-normal">{msg.content}</p>
-                           )}
-
-                           {/* Footer with Timestamp and Read Receipt Checkmarks */}
-                           <div className={`flex items-center gap-1.5 mt-2 text-[10px] ${isMe ? 'justify-end text-white/80' : 'justify-start text-muted-foreground'}`}>
-                             <span className="font-medium">{formatMessageTime(msg.created_at)}</span>
-                             {isMe && (() => {
-                               const isSeen = Boolean(
-                                 msg.read_at ||
-                                 messages.slice(idx).some(other => (other.sender_id === currentUserId) && other.read_at)
-                               )
-                               return (
-                                 <span title={isSeen ? "Visto" : "Enviado"}>
-                                   {isSeen ? (
-                                     <CheckCheck className="w-4 h-4 text-sky-300 drop-shadow-sm" />
-                                   ) : (
-                                     <CheckCheck className="w-4 h-4 text-white/50" />
-                                   )}
-                                 </span>
-                               )
-                             })()}
-                           </div>
-                         </div>
-                       </div>
-                     )
-                   })
-                 )}
-              </div>
-
-              {/* Quick Actions (B2B Suggestions) */}
-              <div className="px-6 py-3 flex gap-2.5 overflow-x-auto no-scrollbar shrink-0 border-t border-border/40 bg-white/50 backdrop-blur-sm">
-                 <Button 
-                   variant="outline" 
-                   size="sm" 
-                   onClick={() => handleSend("Me gustaría solicitar una cotización formal para este producto.")}
-                   className="rounded-full bg-white h-8 text-xs font-medium border-primary/20 text-primary hover:bg-primary/5 shadow-xs"
-                 >
-                    Solicitar Cotización
-                 </Button>
-                 <Button 
-                   variant="outline" 
-                   size="sm" 
-                   onClick={() => handleSend("¿Me podrías compartir la ficha técnica y certificados de calidad?")}
-                   className="rounded-full bg-white h-8 text-xs font-medium border-primary/20 text-primary hover:bg-primary/5 shadow-xs"
-                 >
-                    Pedir Ficha Técnica
-                 </Button>
-                 <Button 
-                   variant="outline" 
-                   size="sm" 
-                   onClick={() => handleSend("¿Cuál es el volumen mínimo de compra y tiempos estimados de entrega?")}
-                   className="rounded-full bg-white h-8 text-xs font-medium border-primary/20 text-primary hover:bg-primary/5 shadow-xs"
-                 >
-                    Consultar Mínimos y Tiempos
-                 </Button>
-              </div>
-
-              {/* Attachment Preview Chip */}
-              {attachment && (
-                <div className="px-6 py-3 bg-gray-50 border-t border-border/50 flex items-center justify-between shadow-[0_-4px_10px_-5px_rgba(0,0,0,0.05)] z-10 relative">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {attachment.type === 'image' ? (
-                      <img src={attachment.url} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-border shadow-sm shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-                        <FileText className="w-6 h-6" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-foreground truncate">{attachment.name}</p>
-                      <p className="text-xs text-muted-foreground font-medium">{attachment.size || attachment.type}</p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-50"
-                    onClick={() => setAttachment(null)}
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Input Area */}
-              <div className="p-5 bg-white border-t border-border shadow-[0_-5px_15px_-10px_rgba(0,0,0,0.05)] shrink-0 relative z-10">
-                
-                {/* Hidden file input */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
-                  className="hidden"
-                />
-
-                <div className="flex items-end gap-3 bg-gray-50/80 border border-border rounded-2xl p-2.5 focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all shadow-inner">
-                  <Button 
-                    type="button"
-                    variant="ghost" 
-                    size="icon" 
-                    className="shrink-0 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 h-10 w-10"
-                    title="Adjuntar archivo"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                  <textarea 
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder={attachment ? "Añade un mensaje (opcional)..." : "Escribe tu mensaje B2B aquí..."}
-                    className="w-full max-h-32 min-h-[44px] bg-transparent border-0 focus:ring-0 resize-none py-2.5 px-2 text-sm text-foreground font-medium placeholder:text-muted-foreground/70"
-                    rows={1}
-                    disabled={isSending}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSend()
-                      }
-                    }}
-                  />
-                  <Button 
-                    type="button"
-                    onClick={() => handleSend()} 
-                    disabled={isSending || (!inputValue.trim() && !attachment)}
-                    size="icon" 
-                    className="shrink-0 rounded-full bg-primary hover:bg-primary/90 text-white shadow-md h-11 w-11 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none"
-                  >
-                    {isSending ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-muted-foreground mt-3 font-medium flex items-center justify-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-green-500" />
-                  Mensajería segura y encriptada por Agrilpa.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 hidden md:flex flex-col items-center justify-center bg-gray-50/50 p-8 text-center relative overflow-hidden">
-              {/* Decorative background element */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl -z-10"></div>
-              
-              <div className="w-24 h-24 bg-white shadow-lg rounded-2xl flex items-center justify-center mb-6 text-primary border border-primary/10 rotate-3 transition-transform hover:rotate-0">
-                <MessageSquare className="w-12 h-12" />
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">Selecciona una conversación</h3>
-              <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
-                Elige un chat del menú lateral para ver el historial de mensajes, documentos adjuntos y continuar tu negociación.
-              </p>
-            </div>
-          )}
-
-          {/* Interactive Zoomable & Downloadable Lightbox */}
-          <MediaLightbox
-            imageUrl={previewImage}
-            onClose={() => setPreviewImage(null)}
-            title={activeConversation?.other_user?.companyName || activeConversation?.other_user?.name || "Foto adjunta"}
-          />
-        </div>
-      </Card>
-    </div>
+      <ChatWorkspace
+        channel={channel}
+        currentUserId={currentUserId}
+        conversations={conversations}
+        filteredConversations={filteredConversations}
+        activeConversation={activeConversation}
+        messages={messages}
+        searchQuery={searchQuery}
+        filterStatus={filterStatus}
+        loadingConversations={isLoadingConvos}
+        loadingMessages={isLoadingMessages}
+        conversationError={conversationError}
+        messageError={messageError}
+        sending={isSending}
+        inputValue={inputValue}
+        attachment={attachment}
+        previewImage={previewImage}
+        scrollRef={scrollRef}
+        fileInputRef={fileInputRef}
+        isUserOnline={isUserOnline}
+        onSelect={setActiveConversationId}
+        onSearch={setSearchQuery}
+        onFilter={setFilterStatus}
+        onDraft={setInputValue}
+        onSend={() => void handleSend()}
+        onFileSelect={handleFileSelect}
+        onRemoveAttachment={() => setAttachment(null)}
+        onPreview={setPreviewImage}
+        onDownload={downloadAttachment}
+        onSupport={() => void handleOpenSupport()}
+        onCopyLink={() => void copyConversationLink()}
+        onRetryConversations={() => void fetchConversations()}
+        onRetryMessages={() => setMessagesRetry(value => value + 1)}
+      />
+    </>
   )
 }
-

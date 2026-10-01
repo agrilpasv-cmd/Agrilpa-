@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { markConversationAdminSeen } from "@/lib/admin-chat-seen-state";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,11 +18,19 @@ export async function POST(request: NextRequest) {
     if (Boolean(seen)) {
       try {
         const adminClient = createAdminClient();
-        await adminClient
-          .from("messages")
-          .update({ read_at: new Date().toISOString() })
-          .eq("conversation_id", conversationId)
-          .is("read_at", null);
+        const client = await createClient();
+        const { data: { user } } = await client.auth.getUser();
+        const { data: conversation } = await adminClient.from("conversations")
+          .select("buyer_id, seller_id").eq("id", conversationId).maybeSingle();
+        // Administrative review does not count as reading on behalf of a participant.
+        if (user && conversation && (conversation.buyer_id === user.id || conversation.seller_id === user.id)) {
+          await adminClient
+            .from("messages")
+            .update({ read_at: new Date().toISOString() })
+            .eq("conversation_id", conversationId)
+            .is("read_at", null)
+            .neq("sender_id", user.id);
+        }
       } catch (dbErr) {
         console.error("[Mark Seen API] Error updating messages read_at:", dbErr);
       }

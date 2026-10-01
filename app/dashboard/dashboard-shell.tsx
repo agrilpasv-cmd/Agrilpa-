@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
     Settings,
+    Headphones,
     FileText,
     MessageSquare,
     Home,
@@ -50,7 +51,7 @@ export default function DashboardShell({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const { counts } = useDashboard()
-    const { unreadCount } = useGlobalChat()
+    const { b2bUnreadCount, supportUnreadCount } = useGlobalChat()
 
     // Profile Setup Wizard states (for incomplete/OAuth registrations)
     const [isVerifyingSession, setIsVerifyingSession] = useState(true)  // block render until DB check completes
@@ -328,7 +329,7 @@ export default function DashboardShell({
         { href: "/admin/financiamiento", label: "Financiamiento", icon: DollarSign, notifications: 0 },
         { href: "/admin/logistica", label: "Logística", icon: Truck, notifications: 0 },
         { href: "/admin/compras", label: "Compras Globales", icon: ShoppingCart, notifications: 0 },
-        { href: "/dashboard/mensajes", label: "Mensajes B2B", icon: MessageSquare, notifications: unreadCount || 0 },
+        { href: "/dashboard/mensajes", label: "Mensajes B2B", icon: MessageSquare, notifications: b2bUnreadCount || 0 },
         { href: "/admin/contactanos", label: "Contáctanos", icon: MessageSquare, notifications: counts.contactanos || 0 },
         { href: "/admin/newsletter", label: "Newsletter", icon: Newspaper, notifications: 0 },
         { href: "/admin/bajas", label: "Reportes de Bajas", icon: UserMinus, notifications: 0 },
@@ -337,7 +338,7 @@ export default function DashboardShell({
     const userMenuItems = [
         { href: "/", label: "Inicio", icon: Home, notifications: 0 },
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, notifications: 0 },
-        { href: "/dashboard/mensajes", label: "Mensajes B2B", icon: MessageSquare, notifications: unreadCount || 0 },
+        { href: "/dashboard/mensajes", label: "Mensajes B2B", icon: MessageSquare, notifications: b2bUnreadCount || 0 },
         { href: "/dashboard/perfil", label: "Mi Perfil", icon: FileText, notifications: counts.perfil },
         {
             href: "/dashboard/mis-publicaciones",
@@ -372,6 +373,7 @@ export default function DashboardShell({
             notifications: counts.transacciones,
         },
         { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, notifications: 0 },
+        { href: "/dashboard/soporte", label: "Soporte", icon: Headphones, notifications: supportUnreadCount || 0 },
     ]
 
     const menuItems = isAdmin ? adminMenuItems : userMenuItems

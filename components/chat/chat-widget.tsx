@@ -180,20 +180,8 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
           .order('created_at', { ascending: true })
 
         if (isMounted && msgs && !error) {
-          // Find latest read_at timestamp of any message sent by 'me'
-          let latestMeReadAt = ''
-          msgs.forEach((m: any) => {
-            if (m.sender_id === buyerId && m.read_at && m.read_at > latestMeReadAt) {
-              latestMeReadAt = m.read_at
-            }
-          })
-
-          const now = new Date().toISOString()
-          const formatted = msgs.map((m: any) => {
+          const formatted: WidgetMessage[] = msgs.map((m: any) => {
             const isMe = m.sender_id === buyerId
-            const readTimestamp = isMe
-              ? (m.read_at || (latestMeReadAt && (!m.created_at || m.created_at <= latestMeReadAt) ? latestMeReadAt : null))
-              : (m.read_at || now)
 
             return {
               id: m.id,
@@ -201,7 +189,7 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
               sender: isMe ? 'me' : 'them',
               attachment_url: m.attachment_url,
               attachment_type: m.attachment_type,
-              read_at: readTimestamp,
+              read_at: m.read_at,
               created_at: m.created_at
             }
           })
@@ -210,7 +198,7 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
         }
 
         // Mark all as read in DB and trigger global unread count refresh
-        if (buyerId) {
+        if (isMounted && msgs && !error && buyerId && document.visibilityState === 'visible') {
           fetch('/api/chat/mark-as-read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -281,7 +269,7 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
           // Mark incoming as read and play sound
           if (newMsg.sender_id !== buyerId && buyerId) {
             playMessageNotificationSound()
-            fetch('/api/chat/mark-as-read', {
+            if (document.visibilityState === 'visible') fetch('/api/chat/mark-as-read', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ conversationId, userId: buyerId })
@@ -304,13 +292,6 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
             const updated = prev.map(m => {
               if (m.id === updatedMsg.id) {
                 return { ...m, read_at: updatedMsg.read_at }
-              }
-              // If an update marks a message as read, mark all prior messages from 'me' as read as well!
-              if (updatedMsg.read_at && m.sender === 'me' && !m.read_at) {
-                const isPriorOrSame = !m.created_at || !updatedMsg.created_at || new Date(m.created_at) <= new Date(updatedMsg.created_at)
-                if (isPriorOrSame) {
-                  return { ...m, read_at: updatedMsg.read_at }
-                }
               }
               return m
             })
@@ -339,19 +320,8 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
               return existing && existing.read_at !== m.read_at
             })
             if (hasNew || hasStatusChange) {
-              let latestMeReadAt = ''
-              msgs.forEach((m: any) => {
-                if (m.sender_id === buyerId && m.read_at && m.read_at > latestMeReadAt) {
-                  latestMeReadAt = m.read_at
-                }
-              })
-
-              const now = new Date().toISOString()
               const updated: WidgetMessage[] = msgs.map(m => {
                 const isMe = m.sender_id === buyerId
-                const readTimestamp = isMe
-                  ? (m.read_at || (latestMeReadAt && (!m.created_at || m.created_at <= latestMeReadAt) ? latestMeReadAt : null))
-                  : (m.read_at || now)
 
                 return {
                   id: m.id,
@@ -359,7 +329,7 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
                   sender: isMe ? 'me' : 'them',
                   attachment_url: m.attachment_url,
                   attachment_type: m.attachment_type,
-                  read_at: readTimestamp,
+                  read_at: m.read_at,
                   created_at: m.created_at
                 }
               })
@@ -371,9 +341,15 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
         })
     }, 2500)
 
+    const handleVisibility = () => {
+      if (isMounted && document.visibilityState === 'visible') void loadMessages()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       isMounted = false
       clearInterval(syncInterval)
+      document.removeEventListener('visibilitychange', handleVisibility)
       if (channel) {
         supabase.removeChannel(channel)
       }
@@ -505,7 +481,7 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
       alert("Error al enviar el mensaje. Intenta de nuevo.")
       // Rollback optimistic update
       setMessages(prev => prev.filter(m => m.id !== tempId))
-      if (!presetMessage) setInputValue(content)
+      setInputValue(content)
       setAttachment(currentAttachment)
     } finally {
       setIsSending(false)
@@ -744,16 +720,13 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
                           <div className={`flex items-center gap-1.5 mt-1.5 text-[9px] ${msg.sender === 'me' ? 'justify-end text-white/80' : 'justify-start text-muted-foreground'}`}>
                             <span>{formatMessageTime(msg.created_at)}</span>
                             {msg.sender === 'me' && (() => {
-                              const isSeen = Boolean(
-                                msg.read_at ||
-                                messages.slice(idx).some(other => other.sender === 'me' && other.read_at)
-                              )
+                              const isSeen = Boolean(msg.read_at)
                               return (
-                                <span title={isSeen ? "Visto" : "Enviado"}>
+                                <span title={isSeen ? "Visto" : "Enviado"} aria-label={isSeen ? "Leído" : "Enviado"}>
                                   {isSeen ? (
-                                    <CheckCheck className="w-3.5 h-3.5 text-sky-300" />
+                                    <CheckCheck className="h-4 w-4 text-sky-300" />
                                   ) : (
-                                    <CheckCheck className="w-3.5 h-3.5 text-white/60" />
+                                    <Check className="w-3.5 h-3.5 text-white/90" />
                                   )}
                                 </span>
                               )

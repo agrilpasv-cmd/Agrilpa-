@@ -27,7 +27,7 @@ export function GlobalChatWrapper() {
   const router = useRouter()
 
   // STRICT REQUIREMENT: Do not show on the full messages page (/dashboard/mensajes) or auth pages (/auth)
-  if (pathname?.startsWith('/dashboard/mensajes') || pathname?.startsWith('/auth')) {
+  if (pathname?.startsWith('/dashboard/mensajes') || pathname?.startsWith('/dashboard/soporte') || pathname?.startsWith('/auth')) {
     return null
   }
 
@@ -185,7 +185,7 @@ export function GlobalChatWrapper() {
                   className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-gray-100 rounded-lg"
                   onClick={() => clearPendingNotification()}
                 >
-                  <Link href="/dashboard/mensajes">
+                  <Link href={pendingNotification.isSupport ? `/dashboard/soporte?conversation=${pendingNotification.conversationId}` : `/dashboard/mensajes?conversation=${pendingNotification.conversationId}`}>
                     Bandeja
                   </Link>
                 </Button>

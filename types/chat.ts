@@ -18,7 +18,9 @@ export interface ConversationProduct {
 
 export interface Conversation {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  is_support?: boolean;
+  support_status?: 'open' | 'in_progress' | 'resolved';
   buyer_id: string;
   seller_id: string;
   created_at: string;
