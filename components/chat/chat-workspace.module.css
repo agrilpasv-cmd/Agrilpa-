@@ -49,8 +49,8 @@
 .conversation { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; padding: 14px 10px; border-radius: 9px; margin-bottom: 3px; transition: background-color 150ms; }
 .conversation:hover { background: var(--chat-canvas); }
 .conversation[aria-pressed="true"] { background: var(--chat-selected); }
-.avatar { width: 42px !important; height: 42px !important; border-radius: 12px !important; flex-shrink: 0; }
-.smallAvatar { width: 39px !important; height: 39px !important; border-radius: 11px !important; }
+.avatar { width: 42px !important; height: 42px !important; border-radius: 50% !important; flex-shrink: 0; }
+.smallAvatar { width: 39px !important; height: 39px !important; border-radius: 50% !important; }
 .avatarImage { object-fit: cover; }
 .avatarFallback { border-radius: inherit; background: #eef0eb; color: #52604f; font-size: 13px; font-weight: 600; }
 .conversationDetails { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }

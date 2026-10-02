@@ -1,40 +1,43 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-    Lock, Loader, CheckCircle2, AlertCircle,
-    Eye, EyeOff, Trash2, ShieldAlert, KeyRound
-} from "lucide-react"
+import { useState, useEffect, type FormEvent } from "react"
+import Link from "next/link"
+import { Loader2, LockKeyhole, ShieldCheck, Trash2, ExternalLink } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { ProBadge } from "@/components/ui/pro-badge"
+import { CommercePage, InlineNotice, LoadingState, commerceStyles as c } from "@/components/dashboard/commerce-ui"
+import { AccountSection, PasswordField, accountStyles as s } from "@/components/dashboard/account-ui"
 
 type Status = { type: "success" | "error"; message: string } | null
 
 export default function ConfiguracionPage() {
-    const router = useRouter()
     const [isOAuthUser, setIsOAuthUser] = useState(false)
 
+    const [checkingAccess, setCheckingAccess] = useState(true)
+    const [accessError, setAccessError] = useState(false)
+    const [providerName, setProviderName] = useState("Correo y contraseña")
+    const [account, setAccount] = useState<{name: string; email: string; pro: boolean} | null>(null)
+    const [retry, setRetry] = useState(0)
     useEffect(() => {
-        const checkUserProvider = async () => {
-            try {
-                const { createBrowserClient } = await import("@/lib/supabase/client")
-                const supabase = createBrowserClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    const provider = user.app_metadata?.provider
-                    const providers = user.app_metadata?.providers || []
-                    const isOAuth = (provider && provider !== "email") || (!providers.includes("email") && providers.length > 0)
-                    setIsOAuthUser(!!isOAuth)
-                }
-            } catch (err) {
-                console.error("Error checking provider:", err)
-            }
-        }
-        checkUserProvider()
-    }, [])
+        let active = true
+        setCheckingAccess(true); setAccessError(false)
+        createClient().auth.getUser().then(({data: {user}, error}) => {
+            if (error || !user) throw new Error("User unavailable")
+            if (!active) return
+            const provider = user.app_metadata?.provider
+            const providers: string[] = user.app_metadata?.providers || []
+            const oauth = Boolean((provider && provider !== "email") || (!providers.includes("email") && providers.length > 0))
+            setIsOAuthUser(oauth)
+            const source = provider || providers[0] || ""
+            setProviderName(oauth ? ({google: "Google", apple: "Apple", facebook: "Facebook", github: "GitHub"} as Record<string,string>)[source] || "Proveedor externo" : "Correo y contraseña")
+        }).catch(() => { if (active) setAccessError(true) }).finally(() => { if (active) setCheckingAccess(false) })
+        fetch("/api/user/profile", {cache: "no-store"}).then(async response => {
+            if (!response.ok) return
+            const data = await response.json()
+            if (active && data.user) setAccount({name: data.user.company_name || data.user.full_name || "Tu cuenta", email: data.user.email || "", pro: data.user.plan_type === "pro" && (!data.user.plan_expires_at || new Date(data.user.plan_expires_at) >= new Date())})
+        }).catch(() => {})
+        return () => { active = false }
+    }, [retry])
 
     // ── Change Password ────────────────────────────────────────────
     const [currentPassword, setCurrentPassword] = useState("")
@@ -48,7 +51,7 @@ export default function ConfiguracionPage() {
     const [currentPwdError, setCurrentPwdError] = useState(false)
 
     const strengthLevel = (pwd: string) => {
-        if (!pwd) return 0
+        if (pwd.length < 6) return 0
         let score = 0
         if (pwd.length >= 6) score++
         if (pwd.length >= 10) score++
@@ -57,10 +60,10 @@ export default function ConfiguracionPage() {
         return score
     }
     const strengthLabels = ["Muy corta", "Débil", "Media", "Buena", "Fuerte"]
-    const strengthColors = ["bg-muted", "bg-red-400", "bg-amber-400", "bg-yellow-400", "bg-green-500"]
     const level = strengthLevel(newPassword)
 
     const handleChangePassword = async () => {
+        if (pwdLoading || checkingAccess || accessError || isOAuthUser) return
         setPwdStatus(null)
         setCurrentPwdError(false)
         if (!currentPassword) {
@@ -121,6 +124,7 @@ export default function ConfiguracionPage() {
     ]
 
     const handleDeleteAccount = async () => {
+        if (deleteLoading || checkingAccess || accessError) return
         setDeleteStatus(null)
         setDeletePwdError(false)
         if (!deleteReason) {
@@ -167,340 +171,37 @@ export default function ConfiguracionPage() {
         }
     }
 
-    return (
-        <div className="space-y-6 p-6">
+    const resetDelete = () => {
+        setShowDeleteZone(false); setDeleteReason(""); setDeleteCustomReason(""); setDeletePassword(""); setDeleteConfirmText(""); setDeleteStatus(null); setDeletePwdError(false)
+    }
+    const submitPassword = (event: FormEvent) => { event.preventDefault(); void handleChangePassword() }
+    const submitDelete = (event: FormEvent) => { event.preventDefault(); void handleDeleteAccount() }
 
-            {/* ── Page Header ───────────────────────────────────────── */}
-            <div>
-                <h1 className="text-3xl font-bold">Configuración</h1>
-                <p className="text-muted-foreground">Administra la seguridad y los datos de tu cuenta</p>
+    return <CommercePage title="Configuración" description="Administra el acceso y la seguridad de tu cuenta." action={<Link href="/dashboard/perfil" className={c.secondaryButton}>Ver mi perfil<ExternalLink size={17} aria-hidden="true" /></Link>}>
+        <div className={s.layout}>
+            <aside className={s.sidebar} aria-label="Información de la cuenta"><div className={s.securitySummary}><div className={s.securityIcon}><ShieldCheck size={24} aria-hidden="true" /></div><h2>Tu cuenta en Agrilpa</h2><p>{account?.name || "Gestiona tu acceso y tus datos desde un solo lugar."}</p><dl className={s.accountFacts}>{account?.email && <div><dt>Correo de acceso</dt><dd>{account.email}</dd></div>}<div><dt>Método de acceso</dt><dd>{checkingAccess ? "Comprobando…" : accessError ? "No disponible" : providerName}</dd></div>{account && <div><dt>Membresía</dt><dd>{account.pro ? <ProBadge /> : "Plan gratuito"}</dd></div>}</dl></div><div className={s.sidebarNote}><h3>¿Necesitas ayuda con tu cuenta?</h3><p>El equipo de soporte puede orientarte sobre tu acceso, información del perfil y membresía.</p><Link href="/dashboard/soporte">Ir a soporte<ExternalLink size={15} aria-hidden="true" /></Link></div></aside>
+            <div className={s.content}>
+                <AccountSection id="seguridad" title="Acceso y contraseña" description="Controla cómo inicias sesión en Agrilpa.">
+                    {checkingAccess ? <LoadingState label="Comprobando tu método de acceso…" /> : accessError ? <InlineNotice error>No pudimos comprobar tu acceso. <button className={c.textButton} onClick={() => setRetry(value => value + 1)}>Reintentar</button></InlineNotice> : isOAuthUser ? <div className={s.oauth}><LockKeyhole size={25} aria-hidden="true" /><div><strong>Inicias sesión con {providerName}</strong><p>Tu contraseña se administra desde tu cuenta de {providerName}. Puedes cambiarla en la configuración de ese servicio.</p><p>Agrilpa no guarda una contraseña independiente para este método de acceso.</p></div></div> : <form className={s.passwordForm} onSubmit={submitPassword}>
+                        <PasswordField id="current-password" label="Contraseña actual" value={currentPassword} onChange={value => {setCurrentPassword(value); setPwdStatus(null); setCurrentPwdError(false)}} shown={showCurrent} onToggle={() => setShowCurrent(value => !value)} autoComplete="current-password" disabled={pwdLoading} error={currentPwdError ? currentPassword ? "Revisa tu contraseña actual." : "Ingresa tu contraseña actual." : undefined} />
+                        <div><PasswordField id="new-password" label="Nueva contraseña" value={newPassword} onChange={value => {setNewPassword(value); setPwdStatus(null)}} shown={showNew} onToggle={() => setShowNew(value => !value)} autoComplete="new-password" disabled={pwdLoading} hint="Usa al menos 6 caracteres. Puedes combinar palabras, números y símbolos." />{newPassword && <div className={s.strength} role="status" aria-label={`Fortaleza de la contraseña: ${strengthLabels[level]}`}><div aria-hidden="true">{[1,2,3,4].map(index => <i key={index} data-filled={level >= index} />)}</div><span>{strengthLabels[level]}</span></div>}</div>
+                        <PasswordField id="confirm-password" label="Confirmar nueva contraseña" value={confirmPassword} onChange={value => {setConfirmPassword(value); setPwdStatus(null)}} shown={showConfirm} onToggle={() => setShowConfirm(value => !value)} autoComplete="new-password" disabled={pwdLoading} error={confirmPassword && newPassword !== confirmPassword ? "Las contraseñas todavía no coinciden." : undefined} hint={confirmPassword && newPassword === confirmPassword ? "Las contraseñas coinciden." : undefined} />
+                        {pwdStatus && <InlineNotice error={pwdStatus.type === "error"}>{pwdStatus.message}</InlineNotice>}
+                        <div className={s.buttonRow}><button type="submit" className={c.primaryButton} disabled={pwdLoading}>{pwdLoading ? <Loader2 size={17} className={c.spinner} aria-hidden="true" /> : <LockKeyhole size={17} aria-hidden="true" />}{pwdLoading ? "Actualizando…" : "Actualizar contraseña"}</button></div>
+                    </form>}
+                </AccountSection>
+                <AccountSection id="gestion-cuenta" title="Gestión de la cuenta" description="Opciones relacionadas con la permanencia de tus datos en Agrilpa." danger>
+                    {!showDeleteZone ? <div className={s.dangerRow}><div><strong>Eliminar mi cuenta</strong><p>Se eliminarán tu cuenta, publicaciones y datos asociados. Esta acción es permanente y no se puede deshacer.</p></div><button type="button" className={s.dangerButton} disabled={checkingAccess || accessError} onClick={() => setShowDeleteZone(true)}>Eliminar cuenta</button></div> : <form className={s.deleteFlow} onSubmit={submitDelete}>
+                        <p className={s.hint}>Antes de continuar, confirma el motivo y tu identidad. La eliminación es permanente.</p>
+                        <fieldset disabled={deleteLoading}><legend>¿Por qué quieres eliminar tu cuenta?</legend><div className={s.reasons}>{DELETE_REASONS.map(reason => <label key={reason}><input type="radio" name="deleteReason" value={reason} checked={deleteReason === reason} onChange={() => {setDeleteReason(reason); setDeleteCustomReason(""); setDeleteStatus(null)}} /><span>{reason}</span></label>)}</div></fieldset>
+                        {deleteReason === "Otra razón" && <div className={s.field}><label htmlFor="delete-custom-reason">Cuéntanos más (opcional)</label><textarea id="delete-custom-reason" rows={3} value={deleteCustomReason} disabled={deleteLoading} onChange={event => setDeleteCustomReason(event.target.value)} /></div>}
+                        {!isOAuthUser && <PasswordField id="delete-password" label="Confirma tu contraseña actual" value={deletePassword} onChange={value => {setDeletePassword(value); setDeleteStatus(null); setDeletePwdError(false)}} shown={showDeletePwd} onToggle={() => setShowDeletePwd(value => !value)} autoComplete="current-password" disabled={deleteLoading} error={deletePwdError ? "Revisa tu contraseña actual." : undefined} />}
+                        <div className={s.field}><label htmlFor="delete-confirm">Escribe <code>ELIMINAR</code> para confirmar</label><input id="delete-confirm" type="text" data-no-auto-caps="true" autoComplete="off" value={deleteConfirmText} onChange={event => {setDeleteConfirmText(event.target.value); setDeleteStatus(null)}} disabled={deleteLoading} /></div>
+                        {deleteStatus && <InlineNotice error>{deleteStatus.message}</InlineNotice>}
+                        <div className={s.buttonRow}><button type="button" className={c.secondaryButton} onClick={resetDelete} disabled={deleteLoading}>Conservar mi cuenta</button><button type="submit" className={s.dangerConfirm} disabled={deleteLoading || deleteConfirmText !== "ELIMINAR" || !deleteReason || (!isOAuthUser && !deletePassword)}>{deleteLoading ? <Loader2 size={17} className={c.spinner} aria-hidden="true" /> : <Trash2 size={17} aria-hidden="true" />}{deleteLoading ? "Eliminando…" : "Eliminar cuenta definitivamente"}</button></div>
+                    </form>}
+                </AccountSection>
             </div>
-
-            {/* ── Change Password Card ──────────────────────────────── */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <KeyRound className="w-5 h-5 text-primary" />
-                        Cambiar Contraseña
-                    </CardTitle>
-                    <CardDescription>
-                        {isOAuthUser 
-                            ? "Tu seguridad está gestionada por un proveedor externo de autenticación."
-                            : "Actualiza tu contraseña. El cambio se aplica de inmediato y tu sesión permanece activa."
-                        }
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                    {isOAuthUser ? (
-                        <div className="flex flex-col gap-4 p-5 rounded-xl border border-primary/20 bg-primary/5 max-w-lg">
-                            <div className="flex items-start gap-3">
-                                <span className="text-xl mt-0.5">🌱</span>
-                                <div className="space-y-1">
-                                    <p className="font-semibold text-primary text-base">Autenticación con Google Activa</p>
-                                    <p className="text-sm text-gray-700 leading-relaxed">
-                                        Tu cuenta está vinculada y protegida de forma segura a través de **Google OAuth**.
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                                        Dado que ingresaste con Google, Agrilpa no gestiona ni guarda una contraseña manual para tu cuenta. Tu acceso es inmediato y seguro. Si requieres cambiar tu contraseña de Google, puedes hacerlo en los ajustes de tu cuenta de Google.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-5 max-w-md">
-
-                            {/* 1 — Current password */}
-                            <div className="space-y-2">
-                                <Label htmlFor="current-password">Contraseña Actual</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="current-password"
-                                        type={showCurrent ? "text" : "password"}
-                                        placeholder="Tu contraseña actual"
-                                        value={currentPassword}
-                                        onChange={e => { setCurrentPassword(e.target.value); setPwdStatus(null); setCurrentPwdError(false) }}
-                                        disabled={pwdLoading}
-                                        className={`pr-10 ${currentPwdError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCurrent(p => !p)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
-                                {currentPwdError && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" /> Contraseña incorrecta
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* 2 — New password */}
-                            <div className="space-y-2">
-                                <Label htmlFor="new-password">Nueva Contraseña</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="new-password"
-                                        type={showNew ? "text" : "password"}
-                                        placeholder="Mínimo 6 caracteres"
-                                        value={newPassword}
-                                        onChange={e => { setNewPassword(e.target.value); setPwdStatus(null) }}
-                                        disabled={pwdLoading}
-                                        className="pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowNew(p => !p)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
-                                {newPassword && (
-                                    <div className="space-y-1 pt-1">
-                                        <div className="flex gap-1">
-                                            {[1, 2, 3, 4].map(i => (
-                                                <div
-                                                    key={i}
-                                                    className={`h-1.5 flex-1 rounded-full transition-all ${level >= i ? strengthColors[level] : "bg-muted"}`}
-                                                />
-                                            ))}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">{strengthLabels[level]}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* 3 — Confirm new password */}
-                            <div className="space-y-2">
-                                <Label htmlFor="confirm-password">Confirmar Nueva Contraseña</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="confirm-password"
-                                        type={showConfirm ? "text" : "password"}
-                                        placeholder="Repite la nueva contraseña"
-                                        value={confirmPassword}
-                                        onChange={e => { setConfirmPassword(e.target.value); setPwdStatus(null) }}
-                                        disabled={pwdLoading}
-                                        className="pr-10"
-                                        onKeyDown={e => e.key === "Enter" && handleChangePassword()}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirm(p => !p)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
-                                {confirmPassword && (
-                                    <p className={`text-xs flex items-center gap-1 ${newPassword === confirmPassword ? "text-green-600" : "text-red-500"}`}>
-                                        {newPassword === confirmPassword
-                                            ? <><CheckCircle2 className="w-3 h-3" /> Las contraseñas coinciden</>
-                                            : <><AlertCircle className="w-3 h-3" /> No coinciden</>
-                                        }
-                                    </p>
-                                )}
-                            </div>
-                            {/* Status + Submit — inside the same max-w-md column */}
-                            {pwdStatus && (
-                                <div className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${pwdStatus.type === "success"
-                                    ? "bg-green-50 border-green-200 text-green-800"
-                                    : "bg-red-50 border-red-200 text-red-800"
-                                    }`}>
-                                    {pwdStatus.type === "success"
-                                        ? <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
-                                        : <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                                    }
-                                    {pwdStatus.message}
-                                </div>
-                            )}
-
-                            <Button
-                                onClick={handleChangePassword}
-                                disabled={pwdLoading || !currentPassword || !newPassword || !confirmPassword}
-                                className="w-full gap-2"
-                                size="lg"
-                            >
-                                {pwdLoading
-                                    ? <><Loader className="w-4 h-4 animate-spin" /> Actualizando...</>
-                                    : <><Lock className="w-4 h-4" /> Actualizar Contraseña</>
-                                }
-                            </Button>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* ── Danger Zone Card ──────────────────────────────────── */}
-            <Card className="border-destructive/40">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive">
-                        <ShieldAlert className="w-5 h-5" />
-                        Zona de Peligro
-                    </CardTitle>
-                    <CardDescription>
-                        Estas acciones son permanentes e irreversibles. Todos tus datos, publicaciones y configuraciones serán eliminados.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {!showDeleteZone ? (
-                        /* ── Collapsed state ── */
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-lg border border-destructive/20 bg-destructive/5 max-w-md">
-                            <div className="flex-1 space-y-0.5">
-                                <p className="font-medium text-sm">Eliminar mi cuenta</p>
-                                <p className="text-xs text-muted-foreground">
-                                    Esta acción no se puede deshacer.
-                                </p>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2 shrink-0"
-                                onClick={() => setShowDeleteZone(true)}
-                            >
-                                <Trash2 className="w-4 h-4" /> Eliminar cuenta
-                            </Button>
-                        </div>
-                    ) : (
-                        /* ── Expanded confirmation flow ── */
-                        <div className="flex flex-col gap-6 max-w-md">
-
-                            {/* Step 1 — Reason */}
-                            <div className="space-y-3">
-                                <p className="text-sm font-semibold">¿Por qué quieres eliminar tu cuenta?</p>
-                                <div className="space-y-2">
-                                    {DELETE_REASONS.map(reason => (
-                                        <label
-                                            key={reason}
-                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${deleteReason === reason
-                                                ? "border-destructive bg-destructive/5 text-destructive font-medium"
-                                                : "border-border hover:bg-muted/50"
-                                                }`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="deleteReason"
-                                                value={reason}
-                                                checked={deleteReason === reason}
-                                                onChange={() => { setDeleteReason(reason); setDeleteStatus(null); setDeleteCustomReason("") }}
-                                                className="accent-destructive"
-                                            />
-                                            <span className="text-sm">{reason}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Custom reason textarea — only shown for "Otra razón" */}
-                            {deleteReason === "Otra razón" && (
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Cuéntanos más (opcional)</Label>
-                                    <textarea
-                                        rows={3}
-                                        value={deleteCustomReason}
-                                        onChange={e => setDeleteCustomReason(e.target.value)}
-                                        disabled={deleteLoading}
-                                        placeholder="Describe brevemente tu motivo..."
-                                        className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-destructive/40 resize-none bg-background"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Step 2 — Password */}
-                            {!isOAuthUser && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="delete-password" className="text-sm font-semibold">
-                                        Confirma tu contraseña
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            id="delete-password"
-                                            type={showDeletePwd ? "text" : "password"}
-                                            placeholder="Tu contraseña actual"
-                                            value={deletePassword}
-                                            onChange={e => { setDeletePassword(e.target.value); setDeleteStatus(null); setDeletePwdError(false) }}
-                                            disabled={deleteLoading}
-                                            className={`pr-10 ${deletePwdError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowDeletePwd(p => !p)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                        >
-                                            {showDeletePwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                        </button>
-                                    </div>
-                                    {deletePwdError && (
-                                        <p className="text-xs text-red-500 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> Contraseña incorrecta
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Step 3 — Type ELIMINAR */}
-                            <div className="space-y-2">
-                                <Label htmlFor="delete-confirm" className="text-sm font-semibold">
-                                    Escribe{" "}
-                                    <span className="font-mono text-destructive tracking-widest">ELIMINAR</span>
-                                    {" "}para confirmar
-                                </Label>
-                                <Input
-                                    id="delete-confirm"
-                                    placeholder="ELIMINAR"
-                                    value={deleteConfirmText}
-                                    onChange={e => { setDeleteConfirmText(e.target.value); setDeleteStatus(null) }}
-                                    disabled={deleteLoading}
-                                    className="font-mono border-destructive/40 focus-visible:ring-destructive"
-                                />
-                            </div>
-
-                            {/* Status message */}
-                            {deleteStatus && (
-                                <div className="flex items-center gap-2 text-sm p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">
-                                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                                    {deleteStatus.message}
-                                </div>
-                            )}
-
-                            {/* Action buttons */}
-                            <div className="flex flex-col gap-2">
-                                <Button
-                                    variant="destructive"
-                                    size="lg"
-                                    onClick={handleDeleteAccount}
-                                    disabled={deleteLoading || deleteConfirmText !== "ELIMINAR"}
-                                    className="w-full gap-2"
-                                >
-                                    {deleteLoading
-                                        ? <><Loader className="w-4 h-4 animate-spin" /> Eliminando...</>
-                                        : <><Trash2 className="w-4 h-4" /> Confirmar eliminación de cuenta</>
-                                    }
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => {
-                                        setShowDeleteZone(false)
-                                        setDeleteReason("")
-                                        setDeleteCustomReason("")
-                                        setDeletePassword("")
-                                        setDeleteConfirmText("")
-                                        setDeleteStatus(null)
-                                        setDeletePwdError(false)
-                                    }}
-                                    disabled={deleteLoading}
-                                    className="w-full"
-                                >
-                                    Cancelar
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
         </div>
-    )
+    </CommercePage>
 }

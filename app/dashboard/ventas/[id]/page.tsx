@@ -55,10 +55,10 @@ export default function VentaDetailPage() {
                         cliente: order.full_name,
                         cantidad: order.container_size 
                             ? `${order.quantity_kg} Cont. ${order.container_size}`
-                            : `${order.quantity_kg} kg`,
+                            : `${order.quantity_kg} ${order.unit || "kg"}`,
                         estado: order.status === "pending" ? "Pendiente" : (order.status || "Pendiente"),
                         fecha: format(new Date(order.created_at), "dd 'de' MMMM, yyyy", { locale: es }),
-                        total: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(order.price_usd),
+                        total: new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency === 'EUR' ? 'EUR' : 'USD' }).format(order.price_usd),
                         location: order.country,
                         shippingMethod: order.shipping_method,
                         full_name: order.full_name,
@@ -74,11 +74,11 @@ export default function VentaDetailPage() {
                         special_instructions: order.special_instructions,
                         incoterm: order.incoterm,
                         detalles: {
-                            precioUnitario: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(order.unit_price || (order.price_usd / (order.quantity_kg || 1))),
-                            subtotal: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subtotal),
-                            impuesto: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(imp),
+                            precioUnitario: new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency === 'EUR' ? 'EUR' : 'USD' }).format(order.unit_price || (order.price_usd / (order.quantity_kg || 1))),
+                            subtotal: new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency === 'EUR' ? 'EUR' : 'USD' }).format(subtotal),
+                            impuesto: new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency === 'EUR' ? 'EUR' : 'USD' }).format(imp),
                             envio: "Por calcular / Incluido",
-                            totalFinal: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(order.price_usd || 0),
+                            totalFinal: new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency === 'EUR' ? 'EUR' : 'USD' }).format(order.price_usd || 0),
                         },
                         tracking: (order.tracking_history || []).map((t: any) => ({
                             fecha: format(new Date(t.fecha), "dd/MM/yyyy HH:mm", { locale: es }),

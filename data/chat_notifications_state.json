@@ -22,22 +22,6 @@
       }
     ]
   ],
-  "queuedEmails": [
-    [
-      "c2557f0e-1ebb-4185-822a-717c6fe3e937_ffa57d80-fe73-49ad-8777-21907c401236",
-      {
-        "conversationId": "c2557f0e-1ebb-4185-822a-717c6fe3e937",
-        "recipientId": "ffa57d80-fe73-49ad-8777-21907c401236",
-        "recipientEmail": "menjivar124567890@gmail.com",
-        "recipientName": "Cooperativa SAS",
-        "senderName": "fruitimpor",
-        "productName": "Manzana Organica",
-        "messageCount": 1,
-        "firstMessageAt": 1790875228951,
-        "scheduledSendAt": 1790875648951,
-        "lastMessageSnippet": "ok"
-      }
-    ]
-  ],
+  "queuedEmails": [],
   "reminders": []
 }

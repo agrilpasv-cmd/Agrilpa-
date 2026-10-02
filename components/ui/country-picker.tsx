@@ -217,9 +217,11 @@ interface CountryPickerProps {
     className?: string
     /** If true, selecting a country auto-fills the phone code too */
     syncPhoneCode?: boolean
+    id?: string
+    error?: boolean
 }
 
-export function CountryPicker({ value, onChange, placeholder = "Selecciona tu país", className = "", syncPhoneCode = false }: CountryPickerProps) {
+export function CountryPicker({ value, onChange, placeholder = "Selecciona tu país", className = "", syncPhoneCode = false, id, error = false }: CountryPickerProps) {
     const [open, setOpen] = useState(false)
     const [search, setSearch] = useState("")
     const containerRef = useRef<HTMLDivElement>(null)
@@ -267,9 +269,13 @@ export function CountryPicker({ value, onChange, placeholder = "Selecciona tu pa
         <div ref={containerRef} className={`relative ${className}`}>
             {/* Trigger button */}
             <button
+                id={id}
+                aria-invalid={error ? true : undefined}
                 type="button"
                 onClick={() => setOpen(p => !p)}
-                className={`w-full flex items-center gap-2 pl-10 pr-9 py-3 border rounded-lg text-left transition focus:outline-none focus:ring-2 focus:ring-primary ${open
+                className={`w-full flex items-center gap-2 pl-10 pr-9 py-3 border rounded-lg text-left transition focus:outline-none focus:ring-2 focus:ring-primary ${error
+                    ? "!border-[#b74434] !ring-1 !ring-[#b74434]"
+                    : open
                     ? "border-primary ring-2 ring-primary"
                     : "border-border hover:border-gray-400"
                     } bg-white`}

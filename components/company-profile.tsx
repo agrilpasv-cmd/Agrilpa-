@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, Check, ChevronRight, ExternalLink, FileText, Globe2, Leaf, MapPin, MessageSquare, Package, Search, Share2, Sprout, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, Check, ChevronRight, ExternalLink, FileText, Globe2, MapPin, MessageSquare, Package, Search, Share2, Sprout, X } from "lucide-react"
+import { ProBadge } from "@/components/ui/pro-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,7 +16,7 @@ import { companyMemberSince, companyProductPrice, publicWebUrl, type PublicCompa
 const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4"
 const muted = "text-muted-foreground"
 const green = "text-primary"
-const action = "h-11 rounded-xl bg-foreground text-background hover:bg-foreground/90"
+const action = "h-11 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-sm"
 
 export function CompanyProfile() {
   const { userId } = useParams<{ userId: string }>()
@@ -137,14 +138,14 @@ export function CompanyProfile() {
         </nav>
 
         <section aria-labelledby="company-name" className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-          <div className="relative h-40 overflow-hidden bg-primary/10 sm:h-48">
-            <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-primary/20" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid slice" fill="none">
+          <div className="relative h-40 overflow-hidden bg-primary sm:h-48">
+            <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-white/20" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid slice" fill="none">
               {Array.from({ length: 11 }, (_, index) => <path key={index} d={`M ${500 + index * 35} -40 C ${280 + index * 40} 80, ${680 + index * 40} 110, ${400 + index * 40} 280`} stroke="currentColor" strokeWidth="1.5" />)}
               <circle cx="1120" cy="40" r="170" stroke="currentColor" /><circle cx="1120" cy="40" r="135" stroke="currentColor" /><circle cx="1120" cy="40" r="100" stroke="currentColor" />
             </svg>
             <div className="relative flex items-start justify-between gap-4 p-6 sm:p-8">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-foreground"><Sprout aria-hidden="true" className="size-4" /> Red de empresas Agrilpa</div>
-              <span className="hidden rounded-full border border-primary/20 px-3 py-1.5 text-xs text-foreground sm:block">Comercio agrícola B2B</span>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white"><Sprout aria-hidden="true" className="size-4" /> Red de empresas Agrilpa</div>
+              <span className="hidden rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white sm:block">Comercio agrícola B2B</span>
             </div>
           </div>
           <div className="relative px-5 pb-7 sm:px-8">
@@ -152,11 +153,11 @@ export function CompanyProfile() {
               <div className="min-w-0 flex-1">
                 <Avatar className="-mt-12 mb-5 size-24 rounded-2xl border-[5px] border-card bg-card shadow-sm sm:-mt-14 sm:size-28">
                   <AvatarImage src={profile.avatar_url || undefined} alt={`Logo de ${name}`} className="object-cover" />
-                  <AvatarFallback className="rounded-xl bg-primary/10 text-3xl font-semibold text-foreground">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-xl bg-primary/15 text-3xl font-bold text-primary">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 id="company-name" className="min-w-0 break-words text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{name}</h1>
-                  {profile.is_pro && <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-foreground"><Leaf aria-hidden="true" className="size-3.5" /> Agrilpa Pro</span>}
+                  {profile.is_pro && <ProBadge />}
                 </div>
                 <div className={`mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm ${muted}`}>
                   {profile.country && <span className="inline-flex items-center gap-1.5"><MapPin aria-hidden="true" className="size-4" />{profile.country}</span>}
@@ -165,7 +166,7 @@ export function CompanyProfile() {
               </div>
               <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end lg:pt-7">
                 <Button variant="outline" onClick={shareProfile} className="h-11 gap-2 rounded-xl">{shareStatus === "Enlace copiado" ? <Check aria-hidden="true" className="size-4" /> : <Share2 aria-hidden="true" className="size-4" />} Compartir</Button>
-                {isOwner ? <Button asChild className="h-11 rounded-xl"><Link href="/dashboard/perfil">Editar mi perfil <ArrowRight aria-hidden="true" className="size-4" /></Link></Button> : products.length > 0 && <Button onClick={() => setContactOpen(true)} className={`${action} gap-2`}><MessageSquare aria-hidden="true" className="size-4" />Contactar empresa</Button>}
+                {isOwner ? <Button asChild className="h-11 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90"><Link href="/dashboard/perfil">Editar mi perfil <ArrowRight aria-hidden="true" className="size-4" /></Link></Button> : products.length > 0 && <Button onClick={() => setContactOpen(true)} className={`${action} gap-2`}><MessageSquare aria-hidden="true" className="size-4" />Contactar empresa</Button>}
                 <p role="status" className={`basis-full text-sm ${muted}`}>{shareStatus}</p>
               </div>
             </div>
@@ -209,7 +210,7 @@ export function CompanyProfile() {
                   <div><label htmlFor="company-sort" className="sr-only">Ordenar productos</label><select id="company-sort" value={sort} onChange={event => setSort(event.target.value)} className={`h-11 w-full cursor-pointer rounded-xl border border-border bg-card px-3 text-sm sm:w-44 ${focus}`}><option value="recent">Más recientes</option><option value="name">Nombre: A a Z</option></select></div>
                 </div>
                 <div aria-label="Filtrar por categoría" className="mb-6 flex flex-wrap gap-2">
-                  {["", ...categories].map(value => <button key={value} aria-pressed={category === value} onClick={() => setCategory(value)} className={`min-h-11 cursor-pointer rounded-full border px-4 text-sm font-medium transition-colors ${focus} ${category === value ? "border-foreground bg-foreground text-background" : `border-border bg-card hover:border-primary ${muted}`}`}>{value || "Todos"}</button>)}
+                  {["", ...categories].map(value => <button key={value} aria-pressed={category === value} onClick={() => setCategory(value)} className={`min-h-11 cursor-pointer rounded-full border px-4 text-sm font-medium transition-colors ${focus} ${category === value ? "border-primary bg-primary text-white font-semibold shadow-sm" : `border-border bg-card hover:border-primary ${muted}`}`}>{value || "Todos"}</button>)}
                 </div>
                 {filteredProducts.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center"><Search aria-hidden="true" className="mx-auto mb-3 size-7 text-muted-foreground" /><h3 className="font-semibold">No encontramos productos</h3><p className="mt-2 text-sm text-muted-foreground">Prueba otro nombre o cambia la categoría.</p><Button variant="outline" onClick={() => { setQuery(""); setCategory("") }} className="mt-5">Limpiar filtros</Button></div>

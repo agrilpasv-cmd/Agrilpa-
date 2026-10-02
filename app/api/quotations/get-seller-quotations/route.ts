@@ -1,37 +1,14 @@
-import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-
-export const dynamic = 'force-dynamic'
-
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url)
-        const sellerId = searchParams.get("sellerId")
-
-        if (!sellerId) {
-            return NextResponse.json({ error: "Seller ID is required" }, { status: 400 })
-        }
-
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        )
-
-        const { data, error } = await supabaseAdmin
-            .from("quotations")
-            .select("*")
-            .eq("seller_id", sellerId)
-            .order("created_at", { ascending: false })
-
-        if (error) {
-            console.error("Error fetching quotations:", error)
-            return NextResponse.json({ error: "Failed to fetch quotations", details: error.message }, { status: 500 })
-        }
-
-        return NextResponse.json({ success: true, quotations: data })
-
-    } catch (error) {
-        console.error("Error in get-seller-quotations:", error)
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
-    }
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+export const dynamic = "force-dynamic"
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const {data: {user}} = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({error: "No autorizado"}, {status: 401})
+    const {data, error} = await createAdminClient().from("quotations").select("*").eq("seller_id", user.id).order("created_at", {ascending: false})
+    if (error) return NextResponse.json({error: "No pudimos cargar las cotizaciones."}, {status: 500})
+    return NextResponse.json({success: true, quotations: data})
+  } catch { return NextResponse.json({error: "No pudimos cargar las cotizaciones."}, {status: 500}) }
 }

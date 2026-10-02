@@ -1,216 +1,25 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { sendQuotationStatusEmail } from "@/lib/email"
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
-    try {
-        const body = await request.json()
-        const { quotationId, status } = body
-
-        if (!quotationId || !status) {
-            return NextResponse.json(
-                { success: false, error: "quotationId y status son requeridos" },
-                { status: 400 }
-            )
-        }
-
-        if (!["pending", "accepted", "rejected"].includes(status)) {
-            return NextResponse.json(
-                { success: false, error: "Status inválido" },
-                { status: 400 }
-            )
-        }
-
-        // Get the quotation first
-        const { data: quotation, error: fetchError } = await supabaseAdmin
-            .from("quotations")
-            .select("*")
-            .eq("id", quotationId)
-            .single()
-
-        if (fetchError || !quotation) {
-            return NextResponse.json(
-                { success: false, error: "Cotización no encontrada" },
-                { status: 404 }
-            )
-        }
-
-        // Update the quotation status
-        const { data: updateData, error: updateError } = await supabaseAdmin
-            .from("quotations")
-            .update({ status: status })
-            .eq("id", quotationId)
-            .select()
-
-        if (updateError) {
-            console.error("Error updating quotation status:", updateError)
-            return NextResponse.json(
-                { success: false, error: updateError.message },
-                { status: 500 }
-            )
-        }
-
-        const updateResult = updateData?.[0]
-
-        // If accepted, create a record in the new 'orders' table (Unified Sales source)
-        let orderCreated = null
-        if (status === "accepted") {
-            // Get product info for the order
-            const { data: productData, error: productError } = await supabaseAdmin
-                .from("user_products")
-                .select("title, user_id, id, category, country, maturity, packaging, packaging_size, certifications, contact_method, contact_info, price")
-                .eq("id", quotation.product_id)
-                .single()
-                
-            if (productError) {
-                console.error("[update-status] Error fetching product:", productError)
-            }
-
-            const actualSellerId = productData?.user_id || quotation.seller_id
-            const actualName = productData?.title || quotation.product_title
-            const actualImage = productData?.image || quotation.product_image
-
-            // 1. Create Order record
-            const targetP = typeof quotation.target_price === 'string' ? parseFloat(quotation.target_price) : (quotation.target_price || 0)
-            const baseUnitPrice = targetP || (productData?.price && !isNaN(parseFloat(productData.price)) ? parseFloat(productData.price) : 0)
-
-            const orderPayload: any = {
-                buyer_id: quotation.buyer_id,
-                seller_id: actualSellerId,
-                product_id: quotation.product_id,
-                product_name: actualName,
-                product_image: actualImage,
-                quantity: quotation.quantity,
-                unit_price: baseUnitPrice, // Usar el precio pactado o el base del producto
-                total_price: (baseUnitPrice) * (quotation.quantity || 1), // Calcular total
-                buyer_name: quotation.buyer_name,
-                buyer_email: quotation.email,
-                buyer_phone: quotation.phone_number ? `+${quotation.country_code}${quotation.phone_number}` : null,
-                shipping_address: quotation.destination_country || "A convenir",
-                status: "Pendiente",
-                origin: "quotation",
-                quotation_id: quotationId,
-                is_read_seller: false,
-                created_at: new Date().toISOString(),
-                // New Technical fields
-                category: productData?.category || null,
-                origin_country: productData?.country || null,
-                maturity: productData?.maturity || null,
-                packaging_type: productData?.packaging || null,
-                packaging_size: productData?.packaging_size || null,
-                certifications: productData?.certifications || null,
-                seller_contact_method: productData?.contact_method || null,
-                seller_contact_info: productData?.contact_info || null,
-                incoterm: quotation.incoterm || "EXW", // Use incoterm from quotation if available
-                tracking: [
-                    {
-                        fecha: new Date().toISOString(),
-                        estado: "Orden Recibida",
-                        ubicacion: "Sistema Agrilpa"
-                    }
-                ]
-            }
-
-            const { data: orderData, error: orderError } = await supabaseAdmin
-                .from("orders")
-                .insert([orderPayload])
-                .select()
-
-            if (orderError) {
-                console.error("Error creating order from quotation:", orderError)
-
-                // If the orders table doesn't exist yet, provide the SQL
-                if (orderError.message.includes("relation \"orders\" does not exist")) {
-                    return NextResponse.json({
-                        success: false,
-                        error: "La tabla 'orders' no existe. Por favor ejecute el script SQL scripts/026_create_orders_table.sql en Supabase.",
-                        sqlToRun: `
-CREATE TABLE orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    buyer_id UUID,
-    seller_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    product_name TEXT NOT NULL,
-    product_image TEXT,
-    quantity DECIMAL NOT NULL,
-    unit_price DECIMAL DEFAULT 0,
-    total_price DECIMAL DEFAULT 0,
-    buyer_name TEXT NOT NULL,
-    buyer_email TEXT NOT NULL,
-    buyer_phone TEXT,
-    shipping_address TEXT,
-    status TEXT DEFAULT 'pending',
-    origin TEXT DEFAULT 'direct',
-    quotation_id UUID REFERENCES quotations(id),
-    is_read_seller BOOLEAN DEFAULT false,
-    is_read_buyer BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    -- New Fields
-    category TEXT,
-    origin_country TEXT,
-    maturity TEXT,
-    packaging_type TEXT,
-    packaging_size TEXT,
-    incoterm TEXT,
-    certifications TEXT,
-    seller_contact_method TEXT,
-    seller_contact_info TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_orders_seller_id ON orders(seller_id);
--- Enable RLS
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Sellers can view their own orders" ON orders FOR SELECT USING (auth.uid() = seller_id);
-CREATE POLICY "Service role has full access to orders" ON orders FOR ALL USING (true);
-                        `
-                    }, { status: 500 })
-                }
-
-                return NextResponse.json({
-                    success: false,
-                    error: "Error al crear registro de pedido: " + orderError.message
-                }, { status: 500 })
-            } else {
-                orderCreated = orderData?.[0]
-                console.log("Order created from quotation:", orderCreated)
-            }
-        }
-
-        // Send email notification to buyer about status change
-        if (status === "accepted" || status === "rejected") {
-            try {
-                if (quotation.email && quotation.buyer_name) {
-                    console.log("[Quotation Update] Sending email to buyer:", quotation.email)
-                    const emailResult = await sendQuotationStatusEmail({
-                        buyerEmail: quotation.email,
-                        buyerName: quotation.buyer_name,
-                        productName: quotation.product_title || "Producto",
-                        status: status as 'accepted' | 'rejected',
-                    })
-                    console.log("[Quotation Update] Email send result:", emailResult)
-                } else {
-                    console.warn("[Quotation Update] No buyer email found in quotation:", quotation.id)
-                }
-            } catch (emailErr) {
-                console.error("[Email] Error sending quotation status email:", emailErr)
-            }
-        }
-
-        return NextResponse.json({
-            success: true,
-            quotation: updateResult || quotation,
-            order: orderCreated
-        })
-    } catch (error) {
-        console.error("Error in update-status:", error)
-        return NextResponse.json(
-            { success: false, error: "Error interno del servidor" },
-            { status: 500 }
-        )
+  try {
+    const client=await createClient()
+    const {data:{user}}=await client.auth.getUser()
+    if(!user) return NextResponse.json({error:"Inicia sesión para responder a la solicitud."},{status:401})
+    const {quotationId,status,unitPrice,currency}=await request.json()
+    if(typeof quotationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quotationId) || !["accepted","rejected"].includes(status)) return NextResponse.json({error:"La decisión no es válida."},{status:400})
+    if(status === "accepted" && (typeof unitPrice !== "number" || !Number.isFinite(unitPrice) || unitPrice<=0 || unitPrice>1e9 || !["USD","EUR"].includes(currency))) return NextResponse.json({error:"Confirma el precio acordado y la moneda."},{status:400})
+    const admin=createAdminClient()
+    const {data:quotation,error:fetchError}=await admin.from("quotations").select("id,seller_id").eq("id",quotationId).maybeSingle()
+    if(fetchError) return NextResponse.json({error:"No pudimos comprobar la solicitud."},{status:500})
+    if(!quotation || quotation.seller_id !== user.id) return NextResponse.json({error:"Cotización no encontrada."},{status:404})
+    const {data,error}=await admin.rpc("decide_quotation",{p_quotation_id:quotationId,p_seller_id:user.id,p_status:status,p_unit_price:status === "accepted" ? unitPrice : null,p_currency:status === "accepted" ? currency : null})
+    if(error) {
+      console.error("[Quotation decision]",error.code)
+      const conflict=error.code === "22023"
+      return NextResponse.json({error:conflict ? "La solicitud ya fue respondida o sus datos no permiten crear un pedido. Actualiza la página para revisar el estado." : "No pudimos guardar la respuesta. Inténtalo de nuevo más tarde."},{status:conflict ? 409 : 500})
     }
+    return NextResponse.json({success:true,...data})
+  } catch {return NextResponse.json({error:"No pudimos procesar la respuesta."},{status:400})}
 }

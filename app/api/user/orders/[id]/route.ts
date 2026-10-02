@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
@@ -18,7 +18,7 @@ export async function GET(
                     getAll() {
                         return cookieStore.getAll()
                     },
-                    setAll(cookiesToSet) {
+                    setAll(cookiesToSet: {name:string;value:string;options:CookieOptions}[]) {
                         cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
                     },
                 },
@@ -51,7 +51,7 @@ export async function GET(
             .select(`
                 *,
                 quotations:quotation_id (
-                    container_size
+                    container_size, destination_country, destination_location, delivery_method
                 )
             `)
             .eq("id", id)
@@ -105,6 +105,8 @@ export async function GET(
             price_usd: typeof finalData.total_price === 'string' ? parseFloat(finalData.total_price) : (finalData.total_price || 0),
             price_bs: 0,
             quantity_kg: finalData.quantity,
+            unit: finalData.unit || "kg",
+            currency: finalData.currency || "USD",
             product_name: finalData.product_name,
             product_slug: finalData.product_id,
             product_image: finalData.product_image,
@@ -116,13 +118,13 @@ export async function GET(
             city: "N/A",
             state: "N/A",
             zip_code: "N/A",
-            country: "Venezuela",
+            country: finalData.quotations?.destination_country || "Por acordar",
             payment_method: "A convenir",
             special_instructions: finalData.origin === 'quotation' ? "Via Cotización" : "",
             incoterm: finalData.incoterm || "EXW",
             status: finalData.status || "Pendiente",
             created_at: finalData.created_at,
-            shipping_method: "A convenir",
+            shipping_method: finalData.quotations?.delivery_method === "pickup" ? "Recogida por el comprador" : finalData.quotations?.delivery_method === "delivery" ? "Envío a destino" : "A convenir",
             // Seller Info
             seller_name: sellerProfile?.full_name || "Vendedor Agrilpa",
             seller_company: sellerProfile?.company_name || "Empresa Verificada",
@@ -139,7 +141,7 @@ export async function GET(
             seller_contact_info: finalData.seller_contact_info || "",
             is_reviewed: isReviewed,
             seller_id: finalData.seller_id,
-            container_size: finalData.quotations?.container_size || finalData.packaging_size,
+            container_size: finalData.quotations?.container_size || (["20ST", "40HC"].includes(finalData.packaging_size) ? finalData.packaging_size : null),
             tracking_history: finalData.tracking || [
                 {
                     fecha: finalData.created_at,
@@ -225,7 +227,7 @@ export async function PATCH(
                     getAll() {
                         return cookieStore.getAll()
                     },
-                    setAll(cookiesToSet) {
+                    setAll(cookiesToSet: {name:string;value:string;options:CookieOptions}[]) {
                         cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
                     },
                 },

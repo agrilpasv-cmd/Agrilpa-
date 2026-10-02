@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
@@ -16,7 +16,7 @@ export async function GET() {
                     getAll() {
                         return cookieStore.getAll()
                     },
-                    setAll(cookiesToSet) {
+                    setAll(cookiesToSet: {name:string;value:string;options:CookieOptions}[]) {
                         cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
                     },
                 },
@@ -54,7 +54,7 @@ export async function GET() {
 
         // Map orders
         const mappedOrders = (orders || []).map(order => {
-            const containerSize = order.quotations?.container_size || order.packaging_size;
+            const containerSize = order.quotations?.container_size || (["20ST", "40HC"].includes(order.packaging_size) ? order.packaging_size : null);
             return {
                 ...order,
                 buyer_name: order.buyer_name || order.full_name || "Comprador Agrilpa",

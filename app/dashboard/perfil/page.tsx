@@ -1,699 +1,159 @@
 "use client"
 
-import type React from "react"
+import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import {
-  User, Mail, Phone, Building2, Globe, MapPin, FileText,
-  Edit2, Save, X, Loader, CheckCircle2, AlertCircle,
-  Package, ShoppingCart, Star, TrendingUp, Calendar, Link as LinkIcon, Camera,
-  ShieldCheck, Ship, Award, Trash2, Upload, ExternalLink
-} from "lucide-react"
+import { Award, Camera, CalendarDays, ExternalLink, Loader2, LockKeyhole, MapPin, Pencil, Save, Ship, Trash2, Upload } from "lucide-react"
+import { ProBadge } from "@/components/ui/pro-badge"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { CommercePage, InlineNotice, LoadingState, commerceStyles as c } from "@/components/dashboard/commerce-ui"
+import { AccountSection, ProfileField, accountStyles as s } from "@/components/dashboard/account-ui"
+import { publicWebUrl } from "@/lib/public-company-profile"
+import { shortDate } from "@/lib/dashboard/commerce"
 
-type Status = { type: "success" | "error"; message: string } | null
+type ProfileData = { fullName: string; email: string; phone: string; company: string; companyLink: string; country: string; address: string; bio: string }
+type ExportItem = { url: string; type: string; label: string; uploaded_at?: string }
+const emptyProfile: ProfileData = { fullName: "", email: "", phone: "", company: "", companyLink: "", country: "", address: "", bio: "" }
 
 export default function ProfilePage() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [profileId, setProfileId] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<Status>(null)
-  const [originalData, setOriginalData] = useState<any>(null)
-  const [stats, setStats] = useState({ products: 0, purchases: 0, quotations: 0 })
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    company: "",
-    companyLink: "",
-    country: "",
-    address: "",
-    bio: "",
-  })
+  const [fieldErrors, setFieldErrors] = useState<{fullName?: string; companyLink?: string}>({})
+  const [notice, setNotice] = useState<{text: string; error?: boolean} | null>(null)
+  const [profileId, setProfileId] = useState("")
+  const [form, setForm] = useState<ProfileData>(emptyProfile)
+  const [original, setOriginal] = useState<ProfileData>(emptyProfile)
+  const [stats, setStats] = useState<{products: number; purchases: number; quotations: number} | null>(null)
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const uploadInput = useRef<HTMLInputElement>(null)
   const [memberSince, setMemberSince] = useState("")
-  const [isPro, setIsPro] = useState(false)
-  const [exportHistory, setExportHistory] = useState<any[]>([])
-  const [exportForm, setExportForm] = useState({ url: "", type: "container_photo", label: "" })
-  const [uploadingExport, setUploadingExport] = useState(false)
+  const [pro, setPro] = useState(false)
+  const [history, setHistory] = useState<ExportItem[]>([])
+  const [exportForm, setExportForm] = useState({url: "", type: "container_photo", label: ""})
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportNotice, setExportNotice] = useState<{text: string; error?: boolean} | null>(null)
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null)
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/user/profile")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.user) {
-            setProfileId(data.user.id)
-            const userData = {
-              fullName: data.user.full_name || "",
-              email: data.user.email || "",
-              phone: data.user.phone || "",
-              company: data.user.company_name || "",
-              companyLink: data.user.company_website || "",
-              country: data.user.country || "",
-              address: data.user.address || "",
-              bio: data.user.bio || "",
-            }
-            setFormData(userData)
-            setOriginalData(userData)
-            if (data.user.avatar_url) setAvatarUrl(data.user.avatar_url)
+    let active = true
+    setLoading(true); setLoadError(false)
+    fetch("/api/user/profile", {cache: "no-store"}).then(async response => {
+      if (!response.ok) throw new Error("Profile unavailable")
+      const data = await response.json()
+      if (!data.user) throw new Error("Profile missing")
+      if (!active) return
+      const user = data.user
+      const values: ProfileData = {fullName: user.full_name || "", email: user.email || "", phone: user.phone || "", company: user.company_name || "", companyLink: user.company_website || "", country: user.country || "", address: user.address || "", bio: user.bio || ""}
+      setForm(values); setOriginal(values); setProfileId(user.id || ""); setAvatar(user.avatar_url || null); setAvatarFailed(false)
+      setMemberSince(user.created_at ? new Date(user.created_at).toLocaleDateString("es-SV", {month: "long", year: "numeric"}) : "")
+      setPro(user.plan_type === "pro" && (!user.plan_expires_at || new Date(user.plan_expires_at) >= new Date()))
+      setHistory(Array.isArray(user.export_history) ? user.export_history : [])
+    }).catch(() => { if (active) setLoadError(true) }).finally(() => { if (active) setLoading(false) })
+    fetch("/api/dashboard/stats").then(async response => {
+      if (!response.ok) return
+      const data = await response.json()
+      if (active) setStats({products: data.activeProducts || 0, purchases: data.totalTransactions || 0, quotations: data.quotationsCount || 0})
+    }).catch(() => {})
+    return () => { active = false }
+  }, [retry])
 
-            if (data.user.created_at) {
-              const date = new Date(data.user.created_at)
-              setMemberSince(
-                date.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
-              )
-            }
-
-            // Check Pro status
-            if (data.user.plan_type === "pro") {
-              const isExpired = data.user.plan_expires_at && new Date(data.user.plan_expires_at) < new Date()
-              setIsPro(!isExpired)
-            }
-            if (data.user.export_history) {
-              setExportHistory(data.user.export_history)
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching profile:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("/api/dashboard/stats")
-        if (res.ok) {
-          const data = await res.json()
-          setStats({
-            products: data.activeProducts || 0,
-            purchases: data.totalTransactions || 0,
-            quotations: data.quotationsCount || 0,
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching stats:", error)
-      }
-    }
-
-    fetchProfile()
-    fetchStats()
-  }, [])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    setSaveStatus(null)
-  }
-
-  const handleCancel = () => {
-    if (originalData) {
-      setFormData(originalData)
-    }
-    setIsEditing(false)
-    setSaveStatus(null)
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    setSaveStatus(null)
+  const change = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { setForm(previous => ({...previous, [event.target.name]: event.target.value})); setNotice(null); setFieldErrors(previous => ({...previous, [event.target.name]: undefined})) }
+  const cancel = () => { setForm(original); setEditing(false); setNotice(null); setFieldErrors({}) }
+  const save = async () => {
+    if (saving) return
+    if (!form.fullName.trim()) { setFieldErrors({fullName: "Añade tu nombre completo."}); document.getElementById("fullName")?.focus(); return }
+    if (form.companyLink && !publicWebUrl(form.companyLink)) { setFieldErrors({companyLink: "Usa una dirección web válida."}); document.getElementById("companyLink")?.focus(); return }
+    setSaving(true); setNotice(null)
     try {
-      const res = await fetch("/api/user/update-profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        setSaveStatus({ type: "success", message: "¡Perfil actualizado correctamente!" })
-        setOriginalData({ ...formData })
-        setIsEditing(false)
-      } else {
-        setSaveStatus({ type: "error", message: data.details || data.error || "Error al guardar los cambios." })
-      }
-    } catch {
-      setSaveStatus({ type: "error", message: "Error de conexión. Intenta nuevamente." })
-    } finally {
-      setSaving(false)
-    }
+      const response = await fetch("/api/user/update-profile", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(form)})
+      const data = await response.json()
+      if (!response.ok || !data.success) throw new Error("Save failed")
+      setOriginal({...form}); setEditing(false); setNotice({text: "Tu perfil se actualizó correctamente."})
+    } catch { setNotice({text: "No pudimos guardar los cambios. Tus datos siguen aquí para volver a intentarlo.", error: true}) }
+    finally { setSaving(false) }
   }
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
-  const handleAvatarClick = () => {
-    document.getElementById("avatar-upload-input")?.click()
-  }
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const uploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
     if (!file) return
-    setUploadingAvatar(true)
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) { setNotice({text: "Elige una imagen JPG, PNG o WebP de hasta 2 MB.", error: true}); return }
+    setUploading(true); setNotice(null)
     try {
-      const fd = new FormData()
-      fd.append("avatar", file)
-      const res = await fetch("/api/user/upload-avatar", { method: "POST", body: fd })
-      const data = await res.json()
-      if (res.ok && data.avatarUrl) {
-        setAvatarUrl(data.avatarUrl)
-        if (data.dbWarning) {
-          setSaveStatus({ type: "error", message: "⚠️ Foto visible solo en esta sesión. Para guardarla permanentemente, ejecuta en Supabase SQL Editor: ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT;" })
-        } else {
-          setSaveStatus({ type: "success", message: "¡Foto de perfil actualizada!" })
-        }
-      } else {
-        setSaveStatus({ type: "error", message: data.error || "Error al subir la imagen" })
-      }
-    } catch {
-      setSaveStatus({ type: "error", message: "Error de conexión al subir la imagen" })
-    } finally {
-      setUploadingAvatar(false)
-      e.target.value = ""
-    }
+      const body = new FormData(); body.append("avatar", file)
+      const response = await fetch("/api/user/upload-avatar", {method: "POST", body})
+      const data = await response.json()
+      if (!response.ok || !data.avatarUrl) throw new Error("Upload failed")
+      setAvatar(data.avatarUrl); setAvatarFailed(false)
+      setNotice(data.dbWarning ? {text: "La foto se muestra en esta sesión, pero no pudimos guardarla en tu perfil. Contacta a soporte.", error: true} : {text: "Tu foto de perfil se actualizó."})
+    } catch { setNotice({text: "No pudimos subir la foto. Inténtalo de nuevo.", error: true}) }
+    finally { setUploading(false) }
   }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Cargando perfil...</p>
-        </div>
-      </div>
-    )
+  const addExport = async () => {
+    if (exportBusy) return
+    if (!exportForm.label.trim() || !publicWebUrl(exportForm.url)) { setExportNotice({text: "Añade una descripción y una dirección web válida para el documento.", error: true}); return }
+    setExportBusy(true); setExportNotice(null)
+    try {
+      const response = await fetch("/api/user/upload-export-history", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({...exportForm, url: publicWebUrl(exportForm.url)})})
+      const data = await response.json()
+      if (!response.ok || !data.success) throw new Error("Export failed")
+      setHistory(data.export_history); setExportForm({url: "", type: "container_photo", label: ""}); setExportNotice({text: "El documento se agregó a tu perfil público."})
+    } catch { setExportNotice({text: "No pudimos agregar el documento. Inténtalo de nuevo.", error: true}) }
+    finally { setExportBusy(false) }
   }
+  const deleteExport = async () => {
+    if (deleteIndex === null || exportBusy) return
+    const index = deleteIndex; setDeleteIndex(null); setExportBusy(true)
+    try {
+      const response = await fetch("/api/user/delete-export-history", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({index})})
+      const data = await response.json()
+      if (!response.ok || !data.success) throw new Error("Delete failed")
+      setHistory(data.export_history); setExportNotice({text: "El documento se retiró de tu perfil."})
+    } catch { setExportNotice({text: "No pudimos retirar el documento. Inténtalo de nuevo.", error: true}) }
+    finally { setExportBusy(false) }
+  }
+  const initials = (original.fullName || "Usuario").trim().split(/\s+/).map(word => word[0]).slice(0,2).join("").toUpperCase()
+  const actions = editing ? <><button className={c.secondaryButton} onClick={cancel} disabled={saving}>Cancelar</button><button className={c.primaryButton} onClick={() => void save()} disabled={saving}>{saving ? <Loader2 size={17} className={c.spinner} /> : <Save size={17} />} {saving ? "Guardando…" : "Guardar cambios"}</button></> : <>{profileId && <Link className={c.secondaryButton} href={`/vendedor/${profileId}`}><ExternalLink size={17} aria-hidden="true" />Ver perfil público</Link>}<button className={c.primaryButton} onClick={() => setEditing(true)}><Pencil size={17} aria-hidden="true" />Editar perfil</button></>
 
-  return (
-    <div className="space-y-6 p-6">
-
-      {/* ── Page Header ───────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Mi Perfil</h1>
-          <p className="text-muted-foreground">Gestiona tu información personal y profesional</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {profileId && !isEditing && (
-            <Button variant="outline" asChild className="gap-2">
-              <Link href={`/vendedor/${profileId}`}>
-                <ExternalLink className="w-4 h-4" aria-hidden="true" /> Ver perfil público
-              </Link>
-            </Button>
-          )}
-          {isEditing ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                disabled={saving}
-                className="gap-2"
-              >
-                <X className="w-4 h-4" /> Cancelar
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="gap-2"
-              >
-                {saving ? (
-                  <><Loader className="w-4 h-4 animate-spin" /> Guardando...</>
-                ) : (
-                  <><Save className="w-4 h-4" /> Guardar Cambios</>
-                )}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)} className="gap-2">
-              <Edit2 className="w-4 h-4" /> Editar Perfil
-            </Button>
-          )}
+  return <CommercePage title="Mi perfil" description="La información que representa a tu empresa en Agrilpa." action={!loading && !loadError ? actions : undefined}>
+    {notice && <InlineNotice error={notice.error} onClose={() => setNotice(null)}>{notice.text}</InlineNotice>}
+    {loading ? <LoadingState label="Cargando tu perfil…" /> : loadError ? <InlineNotice error>No pudimos cargar tu perfil. <button className={c.textButton} onClick={() => setRetry(value => value + 1)}>Reintentar</button></InlineNotice> : <>
+      <nav className={s.sectionNav} aria-label="Información del perfil"><a href="#personal">Datos personales</a><a href="#empresa">Información empresarial</a><a href="#exportacion">Exportación y certificados</a></nav>
+      <div className={s.layout}>
+        <aside className={s.sidebar} aria-label="Resumen de tu perfil"><div className={s.identity}><div className={s.identityTop} /><div className={s.identityBody}>
+          <div className={s.photo}>{avatar && !avatarFailed ? <img src={avatar} alt={`Foto de ${original.fullName || "tu perfil"}`} onError={() => setAvatarFailed(true)} /> : initials}</div>
+          <button type="button" className={s.photoAction} disabled={uploading} onClick={() => uploadInput.current?.click()}>{uploading ? <Loader2 size={16} className={c.spinner} aria-hidden="true" /> : <Camera size={16} aria-hidden="true" />}{uploading ? "Subiendo foto…" : "Cambiar foto"}</button>
+          <input ref={uploadInput} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1} aria-label="Subir foto de perfil" onChange={uploadAvatar} />
+          <p className={s.hint}>JPG, PNG o WebP · Hasta 2 MB</p>
+          <div className={s.identityName}><h2>{original.fullName || "Tu nombre"}</h2>{pro && <ProBadge />}</div><p className={s.company}>{original.company || "Añade el nombre de tu empresa"}</p>
+          <div className={s.identityDetails}>{original.country && <span><MapPin size={16} aria-hidden="true" />{original.country}</span>}{memberSince && <span><CalendarDays size={16} aria-hidden="true" />Miembro desde {memberSince}</span>}</div>
+          {stats && <dl className={s.activity}><div><dt>Productos</dt><dd>{stats.products}</dd></div><div><dt>Compras</dt><dd>{stats.purchases}</dd></div><div><dt>Cotizaciones pendientes</dt><dd>{stats.quotations}</dd></div></dl>}
+        </div></div><div className={s.sidebarNote}><h3>Haz que te conozcan</h3><p>Una foto y una descripción clara ayudan a los compradores a identificar tu negocio antes de conversar contigo.</p>{profileId && <Link href={`/vendedor/${profileId}`}>Ver mi perfil público<ExternalLink size={15} aria-hidden="true" /></Link>}</div></aside>
+        <div className={s.content}>
+          <AccountSection id="personal" title="Datos personales" description="Tu nombre y los datos de contacto de tu cuenta."><div className={s.fieldGrid}>
+            <ProfileField id="fullName" error={fieldErrors.fullName} label="Nombre completo" value={form.fullName} editing={editing} disabled={saving} onChange={change} />
+            <ProfileField id="email" label="Correo electrónico" value={form.email} editing={false} onChange={change} hint="Tu correo de acceso. Contacta a soporte si necesitas ayuda con él." />
+            <ProfileField id="phone" label="Teléfono" type="tel" value={form.phone} editing={editing} disabled={saving} onChange={change} />
+            <ProfileField id="country" label="País" value={form.country} editing={editing} disabled={saving} onChange={change} />
+          </div></AccountSection>
+          <AccountSection id="empresa" title="Información empresarial" description="Presenta tu negocio y facilita que otros usuarios te conozcan."><div className={s.fieldGrid}>
+            <ProfileField id="company" label="Nombre de la empresa" value={form.company} editing={editing} disabled={saving} onChange={change} />
+            <ProfileField id="companyLink" error={fieldErrors.companyLink} label="Sitio web" value={form.companyLink} editing={editing} disabled={saving} onChange={change} hint={editing ? "Por ejemplo, https://tuempresa.com" : undefined} />
+            <ProfileField id="address" label="Dirección" value={form.address} editing={editing} disabled={saving} onChange={change} wide />
+            <div className={s.wideField}><label htmlFor={editing ? "bio" : undefined}>Acerca de tu empresa</label>{editing ? <><textarea id="bio" name="bio" disabled={saving} value={form.bio} onChange={change} maxLength={500} rows={5} aria-describedby="bio-hint" placeholder="Cuenta qué produces, tu experiencia y cómo trabajas." /><p id="bio-hint" className={s.hint}>{form.bio.length} de 500 caracteres · Se muestra en tu perfil público.</p></> : <p className={s.fieldValue}>{form.bio || <span className={s.missing}>Añade una descripción de tu empresa y de los productos que ofreces.</span>}</p>}</div>
+          </div></AccountSection>
+          {editing && <div className={s.editFooter}><p>Revisa tu información antes de guardar.</p><div className={s.buttonRow}>{actions}</div></div>}
+          <AccountSection id="exportacion" title="Exportación y certificados" description="Documentos y fotos que respaldan la experiencia de tu empresa." accessory={<ProBadge />}>
+            {exportNotice && <InlineNotice error={exportNotice.error} onClose={() => setExportNotice(null)}>{exportNotice.text}</InlineNotice>}
+            {pro ? <><div className={s.exportForm}><h3>Agregar un documento</h3><div className={s.fieldGrid}><div className={s.field}><label htmlFor="export-type">Tipo de documento</label><select disabled={exportBusy} id="export-type" value={exportForm.type} onChange={event => setExportForm(previous => ({...previous,type: event.target.value}))}><option value="container_photo">Foto de contenedor</option><option value="certificate">Certificado de calidad</option></select></div><div className={s.field}><label htmlFor="export-label">Descripción</label><input disabled={exportBusy} id="export-label" value={exportForm.label} onChange={event => setExportForm(previous => ({...previous,label: event.target.value}))} placeholder="Ej. Certificación orgánica" /></div><div className={s.wideField}><label htmlFor="export-url">Enlace de la imagen o documento</label><input disabled={exportBusy} id="export-url" type="url" data-no-auto-caps="true" value={exportForm.url} onChange={event => setExportForm(previous => ({...previous,url: event.target.value}))} placeholder="https://…" /><p className={s.hint}>Usa un enlace público para que los compradores puedan consultarlo.</p></div></div><div className={s.buttonRow}><button className={c.primaryButton} disabled={exportBusy || !exportForm.label.trim() || !exportForm.url.trim()} onClick={() => void addExport()}>{exportBusy ? <Loader2 size={17} className={c.spinner} aria-hidden="true" /> : <Upload size={17} aria-hidden="true" />}Agregar documento</button></div></div>
+              {history.length ? <div className={s.exportList}>{history.map((item,index) => <div key={`${item.url}-${index}`} className={s.exportItem}>{item.type === "certificate" ? <Award size={24} aria-hidden="true" /> : <Ship size={24} aria-hidden="true" />}<div><strong>{item.label}</strong><span>{item.type === "certificate" ? "Certificado" : "Foto de contenedor"}{item.uploaded_at ? ` · ${shortDate(item.uploaded_at)}` : ""}</span></div>{publicWebUrl(item.url) && <a href={publicWebUrl(item.url)!} target="_blank" rel="noopener noreferrer" className={c.detailLink} aria-label={`Ver ${item.label}`}>Ver<ExternalLink size={16} aria-hidden="true" /></a>}<button className={c.iconButton} data-danger="true" disabled={exportBusy} aria-label={`Retirar ${item.label}`} onClick={() => setDeleteIndex(index)}><Trash2 size={17} aria-hidden="true" /></button></div>)}</div> : <div className={s.exportEmpty}><Ship size={25} aria-hidden="true" /><div><strong>Tu experiencia, a la vista</strong><p>Agrega tus primeros certificados o fotos de contenedores para mostrarlos en tu perfil público.</p></div></div>}</> : <div className={s.lockedFeature}><LockKeyhole size={24} aria-hidden="true" /><div><strong>Una función de Agrilpa Pro</strong><p>Con una membresía Pro puedes mostrar tus certificados y fotos de exportación en el perfil de tu empresa.</p><Link href="/dashboard/soporte" className={c.textButton}>Consultar con soporte<ExternalLink size={15} aria-hidden="true" /></Link></div></div>}
+          </AccountSection>
         </div>
       </div>
-
-      {/* ── Status message ───────────────────────────────────── */}
-      {saveStatus && (
-        <div
-          className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${saveStatus.type === "success"
-            ? "bg-primary/10 border-primary/20 text-foreground"
-            : "bg-destructive/10 border-destructive/20 text-destructive"
-            }`}
-        >
-          {saveStatus.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-primary" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 text-destructive" />
-          )}
-          {saveStatus.message}
-        </div>
-      )}
-
-      {/* ── Profile Header Card ──────────────────────────────── */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            <div className="relative group cursor-pointer" onClick={handleAvatarClick} title="Cambiar foto de perfil">
-              <Avatar className="w-24 h-24 border-4 border-primary/20">
-                {avatarUrl ? (
-                  <AvatarImage src={avatarUrl} alt="Foto de perfil" className="object-cover" />
-                ) : null}
-                <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                  {getInitials(formData.fullName || "U")}
-                </AvatarFallback>
-              </Avatar>
-              {/* Hover overlay */}
-              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {uploadingAvatar ? (
-                  <Loader className="w-6 h-6 text-white animate-spin" />
-                ) : (
-                  <Camera className="w-6 h-6 text-white" />
-                )}
-              </div>
-              {/* Green dot */}
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary border-2 border-background rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-white" />
-              </div>
-              {/* Hidden file input */}
-              <input
-                id="avatar-upload-input"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleAvatarChange}
-              />
-            </div>
-
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-foreground">{formData.fullName || "Sin nombre"}</h2>
-              <p className="text-muted-foreground mt-0.5">{formData.company || "Sin empresa"}</p>
-
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-foreground rounded-full text-xs font-medium">
-                  <CheckCircle2 className="w-3 h-3" /> Verificado
-                </span>
-                {formData.country && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted text-foreground rounded-full text-xs font-medium">
-                    <Globe className="w-3 h-3" /> {formData.country}
-                  </span>
-                )}
-                {memberSince && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted text-muted-foreground rounded-full text-xs font-medium">
-                    <Calendar className="w-3 h-3" /> Miembro desde {memberSince}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Quick Stats ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Package className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.products}</p>
-              <p className="text-sm text-muted-foreground">Publicaciones</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <ShoppingCart className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.purchases}</p>
-              <p className="text-sm text-muted-foreground">Compras</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <TrendingUp className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.quotations}</p>
-              <p className="text-sm text-muted-foreground">Cotizaciones</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Personal Information Card ────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" />
-            Información Personal
-          </CardTitle>
-          <CardDescription>
-            Tu nombre y datos de contacto principales
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-muted-foreground" />
-                Nombre Completo
-              </Label>
-              <Input
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="Tu nombre completo"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                Correo Electrónico
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                disabled
-                className="opacity-60 cursor-not-allowed"
-              />
-              <p className="text-xs text-muted-foreground">El correo no se puede cambiar desde aquí</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                Teléfono
-              </Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="+503 0000 0000"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="country" className="flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                País
-              </Label>
-              <Input
-                id="country"
-                name="country"
-                value={formData.country}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="Tu país"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Business Information Card ────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-primary" />
-            Información Empresarial
-          </CardTitle>
-          <CardDescription>
-            Datos de tu empresa o negocio agrícola
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <div className="space-y-2">
-              <Label htmlFor="company" className="flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                Nombre de la Empresa
-              </Label>
-              <Input
-                id="company"
-                name="company"
-                value={formData.company}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="Nombre de tu empresa"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="companyLink" className="flex items-center gap-1.5">
-                <LinkIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                Sitio Web
-              </Label>
-              <Input
-                id="companyLink"
-                name="companyLink"
-                value={formData.companyLink}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="www.tuempresa.com"
-              />
-            </div>
-
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="address" className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                Dirección
-              </Label>
-              <Input
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="Dirección de tu empresa o finca"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Bio / About Card ─────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" />
-            Acerca de Ti
-          </CardTitle>
-          <CardDescription>
-            Cuéntale a tus clientes y socios sobre ti y tu experiencia
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="bio">Biografía</Label>
-            <textarea
-              id="bio"
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              disabled={!isEditing}
-              rows={4}
-              placeholder="Describe tu experiencia, los productos que ofreces y lo que te diferencia..."
-              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none bg-background disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-            {isEditing && (
-              <p className="text-xs text-muted-foreground">
-                {formData.bio.length}/500 caracteres
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Export History (Pro Only) ───────────────────────────── */}
-      <Card className={!isPro ? "opacity-60" : ""}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Ship className="w-5 h-5 text-primary" />
-            Historial de Exportación
-            {isPro ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 border border-primary/20 text-primary rounded-full text-[10px] font-bold">
-                <ShieldCheck className="w-3 h-3" />
-                PRO
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-[10px] font-bold">
-                🔒 Requiere Plan Pro
-              </span>
-            )}
-          </CardTitle>
-          <CardDescription>
-            {isPro
-              ? "Sube fotos de tus contenedores y certificados de calidad para mostrarlos en tu perfil público."
-              : "Actualiza a Plan Pro para desbloquear esta función exclusiva."}
-          </CardDescription>
-        </CardHeader>
-        {isPro && (
-          <CardContent className="space-y-6">
-            {/* Upload Form */}
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Upload className="w-4 h-4 text-primary" />
-                Agregar nuevo elemento
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="export-type" className="text-xs">Tipo</Label>
-                  <select
-                    id="export-type"
-                    value={exportForm.type}
-                    onChange={(e) => setExportForm(prev => ({ ...prev, type: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="container_photo">📦 Foto de Contenedor</option>
-                    <option value="certificate">🏅 Certificado de Calidad</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="export-label" className="text-xs">Descripción</Label>
-                  <Input
-                    id="export-label"
-                    placeholder={exportForm.type === "certificate" ? "Ej: Global GAP, Orgánico USDA" : "Ej: Contenedor FCL a USA"}
-                    value={exportForm.label}
-                    onChange={(e) => setExportForm(prev => ({ ...prev, label: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="export-url" className="text-xs">URL de la imagen/documento</Label>
-                  <Input
-                    id="export-url"
-                    placeholder="https://..."
-                    value={exportForm.url}
-                    onChange={(e) => setExportForm(prev => ({ ...prev, url: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={async () => {
-                  if (!exportForm.url || !exportForm.label) return
-                  setUploadingExport(true)
-                  try {
-                    const res = await fetch("/api/user/upload-export-history", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(exportForm)
-                    })
-                    const data = await res.json()
-                    if (data.success) {
-                      setExportHistory(data.export_history)
-                      setExportForm({ url: "", type: "container_photo", label: "" })
-                      setSaveStatus({ type: "success", message: "¡Elemento agregado al historial de exportación!" })
-                    } else {
-                      setSaveStatus({ type: "error", message: data.error || "Error al agregar" })
-                    }
-                  } catch {
-                    setSaveStatus({ type: "error", message: "Error de conexión" })
-                  } finally {
-                    setUploadingExport(false)
-                  }
-                }}
-                disabled={uploadingExport || !exportForm.url || !exportForm.label}
-                className="gap-2"
-                size="sm"
-              >
-                {uploadingExport ? (
-                  <><Loader className="w-4 h-4 animate-spin" /> Guardando...</>
-                ) : (
-                  <><Upload className="w-4 h-4" /> Agregar</>
-                )}
-              </Button>
-            </div>
-
-            {/* Existing Items */}
-            {exportHistory.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Elementos actuales ({exportHistory.length})</h3>
-                {exportHistory.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center gap-3 p-3 border border-border rounded-lg bg-background">
-                    <div className="shrink-0">
-                      {item.type === "certificate" ? (
-                        <Award className="w-5 h-5 text-primary" />
-                      ) : (
-                        <Ship className="w-5 h-5 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.type === "certificate" ? "Certificado" : "Foto de contenedor"}
-                        {item.uploaded_at && ` • ${new Date(item.uploaded_at).toLocaleDateString("es-ES")}`}
-                      </p>
-                    </div>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline shrink-0"
-                    >
-                      Ver
-                    </a>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch("/api/user/delete-export-history", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ index })
-                          })
-                          const data = await res.json()
-                          if (data.success) {
-                            setExportHistory(data.export_history)
-                            setSaveStatus({ type: "success", message: "Elemento eliminado" })
-                          }
-                        } catch {
-                          setSaveStatus({ type: "error", message: "Error al eliminar" })
-                        }
-                      }}
-                      className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Ship className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No tienes elementos en tu historial de exportación.</p>
-                <p className="text-xs mt-1">Agrega fotos de contenedores o certificados para mostrarlos en tu perfil público.</p>
-              </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
-    </div>
-  )
+    </>}
+    <AlertDialog open={deleteIndex !== null} onOpenChange={open => { if (!open) setDeleteIndex(null) }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Retirar este documento?</AlertDialogTitle><AlertDialogDescription>«{deleteIndex === null ? "" : history[deleteIndex]?.label}» dejará de aparecer en tu perfil público.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Conservar documento</AlertDialogCancel><AlertDialogAction onClick={() => void deleteExport()} className="bg-destructive text-white hover:bg-destructive/90">Retirar documento</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+  </CommercePage>
 }

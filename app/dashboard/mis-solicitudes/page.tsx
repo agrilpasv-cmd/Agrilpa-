@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ProBadge } from "@/components/ui/pro-badge"
 import { createClient } from "@/lib/supabase/client"
 import { PRODUCT_CATEGORIES } from "@/lib/constants"
 import { CountryPicker, PhoneCodePicker } from "@/components/ui/country-picker"
@@ -31,7 +32,6 @@ import {
   Save,
   ImagePlus,
   Smile,
-  Crown,
   AlertCircle,
   Calendar,
   Globe,
@@ -289,9 +289,7 @@ export default function MisSolicitudesPage() {
           <p className="text-muted-foreground">
             Gestiona tus solicitudes de productos
             {isPro && (
-              <Badge className="ml-2 bg-amber-500 text-white text-[10px]">
-                <Crown className="w-3 h-3 mr-1" /> PRO
-              </Badge>
+              <ProBadge className="ml-2" />
             )}
           </p>
         </div>

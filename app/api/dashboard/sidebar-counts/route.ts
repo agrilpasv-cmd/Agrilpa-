@@ -26,9 +26,6 @@ export async function GET() {
         if (!session) {
             return NextResponse.json({ publicaciones: 0, cotizaciones: 0, pedidos: 0, compras: 0, ventas: 0, logistica: 0, transacciones: 0, mensajes: 0, contactanos: 0 })
         }
-        if (session.user.email === "menjivar124567890@gmail.com") {
-            return NextResponse.json({ publicaciones: 2, cotizaciones: 3, pedidos: 0, compras: 0, ventas: 0, logistica: 0, transacciones: 0, mensajes: 0, contactanos: 0 })
-        }
 
         const userId = session.user.id
 

@@ -19,6 +19,7 @@ export async function PUT(request: Request) {
             .from("users")
             .update({
                 full_name: fullName,
+                phone: phone,
                 company_name: company,
                 company_website: companyLink,
                 country: country,

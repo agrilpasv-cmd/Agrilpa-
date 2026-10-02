@@ -2,6 +2,7 @@
 
 import { Globe, MessageSquare, ShieldCheck, Lightbulb, Building2, ArrowLeftRight } from "lucide-react"
 import { motion } from "framer-motion"
+import { ControlCenterVideo } from "./control-center-video"
 
 export function About() {
   return (
@@ -89,25 +90,23 @@ export function About() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.7 }}
-            className="relative grid md:grid-cols-2 gap-8 lg:gap-12 items-center p-5 sm:p-7 lg:p-9"
+            className="relative grid lg:grid-cols-[0.9fr_1.1fr] gap-6 items-center p-5 sm:p-7 lg:p-8"
           >
-            {/* ── LEFT: text column ── */}
             <div className="min-w-0">
               <h3 className="text-2xl sm:text-3xl lg:text-[2.25rem] font-extrabold text-foreground leading-[1.18] mb-3 tracking-tight">
                 Tu centro de control{" "}
                 <span className="text-primary block sm:inline">agrícola.</span>
               </h3>
 
-              <p className="text-foreground/75 text-sm sm:text-base leading-relaxed mb-5 max-w-xl font-normal">
+              <p className="text-foreground/75 text-sm sm:text-base leading-relaxed font-normal mb-5">
                 Administra tus operaciones comerciales en un solo lugar: publicaciones, cotizaciones y contactos, todo
                 integrado para que puedas enfocarte en crecer.
               </p>
-
               <p className="text-foreground/70 font-bold text-xs uppercase tracking-widest mb-2.5">
                 Cómo funciona Agrilpa
               </p>
 
-              <ul className="space-y-2 sm:space-y-2.5">
+              <ul className="space-y-3">
                 {[
                   {
                     Icon: Lightbulb,
@@ -137,33 +136,23 @@ export function About() {
                 ].map(({ Icon, title, desc }, i) => (
                   <li
                     key={i}
-                    className="group flex items-center gap-3 sm:gap-3.5 bg-white rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 border border-slate-200/90 hover:border-primary/50 shadow-[0_2px_10px_-2px_rgba(18,48,22,0.05)] hover:shadow-[0_8px_18px_-4px_rgba(20,65,25,0.1)] transition-all"
+                    className="group flex items-center gap-3 sm:gap-3.5 bg-white rounded-xl sm:rounded-2xl px-4 py-3 border border-border hover:border-primary/50 shadow-sm transition-colors"
                   >
                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#f2f8f2] border border-[#e1f0e2] flex items-center justify-center shrink-0 group-hover:bg-[#e1f0e2] group-hover:scale-105 transition-all text-primary">
                       <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 group-hover:text-primary transition-colors leading-snug">
+                      <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-relaxed">
                         {title}:{" "}
-                        <span className="font-normal text-slate-600">{desc}</span>
+                        <span className="font-normal text-muted-foreground">{desc}</span>
                       </h4>
                     </div>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* ── RIGHT: image column ── */}
-            <div className="relative flex items-center justify-center">
-              <div className="relative rounded-2xl md:rounded-3xl overflow-hidden shadow-[0_20px_50px_-15px_rgba(22,60,26,0.18),0_10px_20px_-10px_rgba(0,0,0,0.08)] border border-slate-200/90 bg-white w-full transition-transform duration-500 hover:scale-[1.01]">
-                <img
-                  src="/dashboard-preview.png"
-                  alt="Plataforma Agrilpa"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-auto object-cover"
-                />
-              </div>
+            <div className="relative w-full min-w-0">
+              <ControlCenterVideo />
             </div>
           </motion.div>
         </div>

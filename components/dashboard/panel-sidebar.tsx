@@ -48,7 +48,7 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
       className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "bg-muted/40 text-foreground" : "text-foreground hover:bg-muted/40 hover:text-foreground"}`}>
       <Icon aria-hidden="true" className={`h-[22px] w-[22px] shrink-0 ${active ? "text-foreground" : "text-muted-foreground"}`} strokeWidth={1.7} />
       <span className="flex-1">{item.label}</span>
-      {!!item.notifications && item.notifications > 0 && <span aria-label={`${item.notifications} notificaciones`} className="min-w-6 rounded-full border border-border bg-background px-1.5 py-0.5 text-center text-xs text-foreground">{item.notifications > 99 ? "99+" : item.notifications}</span>}
+      {!!item.notifications && item.notifications > 0 && <span aria-label={`${item.notifications} notificaciones`} className="inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-red-600 px-1.5 text-center text-xs font-bold text-white shadow-sm">{item.notifications > 99 ? "99+" : item.notifications}</span>}
     </Link>
   }
   const contents = (mobile: boolean) => <>

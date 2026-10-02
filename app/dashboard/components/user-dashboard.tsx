@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { dashboardToday, isDashboardDate, readDashboardFilters, shiftDashboardDate } from "@/lib/dashboard/period"
-import { dashboardReport } from "@/lib/dashboard/report"
 import { DayPicker } from "react-day-picker"
 import { es } from "date-fns/locale"
 import styles from "./user-dashboard.module.css"
@@ -95,6 +94,8 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
   const [currencyChoice, setCurrencyChoice] = useState("USD")
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [dateDraft, setDateDraft] = useState("")
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState("")
   const gradientId = `activity-${useId().replace(/:/g, "")}`
   useEffect(() => {
     try { const stored = localStorage.getItem(`agrilpa-dashboard-mode:${data.userId}`); setRole(stored === "seller" || stored === "buyer" ? stored : data.defaultRole) } catch { setRole(data.defaultRole) }
@@ -117,12 +118,28 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
   const displayEnd = data.period.historical ? new Date(new Date(data.period.end).getTime() - 1).toISOString() : data.period.end
   const changeEndDate = (value: string) => { onEndDateChange?.(value >= today ? "" : value); setDatePickerOpen(false) }
   const matchesSelection = data.period.days === days && data.period.endDate === selectedEnd
-  const exportReport = () => {
-    const url = URL.createObjectURL(new Blob([dashboardReport(data, role)], { type: "text/csv;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url; link.download = `agrilpa-${role === "seller" ? "ventas" : "compras"}-${data.period.days}dias-${data.period.endDate}.csv`
-    document.body.appendChild(link); link.click(); link.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const exportReport = async () => {
+    if (exporting || loading || !matchesSelection || error) return
+    setExporting(true); setExportError("")
+    try {
+      const { dashboardExcelReport } = await import("@/lib/dashboard/report-workbook")
+      // Resolve the same primary color used by the dashboard, including OKLCH.
+      const context = document.createElement("canvas").getContext("2d")
+      let accent = "8BC646"
+      if (context) {
+        context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()
+        context.fillRect(0, 0, 1, 1)
+        accent = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).map(v => v.toString(16).padStart(2, "0")).join("")
+      }
+      const bytes = dashboardExcelReport(data, role, accent)
+      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }))
+      const link = document.createElement("a")
+      link.href = url; link.download = `agrilpa-${role === "seller" ? "ventas" : "compras"}-${data.period.days}dias-${data.period.endDate}.xlsx`
+      document.body.appendChild(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setExportError("No pudimos crear el informe Excel. Vuelve a intentarlo.")
+    } finally { setExporting(false) }
   }
   const metricCard = (metric: DashboardMetric) => {
     const money = metric.id === "amount", value = money ? monetaryValue : metric.value, previous = money ? monetaryPrevious : metric.previous
@@ -138,7 +155,7 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
   return <div className={styles.dashboard} aria-busy={loading}>
     <header className={styles.header}>
       <div><div className={styles.eyebrow}>MI DASHBOARD</div><h1>Resumen de tu negocio</h1><div className={styles.profileIdentity}><Link href="/dashboard/perfil" aria-label="Ver mi perfil"><Avatar className="h-11 w-11"><AvatarImage src={data.avatarUrl || undefined} alt={`Foto de perfil de ${data.companyName}`} className="object-cover" /><AvatarFallback className="bg-muted text-sm text-foreground">{data.companyName.trim().slice(0, 2).toUpperCase()}</AvatarFallback></Avatar></Link><p>{data.companyName} <span className={styles.dot}>·</span> Tu actividad comercial en Agrilpa</p></div></div>
-      <Link href={actionHref} className={styles.blackButton}>{role === "seller" ? <Plus size={18} aria-hidden="true" /> : <ShoppingBag size={18} aria-hidden="true" />}{role === "seller" ? "Publicar producto" : "Explorar productos"}</Link>
+      <Link href={actionHref} className={styles.greenButton}>{role === "seller" ? <Plus size={18} aria-hidden="true" /> : <ShoppingBag size={18} aria-hidden="true" />}{role === "seller" ? "Publicar producto" : "Explorar productos"}</Link>
     </header>
     <div className={styles.toolbar}>
       <div className={styles.roles} role="group" aria-label="Actividad del dashboard"><button aria-pressed={role === "seller"} onClick={() => changeRole("seller")} className={role === "seller" ? styles.selectedRole : ""}><Store size={18} aria-hidden="true" />Vender</button><button aria-pressed={role === "buyer"} onClick={() => changeRole("buyer")} className={role === "buyer" ? styles.selectedRole : ""}><ShoppingBag size={18} aria-hidden="true" />Comprar</button></div>
@@ -151,8 +168,10 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
         <button className={styles.refreshButton} disabled={loading || !onEndDateChange || !endDate} aria-label="Consultar período siguiente" onClick={() => changeEndDate(shiftDashboardDate(selectedEnd, days))}><ArrowRight size={18} /></button>
         {endDate && <button className={styles.outlineButton} disabled={loading} onClick={() => changeEndDate("")}>Volver a hoy</button>}
       </div>
-      <button className={styles.outlineButton} disabled={loading || !matchesSelection || !!error} onClick={exportReport}><Download size={16} aria-hidden="true" />Descargar informe</button>
+      <button className={styles.outlineButton} title="Descargar Excel con tablas y gráficos" disabled={exporting || loading || !matchesSelection || !!error} onClick={exportReport}><Download size={16} aria-hidden="true" />{exporting ? "Preparando Excel…" : "Descargar informe"}</button>
     </div>
+    {exporting && <p className={styles.updateStatus} role="status">Preparando tu informe con tablas y gráficos…</p>}
+    {exportError && <p className={styles.inlineError} role="alert">{exportError}</p>}
     <p className={styles.periodNote}>Comparación: {date(data.period.previousStart)} — {dateWithYear(data.period.historical ? new Date(new Date(data.period.previousEnd).getTime() - 1).toISOString() : data.period.previousEnd)}. Estados y visitas acumuladas: situación actual.</p>
     {error && <div className={styles.inlineError} role="alert">{error} Se conserva la última consulta. <button onClick={onRefresh}>Reintentar</button></div>}
     {loading && <p className={styles.updateStatus} role="status">Actualizando métricas…</p>}

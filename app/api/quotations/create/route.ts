@@ -1,191 +1,51 @@
-import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import { sendNewQuotationNotification } from "@/lib/email"
-
-export const dynamic = 'force-dynamic'
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { emptyQuotationRequest, quotationProductTerms, validateQuotation, type QuotationRequest } from "@/lib/quotations"
 
 export async function POST(request: Request) {
-    try {
-        const body = await request.json()
-        const {
-            productId,
-            productTitle,
-            productImage,
-            sellerId,
-            buyerName,
-            contactMethod,
-            countryCode,
-            phoneNumber,
-            email,
-            quantity,
-            destinationCountry,
-            estimatedDate,
-            notes,
-            targetPrice,
-            incoterm,
-            currency,
-            buyerId,
-            containerSize
-        } = body
-
-        // Validate required fields
-        const missingFields = []
-        if (!productId) missingFields.push("productId")
-        if (!sellerId) missingFields.push("sellerId")
-        if (!buyerName) missingFields.push("buyerName")
-        if (!quantity) missingFields.push("quantity")
-        if (!destinationCountry) missingFields.push("destinationCountry")
-        if (!estimatedDate) missingFields.push("estimatedDate")
-
-        if (missingFields.length > 0) {
-            return NextResponse.json({
-                error: "Faltan campos requeridos",
-                missingFields,
-                details: `Los siguientes campos son obligatorios: ${missingFields.join(", ")}`
-            }, { status: 400 })
-        }
-
-        // Validate contact info
-        if (contactMethod === "WhatsApp" && (!countryCode || !phoneNumber)) {
-            return NextResponse.json({ error: "Missing WhatsApp contact info" }, { status: 400 })
-        }
-        if (contactMethod === "Email" && !email) {
-            return NextResponse.json({ error: "Missing email" }, { status: 400 })
-        }
-
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        )
-
-        // First, check if the quotations table exists by trying to insert
-        const { data, error } = await supabaseAdmin
-            .from("quotations")
-            .insert([
-                {
-                    product_id: productId,
-                    product_title: productTitle,
-                    product_image: productImage,
-                    seller_id: sellerId,
-                    buyer_name: buyerName,
-                    contact_method: contactMethod,
-                    country_code: countryCode || null,
-                    phone_number: phoneNumber || null,
-                    email: email || null,
-                    quantity: parseInt(quantity),
-                    destination_country: destinationCountry,
-                    estimated_date: estimatedDate,
-                    notes: notes || null,
-                    target_price: targetPrice ? parseFloat(targetPrice) : null,
-                    incoterm: incoterm || null,
-                    currency: currency || "USD",
-                    buyer_id: buyerId || null,
-                    container_size: containerSize || null,
-                    status: "pending",
-                    created_at: new Date().toISOString()
-                }
-            ])
-            .select()
-
-        if (error) {
-            console.error("Error creating quotation:", error)
-
-            // If columns don't exist
-            const isMissingColumn = (error.message.includes("column") && error.message.includes("does not exist")) ||
-                (error.message.includes("column") && error.message.includes("schema cache"))
-
-            if (isMissingColumn) {
-                return NextResponse.json({
-                    error: "Faltan columnas en la tabla 'quotations' o el esquema está desactualizado.",
-                    sqlToRun: `
--- Ejecuta esto en el SQL Editor de Supabase
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS target_price NUMERIC;
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS incoterm TEXT;
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'USD';
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS buyer_id UUID;
-ALTER TABLE quotations ADD COLUMN IF NOT EXISTS container_size TEXT;
-
--- Notifica a PostgREST del cambio
-NOTIFY pgrst, 'reload schema';
-`
-                }, { status: 500 })
-            }
-
-            // If table doesn't exist, we need to create it
-            if (error.message.includes("relation") && error.message.includes("does not exist")) {
-                return NextResponse.json({
-                    error: "Quotations table not found. Please create it in Supabase.",
-                    sqlToRun: `
-CREATE TABLE quotations (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    product_id UUID NOT NULL,
-    product_title TEXT,
-    product_image TEXT,
-    seller_id UUID NOT NULL,
-    buyer_name TEXT NOT NULL,
-    contact_method TEXT NOT NULL,
-    country_code TEXT,
-    phone_number TEXT,
-    email TEXT,
-    quantity INTEGER NOT NULL,
-    destination_country TEXT NOT NULL,
-    estimated_date DATE NOT NULL,
-    notes TEXT,
-    target_price NUMERIC,
-    incoterm TEXT,
-    currency TEXT DEFAULT 'USD',
-    is_read BOOLEAN DEFAULT false,
-    container_size TEXT,
-    status TEXT DEFAULT 'pending',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE quotations ENABLE ROW LEVEL SECURITY;
-
--- Policy to allow service role to do everything
-CREATE POLICY "Service role can manage quotations" ON quotations FOR ALL USING (true);
-                    `
-                }, { status: 500 })
-            }
-
-            return NextResponse.json({ error: "Failed to create quotation", details: error.message }, { status: 500 })
-        }
-
-        console.log("Quotation created successfully:", data)
-
-        // Send email notification to seller
-        try {
-            const { data: seller } = await supabaseAdmin
-                .from("users")
-                .select("email, full_name, company_name")
-                .eq("id", sellerId)
-                .single()
-
-            if (seller?.email) {
-                console.log("[Quotation Create] Sending email to seller:", seller.email)
-                const emailResult = await sendNewQuotationNotification({
-                    sellerEmail: seller.email,
-                    sellerName: seller.company_name || seller.full_name || "Vendedor",
-                    buyerName: buyerName,
-                    productName: productTitle,
-                    quantity: parseInt(quantity),
-                    targetPrice: targetPrice ? parseFloat(targetPrice) : undefined,
-                    location: destinationCountry,
-                })
-                console.log("[Quotation Create] Email send result:", emailResult)
-            } else {
-                console.warn("[Quotation Create] No email found for seller ID:", sellerId)
-            }
-        } catch (emailErr) {
-            console.error("[Email] Error fetching seller for quotation notification:", emailErr)
-        }
-
-        return NextResponse.json({ success: true, quotation: data[0] })
-
-    } catch (error) {
-        console.error("Error in create-quotation:", error)
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+  try {
+    const auth = await createClient()
+    const {data: {user}} = await auth.auth.getUser()
+    if (!user) return NextResponse.json({error: "Inicia sesión para solicitar una cotización."}, {status: 401})
+    const body = await request.json()
+    if (!body || typeof body.productId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.productId)) return NextResponse.json({error: "El producto no es válido."}, {status: 400})
+    const admin = createAdminClient()
+    const {data: product, error: productError} = await admin.from("user_products").select("*").eq("id", body.productId).maybeSingle()
+    if (productError) return NextResponse.json({error: "No pudimos comprobar el producto."}, {status: 500})
+    if (!product) return NextResponse.json({error: "Este producto ya no está disponible."}, {status: 404})
+    if (product.user_id === user.id) return NextResponse.json({error: "No puedes cotizar tu propio producto."}, {status: 400})
+    const values = {...emptyQuotationRequest}
+    for (const key of Object.keys(values) as (keyof QuotationRequest)[]) {
+      if (key !== "dateFlexible") values[key] = typeof body[key] === "string" || typeof body[key] === "number" ? String(body[key]) : emptyQuotationRequest[key]
     }
+    values.dateFlexible = body.dateFlexible === true
+    const containers = product.shipping_unit_type === "FCL"
+    const {minimum,unit}=quotationProductTerms(product)
+    const errors = validateQuotation(values, minimum, containers)
+    if (containers && ["20ST", "40HC"].includes(product.container_size) && values.containerSize !== product.container_size) errors.containerSize = "Elige el contenedor disponible para este producto."
+    if (Object.keys(errors).length) return NextResponse.json({error: "Revisa los datos de tu solicitud.", fields: errors}, {status: 400})
+    const {data: buyer} = await admin.from("users").select("full_name, company_name").eq("id", user.id).maybeSingle()
+    const buyerName = buyer?.company_name || buyer?.full_name || user.user_metadata?.full_name
+    if (!buyerName) return NextResponse.json({error: "Completa tu nombre en Mi Perfil antes de cotizar."}, {status: 400})
+    const {data: quotation, error} = await admin.from("quotations").insert({
+      product_id: product.id, product_title: product.title, product_image: product.image || null,
+      seller_id: product.user_id, buyer_id: user.id, buyer_name: buyerName,
+      contact_method: "platform", email: user.email || null, country_code: null, phone_number: null,
+      quantity: Number(values.quantity), quantity_unit: unit,
+      container_size: containers ? values.containerSize : null,
+      destination_country: values.destinationCountry.trim(), destination_location: values.deliveryMethod === "delivery" ? values.destinationLocation.trim() : null,
+      delivery_method: values.deliveryMethod, estimated_date: values.estimatedDate, date_flexible: values.dateFlexible,
+      purchase_frequency: values.purchaseFrequency, notes: values.notes.trim() || null,
+      target_price: values.targetPrice.trim() ? Number(values.targetPrice) : null, currency: values.currency,
+      incoterm: values.incoterm || null, status: "pending", is_read: false,
+    }).select("id").single()
+    if (error) {
+      console.error("[Quotation create]", error.code)
+      return NextResponse.json({error: "No pudimos guardar la solicitud. Inténtalo de nuevo más tarde."}, {status: 500})
+    }
+    return NextResponse.json({success: true, quotation: {id: quotation.id}}, {status: 201})
+  } catch {
+    return NextResponse.json({error: "No pudimos procesar la solicitud."}, {status: 400})
+  }
 }
