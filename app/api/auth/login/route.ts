@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     let role = profile?.role || "user"
-    if (email === "agrilpasv@gmail.com") {
+    if (email === "agrilpasv@gmail.com" || profile?.role === "admin") {
       role = "admin"
     }
 

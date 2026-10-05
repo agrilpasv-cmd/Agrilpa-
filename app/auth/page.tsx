@@ -417,12 +417,19 @@ function AuthPageContent() {
 
         console.log("[Agrilpa] User logged in:", data.user.id, data.user.email)
 
-        const isAdmin = data.user.email === "agrilpasv@gmail.com"
-        const role = isAdmin ? "admin" : "user"
+        // Consultar el rol real del usuario en la base de datos
+        const { data: profile } = await supabaseRef.current
+          .from("users")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle()
+
+        const isAdmin = profile?.role === "admin" || data.user.email === "agrilpasv@gmail.com"
+        const role = isAdmin ? "admin" : (profile?.role || "user")
         AuthStorage.setSession(data.user.id, data.user.email || "", role)
 
         const redirectTo = searchParams.get("redirectTo") || (isAdmin ? "/admin" : "/dashboard")
-        console.log(`[Agrilpa] Login successful, redirecting to ${redirectTo}`)
+        console.log(`[Agrilpa] Login successful (role: ${role}), redirecting to ${redirectTo}`)
         
         setSubmitted(true)
         trackActivity('login', 'Inicio de sesión exitoso')

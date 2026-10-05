@@ -28,7 +28,13 @@ export async function POST(request: Request) {
         )
 
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user || !ADMIN_EMAILS.includes(user.email || "")) {
+        if (!user) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+        }
+
+        const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle()
+        const isAdmin = profile?.role === "admin" || ADMIN_EMAILS.includes(user.email || "")
+        if (!isAdmin) {
             return NextResponse.json({ error: "No autorizado" }, { status: 401 })
         }
 

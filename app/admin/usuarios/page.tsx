@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -13,7 +13,17 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, RefreshCw, Trash2, AlertTriangle, Download } from "lucide-react"
+import {
+  Loader2,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  Download,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Search,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface User {
@@ -25,6 +35,7 @@ interface User {
   country: string
   state?: string
   user_type: string
+  user_sub_type?: string
   role: string
   created_at: string
   products_of_interest?: string[]
@@ -39,6 +50,7 @@ interface User {
   how_heard_about_us?: string
   how_heard_other?: string
   last_sign_in_at?: string | null
+  plan_type?: string
 }
 
 const formatLastSignIn = (dateString?: string | null) => {
@@ -90,6 +102,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
   const { toast } = useToast()
 
   // Delete dialog state
@@ -97,6 +111,12 @@ export default function AdminUsersPage() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Admin Role Toggle Modal State
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false)
+  const [userForAdminDialog, setUserForAdminDialog] = useState<User | null>(null)
+  const [adminAction, setAdminAction] = useState<"grant" | "revoke">("grant")
+  const [isUpdatingAdmin, setIsUpdatingAdmin] = useState(false)
 
   const fetchUsers = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -125,7 +145,7 @@ export default function AdminUsersPage() {
     }
   }, [])
 
-    useEffect(() => {
+  useEffect(() => {
     fetchUsers(true)
 
     // Reduced polling frequency for mobile performance
@@ -147,21 +167,74 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ userId, role: newRole }),
       })
 
-      if (!response.ok) throw new Error("Failed to update role")
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "No se pudo actualizar el rol")
 
       toast({
         title: "Rol actualizado",
-        description: "El rol del usuario ha sido actualizado exitosamente",
+        description: `El rol del usuario ha sido actualizado a "${newRole}" exitosamente`,
       })
 
+      // Optimistic update
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      )
       await fetchUsers(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating role:", error)
       toast({
-        title: "Error",
-        description: "No se pudo actualizar el rol del usuario",
+        title: "Error al actualizar rol",
+        description: error.message || "No se pudo actualizar el rol del usuario",
         variant: "destructive",
       })
+    }
+  }
+
+  const openAdminModal = (user: User, action: "grant" | "revoke") => {
+    setUserForAdminDialog(user)
+    setAdminAction(action)
+    setAdminDialogOpen(true)
+  }
+
+  const handleConfirmAdminChange = async () => {
+    if (!userForAdminDialog) return
+
+    const newRole = adminAction === "grant" ? "admin" : "user"
+    setIsUpdatingAdmin(true)
+    try {
+      const response = await fetch("/api/admin/update-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: userForAdminDialog.id, role: newRole }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "No se pudo actualizar los permisos")
+
+      toast({
+        title: adminAction === "grant" ? "¡Nuevo Administrador asignado!" : "Permisos revocados",
+        description:
+          adminAction === "grant"
+            ? `${userForAdminDialog.full_name} ahora tiene acceso completo como Administrador.`
+            : `Se han quitado los permisos de Administrador a ${userForAdminDialog.full_name}.`,
+      })
+
+      // Optimistic update
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userForAdminDialog.id ? { ...u, role: newRole } : u))
+      )
+      setAdminDialogOpen(false)
+      setUserForAdminDialog(null)
+      await fetchUsers(false)
+    } catch (error: any) {
+      console.error("Error changing admin status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo cambiar el estado de administrador",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdatingAdmin(false)
     }
   }
 
@@ -247,7 +320,6 @@ export default function AdminUsersPage() {
       })
     ].join("\n")
 
-    // Adding BOM for Excel UTF-8 compatibility
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
     const url = URL.createObjectURL(blob)
@@ -257,6 +329,33 @@ export default function AdminUsersPage() {
     link.click()
     document.body.removeChild(link)
   }
+
+  // Filter users by search term and role
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      // Role filter
+      if (roleFilter !== "all") {
+        if (roleFilter === "admin" && user.role !== "admin") return false
+        if (roleFilter === "vendedor" && user.role !== "vendedor") return false
+        if (roleFilter === "comprador" && user.role !== "comprador") return false
+        if (roleFilter === "user" && user.role !== "user" && user.role) return false
+      }
+
+      // Search query
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase().trim()
+        const matchName = user.full_name?.toLowerCase().includes(query)
+        const matchEmail = user.email?.toLowerCase().includes(query)
+        const matchCompany = user.company_name?.toLowerCase().includes(query)
+        const matchCountry = user.country?.toLowerCase().includes(query)
+        return matchName || matchEmail || matchCompany || matchCountry
+      }
+
+      return true
+    })
+  }, [users, roleFilter, searchTerm])
+
+  const adminCount = useMemo(() => users.filter((u) => u.role === "admin").length, [users])
 
   if (loading && users.length === 0) {
     return (
@@ -268,10 +367,10 @@ export default function AdminUsersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">Administra los usuarios registrados en la plataforma</p>
+          <p className="text-muted-foreground">Administra los usuarios registrados y los roles de administrador</p>
         </div>
         <div className="flex items-center gap-2">
           {lastUpdate && (
@@ -279,7 +378,13 @@ export default function AdminUsersPage() {
               Última actualización: {lastUpdate.toLocaleTimeString()}
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={loading || users.length === 0} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={loading || users.length === 0}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+          >
             <Download className="w-4 h-4 mr-2" />
             Descargar CSV
           </Button>
@@ -292,12 +397,75 @@ export default function AdminUsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Usuarios Registrados</CardTitle>
-          <CardDescription>Total de usuarios: {users.length}</CardDescription>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Usuarios Registrados</CardTitle>
+              <CardDescription>
+                Mostrando {filteredUsers.length} de {users.length} usuarios ({adminCount} administradores)
+              </CardDescription>
+            </div>
+
+            {/* Quick search and filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre, email, país..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter("all")}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                    roleFilter === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Todos ({users.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter("admin")}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
+                    roleFilter === "admin"
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-purple-700 hover:text-purple-800"
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Admins ({adminCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter("vendedor")}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                    roleFilter === "vendedor" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Vendedores
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter("comprador")}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                    roleFilter === "comprador" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Compradores
+                </button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No hay usuarios registrados</div>
+          {filteredUsers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {users.length === 0 ? "No hay usuarios registrados" : "No se encontraron usuarios con los filtros aplicados"}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -322,19 +490,31 @@ export default function AdminUsersPage() {
                     <th className="text-left p-4 font-medium">Plan</th>
                     <th className="text-left p-4 font-medium">Registro</th>
                     <th className="text-left p-4 font-medium">Última Sesión</th>
-                    <th className="text-left p-4 font-medium">Acción</th>
+                    <th className="text-left p-4 font-medium">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4">{user.full_name}</td>
+                  {filteredUsers.map((user) => (
+                    <tr
+                      key={user.id}
+                      className={`border-b hover:bg-muted/50 ${
+                        user.role === "admin" ? "bg-purple-50/40 dark:bg-purple-950/20" : ""
+                      }`}
+                    >
+                      <td className="p-4 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          {user.role === "admin" && (
+                            <ShieldCheck className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                          )}
+                          <span>{user.full_name}</span>
+                        </div>
+                      </td>
                       <td className="p-4">{user.email}</td>
                       <td className="p-4">{user.company_name || "-"}</td>
                       <td className="p-4">
                         {user.company_website ? (
                           <a
-                            href={user.company_website.startsWith('http') ? user.company_website : `https://${user.company_website}`}
+                            href={user.company_website.startsWith("http") ? user.company_website : `https://${user.company_website}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline text-sm truncate max-w-[150px] inline-block"
@@ -349,7 +529,7 @@ export default function AdminUsersPage() {
                         {user.country_code && user.metadata_phone_number
                           ? `+${user.country_code} ${user.metadata_phone_number}`
                           : user.phone
-                            ? (user.phone.startsWith('+') ? user.phone : `+${user.phone}`)
+                            ? (user.phone.startsWith("+") ? user.phone : `+${user.phone}`)
                             : "-"
                         }
                       </td>
@@ -358,8 +538,6 @@ export default function AdminUsersPage() {
                       <td className="p-4 min-w-[200px] whitespace-normal break-words">{user.address || "-"}</td>
                       <td className="p-4">
                         {(() => {
-                          // La pregunta de certificados se activó el 10 de abril 2026.
-                          // Usuarios anteriores a esa fecha con false = nunca se les preguntó.
                           const CERT_QUESTION_DATE = new Date("2026-04-10T00:00:00Z")
                           const userCreatedAt = new Date(user.created_at)
                           const wasAsked = userCreatedAt >= CERT_QUESTION_DATE
@@ -378,7 +556,6 @@ export default function AdminUsersPage() {
                               </span>
                             )
                           }
-                          // null o false en usuario viejo (antes del campo)
                           return <span className="text-muted-foreground text-xs">Sin respuesta</span>
                         })()}
                       </td>
@@ -448,21 +625,36 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                       <td className="p-4">
-                        <Select value={user.role || "user"} onValueChange={(value) => handleRoleChange(user.id, value)}>
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">Usuario</SelectItem>
-                            <SelectItem value="vendedor">Vendedor</SelectItem>
-                            <SelectItem value="comprador">Comprador</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-col gap-1.5 min-w-[140px]">
+                          {user.role === "admin" ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200 shadow-sm flex items-center w-fit gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" /> Administrador
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium text-muted-foreground w-fit">
+                              {user.role === "vendedor"
+                                ? "Vendedor"
+                                : user.role === "comprador"
+                                  ? "Comprador"
+                                  : "Usuario estándar"}
+                            </span>
+                          )}
+                          <Select value={user.role || "user"} onValueChange={(value) => handleRoleChange(user.id, value)}>
+                            <SelectTrigger className="w-[130px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">Usuario</SelectItem>
+                              <SelectItem value="vendedor">Vendedor</SelectItem>
+                              <SelectItem value="comprador">Comprador</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </td>
                       <td className="p-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.plan_type === 'pro' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {(user.plan_type || 'gratis').toUpperCase()}
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.plan_type === "pro" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+                          {(user.plan_type || "gratis").toUpperCase()}
                         </span>
                       </td>
                       <td className="p-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -472,14 +664,48 @@ export default function AdminUsersPage() {
                         {formatLastSignIn(user.last_sign_in_at)}
                       </td>
                       <td className="p-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openDeleteDialog(user)}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {user.email === "agrilpasv@gmail.com" ? (
+                            <span
+                              className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded px-2 py-1 flex items-center gap-1 shadow-sm"
+                              title="Administrador Principal protegido"
+                            >
+                              <Shield className="w-3 h-3" /> Principal
+                            </span>
+                          ) : user.role === "admin" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openAdminModal(user, "revoke")}
+                              className="text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800 h-8 px-2 text-xs flex items-center gap-1 font-medium"
+                              title="Quitar rol de Administrador"
+                            >
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              <span>Quitar Admin</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openAdminModal(user, "grant")}
+                              className="text-purple-700 border-purple-300 hover:bg-purple-50 hover:text-purple-800 h-8 px-2 text-xs flex items-center gap-1 font-medium"
+                              title="Hacer Administrador a este usuario"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>Hacer Admin</span>
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openDeleteDialog(user)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                            title="Eliminar usuario"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -490,13 +716,121 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
+      {/* Admin Privilege Dialog (Grant / Revoke) */}
+      <Dialog
+        open={adminDialogOpen}
+        onOpenChange={(open) => {
+          if (!isUpdatingAdmin) {
+            setAdminDialogOpen(open)
+            if (!open) setUserForAdminDialog(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className={`p-3 rounded-full ${
+                  adminAction === "grant"
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {adminAction === "grant" ? (
+                  <ShieldCheck className="w-6 h-6" />
+                ) : (
+                  <ShieldAlert className="w-6 h-6" />
+                )}
+              </div>
+              <DialogTitle className="text-xl">
+                {adminAction === "grant"
+                  ? "Hacer Administrador"
+                  : "Quitar rol de Administrador"}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-base space-y-2">
+              {adminAction === "grant" ? (
+                <>
+                  <p>
+                    ¿Estás seguro de que deseas otorgar permisos de{" "}
+                    <span className="font-semibold text-purple-700">Administrador</span> a:
+                  </p>
+                  <div className="bg-muted rounded-lg p-3 mt-2">
+                    <p className="font-bold text-foreground">{userForAdminDialog?.full_name}</p>
+                    <p className="text-sm text-muted-foreground">{userForAdminDialog?.email}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Este usuario tendrá acceso completo a todas las secciones del panel de
+                    administración, incluyendo usuarios, pedidos, productos y configuraciones.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    ¿Estás seguro de que deseas quitar los permisos de{" "}
+                    <span className="font-semibold text-amber-700">Administrador</span> a:
+                  </p>
+                  <div className="bg-muted rounded-lg p-3 mt-2">
+                    <p className="font-bold text-foreground">{userForAdminDialog?.full_name}</p>
+                    <p className="text-sm text-muted-foreground">{userForAdminDialog?.email}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    El usuario pasará a ser un usuario estándar y ya no podrá ingresar al panel de
+                    administración.
+                  </p>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAdminDialogOpen(false)
+                setUserForAdminDialog(null)
+              }}
+              disabled={isUpdatingAdmin}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={adminAction === "grant" ? "default" : "destructive"}
+              className={adminAction === "grant" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
+              onClick={handleConfirmAdminChange}
+              disabled={isUpdatingAdmin}
+            >
+              {isUpdatingAdmin ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Actualizando...
+                </>
+              ) : adminAction === "grant" ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Sí, hacer Administrador
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-4 h-4 mr-2" />
+                  Sí, quitar Administrador
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
-        if (!isDeleting) {
-          setDeleteDialogOpen(open)
-          if (!open) setDeleteConfirmText("")
-        }
-      }}>
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) {
+            setDeleteDialogOpen(open)
+            if (!open) setDeleteConfirmText("")
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">

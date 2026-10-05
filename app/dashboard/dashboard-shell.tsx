@@ -315,7 +315,7 @@ export default function DashboardShell({
 
     const adminMenuItems = [
         { href: "/", label: "Inicio", icon: Home, notifications: 0 },
-        { href: "/dashboard", label: "Admin Dashboard", icon: LayoutDashboard, notifications: 0 },
+        { href: "/admin", label: "Dashboard", icon: LayoutDashboard, notifications: 0 },
         { href: "/admin/hero", label: "Hero (Banners)", icon: ImageIcon, notifications: 0 },
         { href: "/admin/actividad", label: "Registro de Actividad", icon: Activity, notifications: 0 },
         { href: "/admin/usuarios", label: "Gestión de Usuarios", icon: Users, notifications: 0 },
