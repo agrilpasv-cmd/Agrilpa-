@@ -29,9 +29,20 @@ export function Navbar() {
   const router = useRouter()
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      router.push(`/auth/reset-password${window.location.hash}`)
+      return
+    }
+
+    const supabase = createBrowserClient()
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        router.push("/auth/reset-password")
+      }
+    })
+
     const syncAuth = async () => {
       try {
-        const supabase = createBrowserClient()
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
@@ -78,8 +89,11 @@ export function Navbar() {
       }
     }, 60000)
     
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      clearInterval(interval)
+      authListener?.subscription?.unsubscribe()
+    }
+  }, [router])
 
   // Close popup when clicking outside
   useEffect(() => {

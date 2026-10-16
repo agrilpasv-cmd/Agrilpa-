@@ -1,4 +1,6 @@
 import { Resend } from 'resend'
+import { buildPasswordResetEmail } from './emails/password-reset'
+import agrilpaEmailLogo from './emails/agrilpa-logo.json'
 
 const getResendClient = () => {
     if (!process.env.RESEND_API_KEY) {
@@ -536,6 +538,47 @@ export async function sendUnreadChatReminderEmail({
         return { success: true, data }
     } catch (err: any) {
         console.error('[Email] Failed to send 24h chat reminder:', err)
+        return { success: false, error: { message: err.message } }
+    }
+}
+
+/**
+ * Send password reset email with custom Agrilpa branding
+ */
+export async function sendPasswordResetEmail({
+    recipientEmail,
+    recipientName,
+    resetUrl,
+}: {
+    recipientEmail: string
+    recipientName: string
+    resetUrl: string
+}) {
+    try {
+        const resend = getResendClient()
+        const { subject, html, text } = buildPasswordResetEmail({ recipientName, resetUrl })
+
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
+            to: recipientEmail,
+            subject,
+            html,
+            text,
+            attachments: [{
+                filename: 'agrilpa-logo.png',
+                content: agrilpaEmailLogo.content,
+                contentType: 'image/png',
+                contentId: 'agrilpa-logo',
+            }],
+        })
+
+        if (error) {
+            console.error('[Email] Error sending password reset email:', error)
+            return { success: false, error }
+        }
+        return { success: true, data }
+    } catch (err: any) {
+        console.error('[Email] Failed to send password reset email:', err)
         return { success: false, error: { message: err.message } }
     }
 }

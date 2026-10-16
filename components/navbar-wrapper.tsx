@@ -10,7 +10,7 @@ export function NavbarWrapper() {
     pathname === "/" ||
     pathname?.startsWith("/dashboard") ||
     pathname?.startsWith("/admin") ||
-    pathname === "/auth" ||
+    pathname?.startsWith("/auth") ||
     pathname?.startsWith("/productor/registro")
 
   if (shouldHideNavbar) {

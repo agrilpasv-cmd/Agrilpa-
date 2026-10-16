@@ -30,6 +30,19 @@ export default function ComingSoon() {
   useEffect(() => {
     window.scrollTo(0, 0)
 
+    // Intercept password recovery links that Supabase may redirect to the home page
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      router.push(`/auth/reset-password${window.location.hash}`)
+      return
+    }
+
+    const supabase = createBrowserClient()
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        router.push("/auth/reset-password")
+      }
+    })
+
     const checkAuth = async () => {
       try {
         const localSession = AuthStorage.getSession()
@@ -38,7 +51,6 @@ export default function ComingSoon() {
           // Removed automatic redirect for admins to allow viewing home page
         }
 
-        const supabase = createBrowserClient()
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -75,6 +87,10 @@ export default function ComingSoon() {
       }
     }
     checkSubscription()
+
+    return () => {
+      authListener?.subscription?.unsubscribe()
+    }
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {

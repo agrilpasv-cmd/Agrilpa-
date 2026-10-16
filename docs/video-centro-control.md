@@ -24,6 +24,6 @@ npx remotion render AgrilpaControlCenter ../public/centro-control-agrilpa-v1.mp4
 
 Cada escena también tiene una composición independiente en la carpeta «Centro-de-control» de Remotion Studio.
 
-El reproductor reserva la relación 4:3, permite pausar y ampliar, detiene la reproducción fuera de pantalla o al ocultar la pestaña y respeta la preferencia de movimiento reducido. La reproducción ampliada usa controles nativos.
+El reproductor reserva la relación 4:3, reproduce automáticamente en bucle silencioso al entrar en pantalla y permite ampliar a una ventana modal más compacta. La reproducción ampliada usa controles nativos.
 
 Verificación: fotogramas revisados de las seis escenas; metadatos comprobados con ffprobe; reproducción, pausa y ampliación verificadas en navegador; sin desbordamiento horizontal a 390 px; compilación de Next.js completada. La configuración existente de Next.js omite la validación de tipos durante el build.

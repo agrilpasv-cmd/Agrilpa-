@@ -67,6 +67,14 @@ function AuthPageContent() {
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [verifyError, setVerifyError] = useState("")
 
+  // Forgot password state
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState("")
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotSuccess, setForgotSuccess] = useState(false)
+  const [forgotError, setForgotError] = useState("")
+  const [resetSuccessNotice, setResetSuccessNotice] = useState(false)
+
   // Password criteria verification and security scoring
   const regPassword = formData.password || ""
   const pwdChecks = {
@@ -115,6 +123,19 @@ function AuthPageContent() {
   const strengthMeta = getStrengthMeta(strengthScore)
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      router.push(`/auth/reset-password${window.location.hash}`)
+      return
+    }
+
+    const { data: authListener } = supabaseRef.current.auth.onAuthStateChange(
+      (event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          router.push("/auth/reset-password")
+        }
+      }
+    )
+
     const checkExistingSession = async () => {
       try {
         const {
@@ -148,21 +169,39 @@ function AuthPageContent() {
     }
 
     checkExistingSession()
+
+    return () => {
+      authListener?.subscription?.unsubscribe()
+    }
   }, [router, searchParams])
 
   useEffect(() => {
     const mode = searchParams.get("mode")
     const emailParam = searchParams.get("email")
+    const resetParam = searchParams.get("reset")
+
+    if (resetParam === "success") {
+      setResetSuccessNotice(true)
+    }
+
     if (mode === "register") {
       setIsLogin(false)
+      setIsForgotPassword(false)
       if (!registrationStartTime) setRegistrationStartTime(Date.now())
     } else if (mode === "login") {
       setIsLogin(true)
+      setIsForgotPassword(false)
       setRegistrationStep(1)
       setRegistrationStartTime(null)
       // Pre-fill email if coming from registration
       if (emailParam) {
         setFormData(prev => ({ ...prev, email: decodeURIComponent(emailParam) }))
+      }
+    } else if (mode === "forgot-password") {
+      setIsForgotPassword(true)
+      setIsLogin(false)
+      if (emailParam) {
+        setForgotEmail(decodeURIComponent(emailParam))
       }
     }
   }, [searchParams])
@@ -204,6 +243,37 @@ function AuthPageContent() {
       ...formData,
       [name]: numericValue,
     })
+  }
+
+  const handleForgotPasswordSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!forgotEmail) {
+      setForgotError("Por favor ingresa tu correo electrónico.")
+      return
+    }
+
+    setForgotLoading(true)
+    setForgotError("")
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setForgotError(data.error || "No se pudo enviar el correo de recuperación.")
+        return
+      }
+
+      setForgotSuccess(true)
+    } catch (err: any) {
+      console.error("[Agrilpa] Forgot password error:", err)
+      setForgotError("Error de conexión. Inténtalo de nuevo más tarde.")
+    } finally {
+      setForgotLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -613,15 +683,24 @@ function AuthPageContent() {
 
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground">
-              {isLogin ? "Iniciar Sesión" : "Únete a Agrilpa"}
+              {isForgotPassword
+                ? "Recuperar contraseña"
+                : isLogin
+                ? "Iniciar Sesión"
+                : "Únete a Agrilpa"}
             </h1>
-            {!isLogin && (
+            {isForgotPassword ? (
+              <p className="text-muted-foreground text-sm mt-2">
+                Ingresa tu correo registrado y te enviaremos un enlace seguro para restablecerla.
+              </p>
+            ) : !isLogin ? (
               <p className="text-muted-foreground text-sm mt-2">
                 ¿Ya tienes una cuenta?{" "}
                 <button
                   type="button"
                   onClick={() => {
                     setIsLogin(true)
+                    setIsForgotPassword(false)
                     setRegistrationStep(1)
                     setError("")
                   }}
@@ -629,6 +708,10 @@ function AuthPageContent() {
                 >
                   Inicia sesión
                 </button>
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm mt-2">
+                Bienvenido de nuevo. Ingresa tus credenciales para acceder a tu centro de control.
               </p>
             )}
           </div>
@@ -733,8 +816,105 @@ function AuthPageContent() {
                   Volver al inicio de sesión
                 </button>
               </div>
+            ) : isForgotPassword ? (
+              <div className="space-y-6">
+                {forgotSuccess ? (
+                  <div className="bg-[#f2f8f2] border border-[#cbe5cb] rounded-2xl p-6 text-center space-y-4 shadow-sm">
+                    <div className="w-14 h-14 bg-[#e1f0e2] text-primary border border-[#cbe5cb] rounded-full flex items-center justify-center mx-auto">
+                      <Mail className="w-7 h-7 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground">¡Correo enviado!</h3>
+                      <p className="text-sm text-foreground/80 mt-1.5 leading-relaxed">
+                        Si existe una cuenta asociada a <strong className="text-foreground font-semibold">{forgotEmail}</strong>, hemos enviado un enlace para restablecer tu contraseña.
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Revisa tu bandeja de entrada o la carpeta de spam / no deseados.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 flex flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPassword(false)
+                          setIsLogin(true)
+                          setForgotSuccess(false)
+                          setError("")
+                        }}
+                        className="w-full bg-primary text-white font-semibold py-3.5 rounded-xl hover:bg-primary/90 transition shadow-sm text-sm"
+                      >
+                        Volver a Iniciar Sesión
+                      </button>
+                      <button
+                        type="button"
+                        disabled={forgotLoading}
+                        onClick={handleForgotPasswordSubmit}
+                        className="text-xs text-muted-foreground hover:text-foreground underline pt-1 cursor-pointer disabled:opacity-50"
+                      >
+                        {forgotLoading ? "Reenviando..." : "¿No recibiste el correo? Enviar de nuevo"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+                    {forgotError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+                        <XCircle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+                        <span>{forgotError}</span>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Correo electrónico registrado *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="tu@email.com"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition text-sm text-foreground"
+                          required
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={forgotLoading || !forgotEmail}
+                      className="w-full bg-primary text-white font-semibold py-3.5 rounded-md hover:bg-primary/90 transition flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed uppercase text-sm shadow-sm"
+                    >
+                      {forgotLoading ? "Enviando enlace..." : "Enviar enlace de recuperación"}{" "}
+                      <ArrowRight className="w-5 h-5 ml-1" />
+                    </button>
+
+                    <div className="text-center pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPassword(false)
+                          setIsLogin(true)
+                          setForgotError("")
+                        }}
+                        className="text-sm font-semibold text-primary hover:underline transition cursor-pointer"
+                      >
+                        &larr; Volver a Iniciar Sesión
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             ) : !submitted ? (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {resetSuccessNotice && (
+                  <div className="bg-primary/10 border border-primary/25 text-foreground px-4 py-3 rounded-md text-sm flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                    <span>Tu contraseña ha sido restablecida exitosamente. Inicia sesión para continuar.</span>
+                  </div>
+                )}
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
                 )}
@@ -788,9 +968,30 @@ function AuthPageContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2">
-                       <input type="checkbox" id="remember" className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
-                       <label htmlFor="remember" className="text-sm text-foreground cursor-pointer">Acuérdate de mí</label>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="remember"
+                          className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <label htmlFor="remember" className="text-sm text-foreground cursor-pointer select-none">
+                          Acuérdate de mí
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPassword(true)
+                          setError("")
+                          setForgotError("")
+                          setForgotSuccess(false)
+                          if (formData.email) setForgotEmail(formData.email)
+                        }}
+                        className="text-sm font-semibold text-primary hover:underline transition-colors cursor-pointer"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
                     </div>
 
                     <button
