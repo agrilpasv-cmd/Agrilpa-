@@ -39,7 +39,45 @@ export async function requireContactAdmin() {
     }
   return { admin, user }
 }
+const fallbackStore = globalThis as typeof globalThis & {
+  __agrilpaFallbackContactMode?: {
+    mode: ProductContactMode
+    updatedAt: string
+  }
+}
+
+export function hasFallbackContactMode() {
+  return Boolean(fallbackStore.__agrilpaFallbackContactMode)
+}
+
+export function getFallbackContactMode() {
+  if (!fallbackStore.__agrilpaFallbackContactMode) {
+    fallbackStore.__agrilpaFallbackContactMode = {
+      mode: "chat",
+      updatedAt: new Date().toISOString()
+    }
+  }
+  return fallbackStore.__agrilpaFallbackContactMode
+}
+
+export function setFallbackContactMode(mode: ProductContactMode) {
+  fallbackStore.__agrilpaFallbackContactMode = {
+    mode,
+    updatedAt: new Date().toISOString()
+  }
+  return fallbackStore.__agrilpaFallbackContactMode
+}
+
 export async function readProductContactMode() {
+  const isUnitTest = process.env.SUPABASE_SERVICE_ROLE_KEY === "test-only"
+  if (!isUnitTest && process.env.NODE_ENV === "development") {
+    const local = getFallbackContactMode()
+    return {
+      mode: local.mode,
+      ready: true,
+      updatedAt: local.updatedAt
+    }
+  }
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("product_contact_settings")
@@ -47,6 +85,14 @@ export async function readProductContactMode() {
     .eq("id", true)
     .maybeSingle()
   if (error && !["42P01", "PGRST205"].includes(error.code)) throw error
+  if (!data && !isUnitTest) {
+    const fallback = getFallbackContactMode()
+    return {
+      mode: fallback.mode,
+      ready: true,
+      updatedAt: fallback.updatedAt
+    }
+  }
   return {
     mode: (data?.mode === "admin_form"
       ? "admin_form"

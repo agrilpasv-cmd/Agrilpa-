@@ -1,552 +1,813 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import {
-    MessageCircle,
-    Mail,
-    Send,
-    TrendingUp,
-    BarChart3,
-    MousePointer2,
-    Search,
-    Package,
-    Clock,
-    User,
-    ArrowUpRight,
-    ExternalLink,
-    Trash2,
-    CheckCircle2
-} from "lucide-react"
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type KeyboardEvent,
+} from "react"
 import Link from "next/link"
+import {
+  MessageCircle,
+  Mail,
+  Send,
+  MousePointer2,
+  Search,
+  ExternalLink,
+  Trash2,
+  Check,
+  RefreshCw,
+  Loader2,
+  X,
+} from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
+import s from "./contactar.module.css"
 
 interface ContactClick {
-    id: string
-    product_id: string
-    product_title: string
-    seller_id: string
-    click_type: string
-    user_id: string | null
-    buyer_name: string | null
-    buyer_email: string | null
-    buyer_company: string | null
-    buyer_type: string | null
-    seller_name: string | null
-    seller_email: string | null
-    seller_company: string | null
-    created_at: string
-    is_read?: boolean
+  id: string
+  product_id: string
+  product_title: string
+  seller_id: string
+  click_type: string
+  user_id: string | null
+  buyer_name: string | null
+  buyer_email: string | null
+  buyer_company: string | null
+  buyer_type: string | null
+  seller_name: string | null
+  seller_email: string | null
+  seller_company: string | null
+  created_at: string
+  is_read?: boolean
 }
 
+type ClickFilter = "all" | "unread" | "whatsapp" | "email" | "generic"
+
+const integer = (value: number) => new Intl.NumberFormat("es-SV").format(value)
+
+const normalize = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
 export default function AdminContactClicksPage() {
-    const [clicks, setClicks] = useState<ContactClick[]>([])
-    const [stats, setStats] = useState<any>(null)
-    const [loading, setLoading] = useState(true)
-    const [refreshing, setRefreshing] = useState(false)
-    const [searchTerm, setSearchTerm] = useState("")
-    const [selectedIds, setSelectedIds] = useState<string[]>([])
-    const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [clicks, setClicks] = useState<ContactClick[]>([])
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState("")
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [typeFilter, setTypeFilter] = useState<ClickFilter>("all")
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
 
-    useEffect(() => {
-        fetchClicks(true)
+  const fetchClicks = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true)
+      else setRefreshing(true)
+      setFetchError("")
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(() => {
-            fetchClicks(false)
-        }, 30000)
-
-        return () => clearInterval(interval)
-    }, [])
-
-    const fetchClicks = async (showLoading = true) => {
-        try {
-            if (showLoading) setLoading(true)
-            else setRefreshing(true)
-
-            const response = await fetch("/api/admin/contact-clicks", { cache: "no-store" })
-            const data = await response.json()
-            if (data.clicks) {
-                setClicks(data.clicks)
-                setStats(data.stats)
-            }
-        } catch (error) {
-            console.error("Error fetching admin contact clicks:", error)
-        } finally {
-            setLoading(false)
-            setRefreshing(false)
-        }
-    }
-
-    const handleDelete = async (id: string) => {
-        if (!confirm("¿Estás seguro de que deseas eliminar este registro de contacto?")) return
-
-        try {
-            const response = await fetch(`/api/admin/contact-clicks?id=${id}`, {
-                method: "DELETE",
-            })
-
-            if (response.ok) {
-                setClicks(prev => prev.filter(c => c.id !== id))
-                setSelectedIds(prev => prev.filter(selectedId => selectedId !== id))
-                toast.success("Registro eliminado correctamente")
-            } else {
-                const data = await response.json()
-                toast.error(data.error || "Error al eliminar el registro")
-            }
-        } catch (error) {
-            console.error("Error deleting click:", error)
-            toast.error("Error de conexión al eliminar")
-        }
-    }
-
-    const handleBulkDelete = async () => {
-        if (selectedIds.length === 0) return
-        if (!confirm(`¿Estás seguro de que deseas eliminar los ${selectedIds.length} registros seleccionados?`)) return
-
-        try {
-            const response = await fetch(`/api/admin/contact-clicks?ids=${selectedIds.join(",")}`, {
-                method: "DELETE",
-            })
-
-            if (response.ok) {
-                setClicks(prev => prev.filter(c => !selectedIds.includes(c.id)))
-                setSelectedIds([])
-                toast.success(`${selectedIds.length} registros eliminados correctamente`)
-            } else {
-                const data = await response.json()
-                toast.error(data.error || "Error al eliminar los registros")
-            }
-        } catch (error) {
-            console.error("Error bulk deleting clicks:", error)
-            toast.error("Error de conexión al eliminar")
-        }
-    }
-
-    const handleMarkAsRead = async (id: string) => {
-        try {
-            const response = await fetch(`/api/admin/contact-clicks/mark-read`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: [id] }),
-            })
-
-            if (response.ok) {
-                toast.success("Marcado como leído")
-                
-                // Actualizar todo desde el servidor para garantizar coherencia
-                fetchClicks(false)
-                
-                // Avisar al menú lateral que se actualice
-                window.dispatchEvent(new Event('update-unread-count'))
-            } else {
-                toast.error("Error al marcar como leído")
-            }
-        } catch (error) {
-            console.error("Error marking as read:", error)
-        }
-    }
-
-    const handleBulkMarkAsRead = async () => {
-        if (selectedIds.length === 0) return
-        
-        try {
-            const response = await fetch(`/api/admin/contact-clicks/mark-read`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedIds }),
-            })
-
-            if (response.ok) {
-                setSelectedIds([])
-                toast.success(`${selectedIds.length} marcados como leídos`)
-                
-                // Actualizar todo desde el servidor
-                fetchClicks(false)
-                
-                // Avisar al menú lateral que se actualice
-                window.dispatchEvent(new Event('update-unread-count'))
-            } else {
-                toast.error("Error al marcar como leídos")
-            }
-        } catch (error) {
-            console.error("Error marking bulk as read:", error)
-        }
-    }
-
-    const toggleSelectAll = () => {
-        if (selectedIds.length === filteredClicks.length) {
-            setSelectedIds([])
-        } else {
-            setSelectedIds(filteredClicks.map(c => c.id))
-        }
-    }
-
-    const toggleSelect = (id: string) => {
-        setSelectedIds(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      const response = await fetch("/api/admin/contact-clicks", {
+        cache: "no-store",
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(
+          data.error || "No pudimos consultar el registro de contactos."
         )
+      }
+      if (Array.isArray(data.clicks)) {
+        setClicks(data.clicks)
+        setStats(data.stats)
+        setLastUpdate(new Date())
+      }
+    } catch (error) {
+      setFetchError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el registro de contactos."
+      )
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
+  }, [])
 
-    const filteredClicks = clicks.filter(c => {
-        const matchesSearch = c.product_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.click_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.buyer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.buyer_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.seller_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.seller_email?.toLowerCase().includes(searchTerm.toLowerCase())
-        
-        const matchesType = typeFilter === "all" || c.click_type === typeFilter
-        
-        return matchesSearch && matchesType
+  useEffect(() => {
+    void fetchClicks(true)
+
+    const interval = setInterval(() => {
+      void fetchClicks(false)
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [fetchClicks])
+
+  const confirmDelete = async () => {
+    if (deleteTargetIds.length === 0) return
+    setIsDeleting(true)
+    try {
+      const query =
+        deleteTargetIds.length === 1
+          ? `id=${deleteTargetIds[0]}`
+          : `ids=${deleteTargetIds.join(",")}`
+      const response = await fetch(`/api/admin/contact-clicks?${query}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        setClicks((prev) =>
+          prev.filter((c) => !deleteTargetIds.includes(c.id))
+        )
+        setSelectedIds((prev) =>
+          prev.filter((id) => !deleteTargetIds.includes(id))
+        )
+        toast.success(
+          deleteTargetIds.length === 1
+            ? "Registro eliminado"
+            : `${deleteTargetIds.length} registros eliminados`
+        )
+        void fetchClicks(false)
+        window.dispatchEvent(new Event("update-unread-count"))
+      } else {
+        const data = await response.json()
+        toast.error(data.error || "No se pudo eliminar el registro")
+      }
+    } catch {
+      toast.error("Error de conexión al eliminar")
+    } finally {
+      setIsDeleting(false)
+      setDeleteTargetIds([])
+    }
+  }
+
+  const handleMarkAsRead = async (idsToMark: string[]) => {
+    if (idsToMark.length === 0) return
+    try {
+      const response = await fetch(`/api/admin/contact-clicks/mark-read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: idsToMark }),
+      })
+
+      if (response.ok) {
+        if (idsToMark.length > 1) setSelectedIds([])
+        toast.success(
+          idsToMark.length === 1
+            ? "Marcado como revisado"
+            : `${idsToMark.length} registros marcados como revisados`
+        )
+        void fetchClicks(false)
+        window.dispatchEvent(new Event("update-unread-count"))
+      } else {
+        toast.error("No se pudo actualizar el estado de lectura")
+      }
+    } catch {
+      toast.error("Error de conexión al actualizar")
+    }
+  }
+
+  const unreadCount = useMemo(
+    () => clicks.filter((c) => !c.is_read).length,
+    [clicks]
+  )
+  const whatsappCount = useMemo(
+    () =>
+      clicks.filter((c) => c.click_type?.toLowerCase().trim() === "whatsapp")
+        .length,
+    [clicks]
+  )
+  const emailCount = useMemo(
+    () =>
+      clicks.filter((c) => c.click_type?.toLowerCase().trim() === "email")
+        .length,
+    [clicks]
+  )
+  const telegramCount = useMemo(
+    () =>
+      clicks.filter((c) => c.click_type?.toLowerCase().trim() === "telegram")
+        .length,
+    [clicks]
+  )
+  const genericCount = useMemo(
+    () =>
+      clicks.filter(
+        (c) =>
+          !["whatsapp", "email", "telegram"].includes(
+            c.click_type?.toLowerCase().trim() || ""
+          )
+      ).length,
+    [clicks]
+  )
+
+  const filteredClicks = useMemo(() => {
+    const q = normalize(searchTerm.trim())
+    return clicks.filter((c) => {
+      const channel = c.click_type?.toLowerCase().trim() || "generic"
+      if (typeFilter === "unread" && c.is_read) return false
+      if (typeFilter === "whatsapp" && channel !== "whatsapp") return false
+      if (typeFilter === "email" && channel !== "email") return false
+      if (
+        typeFilter === "generic" &&
+        ["whatsapp", "email"].includes(channel)
+      )
+        return false
+
+      if (!q) return true
+      return [
+        c.product_title,
+        c.click_type,
+        c.buyer_name,
+        c.buyer_company,
+        c.buyer_email,
+        c.seller_name,
+        c.seller_company,
+        c.seller_email,
+      ].some((val) => typeof val === "string" && normalize(val).includes(q))
     })
+  }, [clicks, searchTerm, typeFilter])
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleString("es-ES", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-        })
+  const toggleSelectAll = () => {
+    if (
+      filteredClicks.length > 0 &&
+      selectedIds.length === filteredClicks.length
+    ) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredClicks.map((c) => c.id))
     }
+  }
 
-    const getClickTypeBadge = (type: string) => {
-        switch (type) {
-            case "whatsapp": return <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 font-bold"><MessageCircle className="w-3 h-3" /> WhatsApp</Badge>
-            case "email": return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 gap-1 font-bold"><Mail className="w-3 h-3" /> Email</Badge>
-            case "telegram": return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 gap-1 font-bold"><Send className="w-3 h-3" /> Telegram</Badge>
-            default: return <Badge variant="secondary" className="gap-1 font-bold"><MousePointer2 className="w-3 h-3" /> Interés</Badge>
-        }
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return ""
+    return d.toLocaleString("es-SV", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+  }
+
+  const renderChannelBadge = (type: string) => {
+    const clean = type?.toLowerCase().trim()
+    if (clean === "whatsapp") {
+      return (
+        <span className={s.channelBadge} data-channel="whatsapp">
+          <MessageCircle size={13} aria-hidden="true" />
+          WhatsApp
+        </span>
+      )
     }
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center p-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-        )
+    if (clean === "email") {
+      return (
+        <span className={s.channelBadge}>
+          <Mail size={13} aria-hidden="true" />
+          Correo electrónico
+        </span>
+      )
     }
-
+    if (clean === "telegram") {
+      return (
+        <span className={s.channelBadge}>
+          <Send size={13} aria-hidden="true" />
+          Telegram
+        </span>
+      )
+    }
     return (
-        <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Métricas de Contacto</h1>
-                    <p className="text-muted-foreground">Analiza qué productos y canales generan más interés directo.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {refreshing && (
-                        <span className="text-[10px] font-bold text-primary animate-pulse uppercase">Actualizando...</span>
-                    )}
-                    <Button onClick={() => fetchClicks(true)} variant="outline" size="sm" className="rounded-xl">
-                        {refreshing ? "Cargando..." : "Actualizar"}
-                    </Button>
-                </div>
+      <span className={s.channelBadge}>
+        <MousePointer2 size={13} aria-hidden="true" />
+        Apertura de contacto
+      </span>
+    )
+  }
+
+  function navigateTabs(event: KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return
+    event.preventDefault()
+    const order: ClickFilter[] = [
+      "all",
+      "unread",
+      "whatsapp",
+      "email",
+      "generic",
+    ]
+    const currentIndex = order.indexOf(typeFilter)
+    const next =
+      event.key === "Home"
+        ? order[0]
+        : event.key === "End"
+          ? order[order.length - 1]
+          : event.key === "ArrowRight"
+            ? order[(currentIndex + 1) % order.length]
+            : order[(currentIndex - 1 + order.length) % order.length]
+    setTypeFilter(next)
+    document.getElementById(`contact-tab-${next}`)?.focus()
+  }
+
+  const channelBreakdown = [
+    { label: "WhatsApp", count: whatsappCount },
+    { label: "Correo electrónico", count: emailCount },
+    { label: "Aperturas directas", count: genericCount },
+    ...(telegramCount > 0 ? [{ label: "Telegram", count: telegramCount }] : []),
+  ]
+  const maxChannelCount = Math.max(...channelBreakdown.map((c) => c.count), 1)
+  const topProducts: { title: string; count: number }[] =
+    stats?.topProducts || []
+  const maxProductCount = Math.max(...topProducts.map((p) => p.count), 1)
+
+  return (
+    <section className={s.page} aria-label="Interacciones de contacto">
+      <header className={s.header}>
+        <div>
+          <h1>Contactar</h1>
+          <p>
+            Consulta los clics de contacto en las publicaciones y revisa qué
+            productos concentran mayor interés comercial.
+          </p>
+        </div>
+        <div className={s.headerActions}>
+          {lastUpdate && (
+            <span className={s.updated}>
+              Actualizado a las{" "}
+              {lastUpdate.toLocaleTimeString("es-SV", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+          <button
+            type="button"
+            className={s.secondaryButton}
+            onClick={() => void fetchClicks(false)}
+            disabled={loading || refreshing}
+          >
+            <RefreshCw
+              size={16}
+              className={loading || refreshing ? s.spinner : undefined}
+              aria-hidden="true"
+            />
+            Actualizar
+          </button>
+        </div>
+      </header>
+
+      {fetchError && (
+        <div className={s.notice} role="alert">
+          <span>{fetchError}</span>
+          <button
+            type="button"
+            className={s.secondaryButton}
+            onClick={() => void fetchClicks(true)}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      <dl className={s.metrics} aria-label="Resumen de clics de contacto">
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={typeFilter === "unread"}
+          onClick={() => setTypeFilter("unread")}
+        >
+          <dt>Sin revisar</dt>
+          <dd>{integer(unreadCount)}</dd>
+          <span>Interacciones pendientes de lectura</span>
+        </button>
+
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={typeFilter === "all"}
+          onClick={() => setTypeFilter("all")}
+        >
+          <dt>Total de interacciones</dt>
+          <dd>{integer(clicks.length)}</dd>
+          <span>Registros acumulados en el catálogo</span>
+        </button>
+
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={typeFilter === "whatsapp"}
+          onClick={() => setTypeFilter("whatsapp")}
+        >
+          <dt>Por WhatsApp</dt>
+          <dd>{integer(whatsappCount)}</dd>
+          <span>
+            {clicks.length > 0
+              ? `${Math.round((whatsappCount / clicks.length) * 100)}% del total de intentos`
+              : "Sin registros en este canal"}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={typeFilter === "email"}
+          onClick={() => setTypeFilter("email")}
+        >
+          <dt>Por correo y otros</dt>
+          <dd>{integer(emailCount + genericCount + telegramCount)}</dd>
+          <span>
+            {integer(emailCount)} por correo · {integer(genericCount)} aperturas
+          </span>
+        </button>
+      </dl>
+
+      <div className={s.mainColumns}>
+        <div className={s.panel}>
+          <div className={s.panelHead}>
+            <div className={s.toolbar}>
+              <div className={s.search}>
+                <Search size={17} aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder="Buscar por producto, comprador, vendedor o correo"
+                  aria-label="Buscar interacciones de contacto"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  data-no-auto-caps="true"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className={s.clearSearch}
+                    aria-label="Limpiar búsqueda"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    <X size={15} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card 
-                    className={`border-none shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-red-50 border-l-4 border-l-red-500`}
+            <div
+              className={s.tabs}
+              role="tablist"
+              aria-label="Filtrar interacciones por canal o lectura"
+              onKeyDown={navigateTabs}
+            >
+              {(
+                [
+                  { id: "all", label: "Todos", count: clicks.length },
+                  { id: "unread", label: "Sin revisar", count: unreadCount },
+                  { id: "whatsapp", label: "WhatsApp", count: whatsappCount },
+                  { id: "email", label: "Correo", count: emailCount },
+                  {
+                    id: "generic",
+                    label: "Aperturas",
+                    count: genericCount + telegramCount,
+                  },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  id={`contact-tab-${tab.id}`}
+                  aria-selected={typeFilter === tab.id}
+                  tabIndex={typeFilter === tab.id ? 0 : -1}
+                  onClick={() => setTypeFilter(tab.id)}
                 >
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-red-700">No Leídos</p>
-                                <h3 className="text-3xl font-black mt-2 text-red-600">{stats?.unreadCount || 0}</h3>
-                            </div>
-                            <div className="bg-red-100 p-3 rounded-2xl relative">
-                                <MessageCircle className="w-6 h-6 text-red-600" />
-                                {stats?.unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-                                )}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card 
-                    className={`border-none shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${typeFilter === 'all' ? 'bg-primary/10 ring-2 ring-primary border-l-4 border-l-primary' : 'bg-primary/5 border-l-4 border-l-primary'}`}
-                    onClick={() => setTypeFilter('all')}
-                >
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Total Gral.</p>
-                                <h3 className="text-3xl font-black mt-2">{stats?.total || 0}</h3>
-                            </div>
-                            <div className="bg-primary/10 p-3 rounded-2xl">
-                                <TrendingUp className="w-6 h-6 text-primary" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card 
-                    className={`border-none shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${typeFilter === 'whatsapp' ? 'bg-green-100 ring-2 ring-green-500 border-l-4 border-l-green-500' : 'bg-green-50/50 border-l-4 border-l-green-500'}`}
-                    onClick={() => setTypeFilter('whatsapp')}
-                >
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-green-700">WhatsApp</p>
-                                <h3 className="text-3xl font-black mt-2 text-green-600">{stats?.whatsapp || 0}</h3>
-                            </div>
-                            <div className="bg-green-100 p-3 rounded-2xl">
-                                <MessageCircle className="w-6 h-6 text-green-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card 
-                    className={`border-none shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${typeFilter === 'email' ? 'bg-blue-100 ring-2 ring-blue-500 border-l-4 border-l-blue-500' : 'bg-blue-50/50 border-l-4 border-l-blue-500'}`}
-                    onClick={() => setTypeFilter('email')}
-                >
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-blue-700">Email</p>
-                                <h3 className="text-3xl font-black mt-2 text-blue-600">{stats?.email || 0}</h3>
-                            </div>
-                            <div className="bg-blue-100 p-3 rounded-2xl">
-                                <Mail className="w-6 h-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card 
-                    className={`border-none shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${typeFilter === 'generic' ? 'bg-orange-100 ring-2 ring-orange-500 border-l-4 border-l-orange-500' : 'bg-orange-50/50 border-l-4 border-l-orange-500'}`}
-                    onClick={() => setTypeFilter('generic')}
-                >
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-orange-700">Inicios</p>
-                                <h3 className="text-3xl font-black mt-2 text-orange-600">
-                                    {clicks.filter(c => c.click_type === 'generic').length}
-                                </h3>
-                            </div>
-                            <div className="bg-orange-100 p-3 rounded-2xl">
-                                <MousePointer2 className="w-6 h-6 text-orange-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                  {tab.label}
+                  <span>{integer(tab.count)}</span>
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main List */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between bg-card p-4 rounded-2xl border border-border shadow-sm">
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Filtrar por producto, usuario o tipo..."
-                                className="pl-9 h-11 bg-muted/30 border-transparent focus:bg-white focus:border-primary transition-all rounded-xl"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+          {filteredClicks.length > 0 && (
+            <div className={s.selectionBar}>
+              <label className={s.selectAllLabel}>
+                <Checkbox
+                  checked={
+                    filteredClicks.length > 0 &&
+                    selectedIds.length === filteredClicks.length
+                  }
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Seleccionar todos los registros visibles"
+                />
+                <span>
+                  {selectedIds.length > 0
+                    ? `${integer(selectedIds.length)} ${
+                        selectedIds.length === 1
+                          ? "registro seleccionado"
+                          : "registros seleccionados"
+                      }`
+                    : `Seleccionar visibles (${integer(filteredClicks.length)})`}
+                </span>
+              </label>
+
+              {selectedIds.length > 0 && (
+                <div className={s.bulkActions}>
+                  <button
+                    type="button"
+                    className={s.secondaryButton}
+                    onClick={() => void handleMarkAsRead(selectedIds)}
+                  >
+                    <Check size={16} aria-hidden="true" />
+                    Marcar revisados
+                  </button>
+                  <button
+                    type="button"
+                    className={s.dangerButton}
+                    onClick={() => setDeleteTargetIds(selectedIds)}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Eliminar ({integer(selectedIds.length)})
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {loading ? (
+            <div className={s.loading} role="status">
+              <Loader2 size={22} className={s.spinner} aria-hidden="true" />
+              <span>Cargando interacciones de contacto…</span>
+            </div>
+          ) : filteredClicks.length === 0 ? (
+            <div className={s.empty}>
+              <h3>
+                {searchTerm || typeFilter !== "all"
+                  ? "No hay registros con estos filtros"
+                  : "Todavía no hay clics de contacto registrados"}
+              </h3>
+              <p>
+                {searchTerm || typeFilter !== "all"
+                  ? "Cambia la búsqueda o selecciona otra pestaña para consultar el resto del historial."
+                  : "Cuando un comprador pulse un botón de contacto en una publicación, el registro aparecerá aquí."}
+              </p>
+              {(searchTerm || typeFilter !== "all") && (
+                <button
+                  type="button"
+                  className={s.secondaryButton}
+                  onClick={() => {
+                    setSearchTerm("")
+                    setTypeFilter("all")
+                  }}
+                >
+                  Ver todos los registros
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className={s.rows}>
+              {filteredClicks.map((c) => {
+                const isSelected = selectedIds.includes(c.id)
+                const productLabel =
+                  c.product_title || "Publicación no disponible"
+                return (
+                  <article
+                    key={c.id}
+                    className={s.row}
+                    data-unread={!c.is_read}
+                    data-selected={isSelected}
+                  >
+                    <div className={s.rowMain}>
+                      <div className={s.checkCell}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(c.id)}
+                          aria-label={`Seleccionar registro de ${productLabel}`}
+                        />
+                      </div>
+
+                      <div className={s.rowBody}>
+                        <div className={s.rowTop}>
+                          {c.product_id ? (
+                            <Link
+                              href={`/producto/${c.product_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={s.productTitle}
+                            >
+                              {productLabel}
+                            </Link>
+                          ) : (
+                            <span className={s.productTitle}>
+                              {productLabel}
+                            </span>
+                          )}
+                          {!c.is_read && (
+                            <span className={s.unreadBadge}>
+                              <i aria-hidden="true" />
+                              Sin revisar
+                            </span>
+                          )}
                         </div>
-                        {selectedIds.length > 0 && (
-                            <div className="flex items-center gap-2 ml-4 animate-in slide-in-from-right-4 duration-300">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="rounded-xl gap-2"
-                                    onClick={handleBulkMarkAsRead}
-                                >
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Leídos
-                                </Button>
-                                <Button 
-                                    variant="destructive" 
-                                    size="sm" 
-                                    className="rounded-xl gap-2"
-                                    onClick={handleBulkDelete}
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Borrar</span> ({selectedIds.length})
-                                </Button>
-                            </div>
-                        )}
+
+                        <div className={s.metaLine}>
+                          {renderChannelBadge(c.click_type)}
+                          <time dateTime={c.created_at}>
+                            {formatDate(c.created_at)}
+                          </time>
+                        </div>
+
+                        <dl className={s.participants}>
+                          <div className={s.participant}>
+                            <dt>Interesado</dt>
+                            <dd>
+                              <strong>
+                                {c.buyer_company ||
+                                  c.buyer_name ||
+                                  "Visitante sin sesión"}
+                              </strong>
+                              <span>
+                                {c.buyer_email || "Correo no registrado"}
+                              </span>
+                            </dd>
+                          </div>
+                          <div className={s.participant}>
+                            <dt>Vendedor</dt>
+                            <dd>
+                              <strong>
+                                {c.seller_company ||
+                                  c.seller_name ||
+                                  "Vendedor de la publicación"}
+                              </strong>
+                              <span>
+                                {c.seller_email ||
+                                  c.seller_id ||
+                                  "Sin correo asociado"}
+                              </span>
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
                     </div>
 
-                    <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
-                        <CardHeader className="bg-muted/30 border-b border-border flex flex-row items-center justify-between">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-primary" />
-                                Actividad Reciente {typeFilter !== 'all' && <Badge variant="outline" className="text-[10px] ml-2 uppercase tracking-widest">Filtro: {typeFilter}</Badge>}
-                            </CardTitle>
-                            {filteredClicks.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase text-muted-foreground">Seleccionar todo</span>
-                                    <Checkbox 
-                                        checked={selectedIds.length === filteredClicks.length && filteredClicks.length > 0}
-                                        onCheckedChange={toggleSelectAll}
-                                        className="rounded-md h-5 w-5 border-2"
-                                    />
-                                </div>
-                            )}
-                        </CardHeader>
-                        <div className="divide-y divide-border">
-                            {filteredClicks.map((c) => (
-                                <div key={c.id} className={`p-4 hover:bg-muted/20 transition-all flex items-start justify-between gap-4 group ${selectedIds.includes(c.id) ? 'bg-primary/5' : ''} ${!c.is_read ? 'bg-red-50/10' : ''}`}>
-                                    <div className="flex items-start gap-4 min-w-0">
-                                        <div className="pt-2">
-                                            <Checkbox 
-                                                checked={selectedIds.includes(c.id)}
-                                                onCheckedChange={() => toggleSelect(c.id)}
-                                                className="rounded-md h-5 w-5 border-2"
-                                            />
-                                        </div>
-                                        <div className={`p-2 rounded-xl border border-border bg-white shadow-sm group-hover:scale-110 transition-transform`}>
-                                            {c.click_type === 'whatsapp' ? <MessageCircle className="w-5 h-5 text-green-600" /> :
-                                                c.click_type === 'email' ? <Mail className="w-5 h-5 text-blue-600" /> :
-                                                    c.click_type === 'telegram' ? <Send className="w-5 h-5 text-sky-600" /> :
-                                                        <MousePointer2 className="w-5 h-5 text-orange-500" />}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                {!c.is_read && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0"></span>}
-                                                <p className={`font-bold line-clamp-1 ${!c.is_read ? 'text-foreground' : 'text-foreground/70'}`}>{c.product_title || "Producto desconocido"}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{formatDate(c.created_at)}</span>
-                                                <span className="text-muted-foreground/30">•</span>
-                                                {getClickTypeBadge(c.click_type)}
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-xs">
-                                                <div className="bg-muted/30 rounded-lg p-2 border border-border/50">
-                                                    <p className="font-black uppercase tracking-widest text-[10px] text-muted-foreground flex items-center gap-1">
-                                                        <User className="w-3 h-3" />
-                                                        Usuario
-                                                    </p>
-                                                    <p className="font-bold text-foreground truncate">{c.buyer_company || c.buyer_name || "Usuario desconocido"}</p>
-                                                    <p className="text-muted-foreground truncate">{c.buyer_email || "Sin correo"}</p>
-                                                </div>
-                                                <div className="bg-muted/30 rounded-lg p-2 border border-border/50">
-                                                    <p className="font-black uppercase tracking-widest text-[10px] text-muted-foreground flex items-center gap-1">
-                                                        <Package className="w-3 h-3" />
-                                                        Vendedor
-                                                    </p>
-                                                    <p className="font-bold text-foreground truncate">{c.seller_company || c.seller_name || "Vendedor no vinculado"}</p>
-                                                    <p className="text-muted-foreground truncate">{c.seller_email || c.seller_id}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        {!c.is_read && (
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="rounded-full hover:bg-green-100 hover:text-green-600 transition-colors h-8 w-8 text-muted-foreground"
-                                                onClick={() => handleMarkAsRead(c.id)}
-                                                title="Marcar como leído"
-                                            >
-                                                <CheckCircle2 className="w-4 h-4" />
-                                            </Button>
-                                        )}
-                                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors h-8 w-8 text-muted-foreground" asChild title="Ver producto">
-                                            <Link href={`/producto/${c.product_id}`} target="_blank">
-                                                <ExternalLink className="w-4 h-4" />
-                                            </Link>
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="rounded-full hover:bg-red-100 hover:text-red-600 transition-colors h-8 w-8 text-muted-foreground"
-                                            onClick={() => handleDelete(c.id)}
-                                            title="Eliminar registro"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {filteredClicks.length === 0 && (
-                                <div className="py-20 text-center">
-                                    <p className="text-muted-foreground font-medium italic">No se han registrado clicks con estos criterios.</p>
-                                    {typeFilter !== 'all' && (
-                                        <Button variant="link" onClick={() => setTypeFilter('all')} className="mt-2 text-primary font-bold uppercase text-[10px] tracking-widest">
-                                            Ver todos los registros
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-
-                {/* Sidebar Stats */}
-                <div className="space-y-6">
-                    <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-                        <CardHeader className="bg-primary/5 border-b border-primary/10">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4 text-primary" />
-                                Productos con más interés
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4 px-4 pb-4">
-                            <div className="space-y-3">
-                                {stats?.topProducts?.map((p: any, i: number) => (
-                                    <div key={i} className="flex flex-col gap-1 p-3 bg-muted/20 rounded-xl border border-border/50 group hover:border-primary/30 transition-all">
-                                        <div className="flex justify-between items-start">
-                                            <p className="font-bold text-xs line-clamp-2 max-w-[180px] group-hover:text-primary transition-colors">{p.title}</p>
-                                            <Badge variant="secondary" className="bg-primary/10 text-primary border-none shadow-none font-black h-5">
-                                                {p.count}
-                                            </Badge>
-                                        </div>
-                                        <div className="w-full bg-muted h-1 rounded-full mt-2 overflow-hidden">
-                                            <div
-                                                className="bg-primary h-full transition-all duration-1000"
-                                                style={{ width: `${(p.count / (stats.topProducts[0]?.count || 1)) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {(!stats?.topProducts || stats.topProducts.length === 0) && (
-                                    <div className="text-center py-8">
-                                        <p className="text-xs text-muted-foreground italic font-medium">Aún no hay datos agregados.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-none shadow-sm bg-black text-white rounded-2xl">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="bg-primary p-3 rounded-2xl">
-                                    <BarChart3 className="w-6 h-6 text-black" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-lg leading-tight text-primary">Insight de Conversión</h4>
-                                    <p className="text-[10px] text-white/50 uppercase font-black tracking-widest">Análisis de Usuarios</p>
-                                </div>
-                            </div>
-                            <p className="text-sm text-white/70 leading-relaxed font-medium">
-                                El <span className="text-primary font-bold">WhatsApp</span> representa el <span className="text-white font-bold">{stats?.total > 0 ? Math.round((stats.whatsapp / stats.total) * 100) : 0}%</span> de los intentos de contacto, indicando que los usuarios prefieren la comunicación inmediata.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+                    <div className={s.rowActions}>
+                      {!c.is_read && (
+                        <button
+                          type="button"
+                          className={s.iconAction}
+                          onClick={() => void handleMarkAsRead([c.id])}
+                          aria-label={`Marcar como revisado el contacto de ${productLabel}`}
+                          title="Marcar como revisado"
+                        >
+                          <Check size={16} aria-hidden="true" />
+                        </button>
+                      )}
+                      {c.product_id && (
+                        <Link
+                          href={`/producto/${c.product_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={s.iconAction}
+                          aria-label={`Abrir publicación ${productLabel}`}
+                          title="Abrir publicación"
+                        >
+                          <ExternalLink size={16} aria-hidden="true" />
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        className={s.iconAction}
+                        data-danger="true"
+                        onClick={() => setDeleteTargetIds([c.id])}
+                        aria-label={`Eliminar registro de ${productLabel}`}
+                        title="Eliminar registro"
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
+          )}
         </div>
-    )
+
+        <aside className={s.sidebar} aria-label="Estadísticas de interés">
+          <article className={s.sidePanel}>
+            <div className={s.sideHeader}>
+              <h2>Publicaciones con más interés</h2>
+              <p>Productos que acumulan más clics de contacto directo.</p>
+            </div>
+            {topProducts.length > 0 ? (
+              <ul className={s.barList}>
+                {topProducts.map((p, index) => (
+                  <li key={`${p.title}-${index}`}>
+                    <div>
+                      <span>{p.title}</span>
+                      <strong>{integer(p.count)}</strong>
+                    </div>
+                    <div className={s.barTrack} aria-hidden="true">
+                      <div
+                        style={{
+                          width: `${(p.count / maxProductCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={s.sideNote}>
+                Todavía no hay suficientes clics para mostrar la comparación por
+                producto.
+              </p>
+            )}
+          </article>
+
+          <article className={s.sidePanel}>
+            <div className={s.sideHeader}>
+              <h2>Distribución por canal</h2>
+              <p>Preferencia de contacto en las publicaciones.</p>
+            </div>
+            <ul className={s.barList}>
+              {channelBreakdown.map((item) => (
+                <li key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{integer(item.count)}</strong>
+                  </div>
+                  <div className={s.barTrack} aria-hidden="true">
+                    <div
+                      style={{
+                        width: `${(item.count / maxChannelCount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className={s.sideNote}>
+              WhatsApp concentra el{" "}
+              <strong>
+                {clicks.length > 0
+                  ? `${Math.round((whatsappCount / clicks.length) * 100)}%`
+                  : "0%"}
+              </strong>{" "}
+              de las interacciones registradas en el catálogo.
+            </p>
+          </article>
+        </aside>
+      </div>
+
+      <AlertDialog
+        open={deleteTargetIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTargetIds([])
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTargetIds.length === 1
+                ? "Eliminar registro de contacto"
+                : `Eliminar ${deleteTargetIds.length} registros de contacto`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTargetIds.length === 1
+                ? "Este registro de interacción se eliminará permanentemente del historial."
+                : `Se eliminarán permanentemente los ${deleteTargetIds.length} registros seleccionados.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmDelete()
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90 min-h-11"
+            >
+              {isDeleting ? "Eliminando…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  )
 }

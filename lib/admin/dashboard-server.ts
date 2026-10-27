@@ -138,24 +138,34 @@ export async function loadAdminDashboardOverview(
     source(
       "contacts",
       async () => {
-        const rows = await readAdminDashboardRows<AdminDashboardContact>(
-          (start, end) =>
+        try {
+          const rows = await readAdminDashboardRows<AdminDashboardContact>(
+            (start, end) =>
+              db
+                .from("product_contact_requests")
+                .select("id,created_at,status", { count: "exact" })
+                .gte("created_at", period.previousStart)
+                .lt("created_at", period.end)
+                .order("id")
+                .range(start, end)
+          )
+          const pending = await exactCount(
             db
               .from("product_contact_requests")
-              .select("id,created_at,status", { count: "exact" })
-              .gte("created_at", period.previousStart)
-              .lt("created_at", period.end)
-              .order("id")
-              .range(start, end)
-        )
-        const pending = await exactCount(
-          db
-            .from("product_contact_requests")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "new")
-            .lt("created_at", now.toISOString())
-        )
-        return { rows, pending }
+              .select("id", { count: "exact", head: true })
+              .eq("status", "new")
+              .lt("created_at", now.toISOString())
+          )
+          return { rows, pending }
+        } catch (error) {
+          const isMissingTable =
+            error instanceof AdminDashboardQueryError &&
+            ["42P01", "PGRST205"].includes(error.code || "")
+          if (isMissingTable && typeof process !== "undefined") {
+            return { rows: [], pending: 0 }
+          }
+          throw error
+        }
       },
       "No pudimos consultar las solicitudes de contacto ni sus pendientes."
     )

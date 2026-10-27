@@ -32,9 +32,11 @@ function date(value: string, short = false) {
 }
 
 export function ProductContactInbox({
-  onUnread
+  onUnread,
+  mode = "chat"
 }: {
   onUnread: (count: number) => void
+  mode?: "chat" | "admin_form"
 }) {
   const [items, setItems] = useState<ProductContactRequest[]>([])
   const [selected, setSelected] = useState<ProductContactRequest | null>(null)
@@ -224,12 +226,16 @@ export function ProductContactInbox({
                 <h3>
                   {query || filter !== "all"
                     ? "No hay coincidencias"
-                    : "Aquí llegarán las consultas"}
+                    : mode === "chat"
+                      ? "Formulario de contacto desactivado"
+                      : "Aquí llegarán las consultas"}
                 </h3>
                 <p>
                   {query || filter !== "all"
                     ? "Prueba otra búsqueda o cambia el filtro."
-                    : "Las solicitudes enviadas desde los productos aparecerán con los datos de contacto de la persona."}
+                    : mode === "chat"
+                      ? "Las consultas nuevas se abren en Chats entre usuarios. Activa el interruptor superior si prefieres recibirlas por formulario."
+                      : "Las solicitudes enviadas desde los productos aparecerán con los datos de contacto de la persona."}
                 </p>
               </div>
             ) : (

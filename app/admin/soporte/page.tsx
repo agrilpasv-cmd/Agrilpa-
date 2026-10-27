@@ -1,16 +1,29 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import React, {
+  Fragment,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react"
 import {
-  Search, Send, Paperclip, Check, CheckCheck, RefreshCw, Headphones,
-  User, Mail, Phone, Building, Calendar, MessageSquare, AlertCircle,
-  FileText, Download, Eye, X, CheckCircle2, Clock, HelpCircle, ShieldCheck
+  Search,
+  Send,
+  Paperclip,
+  Check,
+  CheckCheck,
+  RefreshCw,
+  Mail,
+  Phone,
+  FileText,
+  Download,
+  X,
+  ArrowLeft,
+  ChevronDown,
+  Copy,
+  Loader2,
 } from "lucide-react"
 import {
   Select,
@@ -23,30 +36,73 @@ import { createClient } from "@/lib/supabase/client"
 import { compressImage } from "@/lib/compress-image"
 import { downloadAttachment } from "@/lib/download"
 import { MediaLightbox } from "@/components/chat/media-lightbox"
+import s from "./soporte.module.css"
 
 interface SupportTicket {
-  id: string;
-  conversation_id: string;
-  userId: string;
+  id: string
+  conversation_id: string
+  userId: string
   user: {
-    id: string;
-    name: string;
-    fullName: string;
-    companyName: string;
-    email: string;
-    phone: string;
-    role: string;
-    registeredAt?: string;
-  };
-  status: 'open' | 'in_progress' | 'resolved';
-  priority: 'low' | 'medium' | 'high';
-  adminNotes: string;
-  unreadCount: number;
-  lastMessage: any;
-  messages: any[];
-  createdAt: string;
-  updatedAt: string;
+    id: string
+    name: string
+    fullName: string
+    companyName: string
+    email: string
+    phone: string
+    role: string
+    registeredAt?: string
+  }
+  status: "open" | "in_progress" | "resolved"
+  priority: "low" | "medium" | "high"
+  adminNotes: string
+  unreadCount: number
+  lastMessage: any
+  messages: any[]
+  createdAt: string
+  updatedAt: string
 }
+
+const integer = (value: number) => new Intl.NumberFormat("es-SV").format(value)
+
+const initials = (name: string) =>
+  (name || "U")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+
+const ticketCode = (id: string) =>
+  `CHAT-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`
+
+function dateLabel(
+  value: string | undefined,
+  mode: "day" | "time" | "short" = "short"
+) {
+  if (!value || !Number.isFinite(Date.parse(value))) return ""
+  return new Intl.DateTimeFormat("es-SV", {
+    timeZone: "America/El_Salvador",
+    ...(mode === "time"
+      ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }
+      : mode === "day"
+        ? { day: "numeric", month: "long", year: "numeric" }
+        : { day: "numeric", month: "short" }),
+  }).format(new Date(value))
+}
+
+const STATUS_LABELS: Record<SupportTicket["status"], string> = {
+  open: "Abierto",
+  in_progress: "En atención",
+  resolved: "Resuelto",
+}
+
+const PRESET_REPLIES = [
+  "Hola, gracias por comunicarte con soporte de Agrilpa. ¿En qué podemos apoyarte?",
+  "Recibimos tu solicitud y estamos revisando los detalles. En breve te responderemos.",
+  "Tu caso fue verificado. Por favor confirma si todo funciona correctamente.",
+  "Damos por resuelta tu consulta. Quedamos a tu disposición si necesitas algo más.",
+]
 
 export default function AdminSoportePage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -54,17 +110,22 @@ export default function AdminSoportePage() {
   const [adminId, setAdminId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState("")
+  const [actionError, setActionError] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "in_progress" | "resolved">("all")
-
-  // Chat message input & attachments
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "open" | "in_progress" | "resolved"
+  >("all")
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [attachment, setAttachment] = useState<{
-    url: string;
-    type: 'image' | 'pdf' | 'docx' | 'file';
-    name: string;
-    size?: string;
+    url: string
+    type: "image" | "pdf" | "docx" | "file"
+    name: string
+    size?: string
   } | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
@@ -73,12 +134,18 @@ export default function AdminSoportePage() {
   const selectedTicketIdRef = useRef(selectedTicketId)
   const prevMsgCountRef = useRef<number>(0)
   const prevTicketIdRef = useRef<string | null>(null)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     selectedTicketIdRef.current = selectedTicketId
   }, [selectedTicketId])
 
-  // Scroll to bottom of message thread (inside chat container ONLY, never scrolling the browser window)
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+    }
+  }, [])
+
   useEffect(() => {
     const currentTicket = tickets.find((t) => t.id === selectedTicketId)
     const currentCount = currentTicket?.messages?.length || 0
@@ -95,85 +162,103 @@ export default function AdminSoportePage() {
     prevTicketIdRef.current = selectedTicketId
   }, [selectedTicketId, tickets, attachment])
 
-  // Mark ticket as read in DB and sync admin seen state
-  const markTicketAsRead = useCallback(async (ticketId: string, currentAdminId?: string | null) => {
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, unreadCount: 0 } : t))
-    )
-    const effectiveAdminId = currentAdminId || adminId || "admin"
-    try {
-      await Promise.allSettled([
-        fetch("/api/chat/mark-as-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId: ticketId,
-            userId: effectiveAdminId,
+  const markTicketAsRead = useCallback(
+    async (ticketId: string, currentAdminId?: string | null) => {
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, unreadCount: 0 } : t))
+      )
+      const effectiveAdminId = currentAdminId || adminId || "admin"
+      try {
+        await Promise.allSettled([
+          fetch("/api/chat/mark-as-read", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              conversationId: ticketId,
+              userId: effectiveAdminId,
+            }),
           }),
-        }),
-        fetch("/api/admin/conversations/mark-seen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId: ticketId, seen: true }),
-        }),
-      ])
-      window.dispatchEvent(new Event("update-support-unread-count"))
-      window.dispatchEvent(new Event("update-mensajes-unread-count"))
-      window.dispatchEvent(new Event("update-unread-count"))
-    } catch (e) {
-      console.error("Error marking ticket as read:", e)
-    }
-  }, [adminId])
-
-  // 1. Fetch all support tickets
-  const fetchTickets = useCallback(async (silent = false) => {
-    if (!silent) setIsRefreshing(true)
-    try {
-      const res = await fetch(`/api/admin/support/conversations?t=${Date.now()}`, {
-        cache: 'no-store'
-      })
-      if (!res.ok) throw new Error("Error fetching support tickets")
-      const data = await res.json()
-      if (data.tickets) {
-        // Keep active ticket unread count 0 while viewing
-        const updated = data.tickets.map((t: SupportTicket) => {
-          if (selectedTicketIdRef.current && t.id === selectedTicketIdRef.current) {
-            return { ...t, unreadCount: 0 }
-          }
-          return t
-        })
-        setTickets(updated)
-        if (data.adminId) setAdminId(data.adminId)
-
-        const activeId = selectedTicketIdRef.current || (updated.length > 0 ? updated[0].id : null)
-        if (!selectedTicketIdRef.current && updated.length > 0) {
-          setSelectedTicketId(updated[0].id)
-        }
-
-        // Con solo entrar al chat de soporte, marcar como visto automáticamente
-        if (activeId) {
-          const currentT = data.tickets.find((t: SupportTicket) => t.id === activeId)
-          if (currentT && currentT.unreadCount > 0) {
-            markTicketAsRead(activeId, data.adminId)
-          }
-        }
+          fetch("/api/admin/conversations/mark-seen", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ conversationId: ticketId, seen: true }),
+          }),
+        ])
+        window.dispatchEvent(new Event("update-support-unread-count"))
+        window.dispatchEvent(new Event("update-mensajes-unread-count"))
+        window.dispatchEvent(new Event("update-unread-count"))
+      } catch (e) {
+        console.error("Error marking ticket as read:", e)
       }
-    } catch (err) {
-      console.error("[Admin Support] Error loading tickets:", err)
-    } finally {
-      setLoading(false)
-      if (!silent) setIsRefreshing(false)
-    }
-  }, [markTicketAsRead])
+    },
+    [adminId]
+  )
+
+  const fetchTickets = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsRefreshing(true)
+      try {
+        const res = await fetch(
+          `/api/admin/support/conversations?t=${Date.now()}`,
+          {
+            cache: "no-store",
+          }
+        )
+        if (!res.ok)
+          throw new Error("No pudimos actualizar las solicitudes de soporte.")
+        const data = await res.json()
+        setFetchError("")
+        if (data.tickets) {
+          const updated = data.tickets.map((t: SupportTicket) => {
+            if (
+              selectedTicketIdRef.current &&
+              t.id === selectedTicketIdRef.current
+            ) {
+              return { ...t, unreadCount: 0 }
+            }
+            return t
+          })
+          setTickets(updated)
+          if (data.adminId) setAdminId(data.adminId)
+
+          const activeId =
+            selectedTicketIdRef.current ||
+            (updated.length > 0 ? updated[0].id : null)
+          if (!selectedTicketIdRef.current && updated.length > 0) {
+            setSelectedTicketId(updated[0].id)
+          }
+
+          if (activeId) {
+            const currentT = data.tickets.find(
+              (t: SupportTicket) => t.id === activeId
+            )
+            if (currentT && currentT.unreadCount > 0) {
+              void markTicketAsRead(activeId, data.adminId)
+            }
+          }
+        }
+      } catch (err) {
+        if (!silent) {
+          setFetchError(
+            err instanceof Error
+              ? err.message
+              : "No se pudieron cargar los tickets de soporte."
+          )
+        }
+      } finally {
+        setLoading(false)
+        if (!silent) setIsRefreshing(false)
+      }
+    },
+    [markTicketAsRead]
+  )
 
   useEffect(() => {
-    fetchTickets()
-    // Periodic sync every 4 seconds
-    const interval = setInterval(() => fetchTickets(true), 4000)
+    void fetchTickets()
+    const interval = setInterval(() => void fetchTickets(true), 4000)
     return () => clearInterval(interval)
   }, [fetchTickets])
 
-  // 2. Realtime listener for incoming messages
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -185,19 +270,26 @@ export default function AdminSoportePage() {
           const newMsg = payload.new as any
           if (!newMsg) return
 
-          const isCurrentActive = newMsg.conversation_id === selectedTicketIdRef.current
+          const isCurrentActive =
+            newMsg.conversation_id === selectedTicketIdRef.current
 
-          // Update ticket list state
           setTickets((prev) =>
             prev.map((t) => {
               if (t.conversation_id === newMsg.conversation_id) {
                 const isFromAdmin = newMsg.sender_id === adminId
-                const updatedMessages = [...t.messages.filter((m) => m.id !== newMsg.id), newMsg]
+                const updatedMessages = [
+                  ...t.messages.filter((m) => m.id !== newMsg.id),
+                  newMsg,
+                ]
                 return {
                   ...t,
                   messages: updatedMessages,
                   lastMessage: newMsg,
-                  unreadCount: isCurrentActive ? 0 : (isFromAdmin ? t.unreadCount : t.unreadCount + 1),
+                  unreadCount: isCurrentActive
+                    ? 0
+                    : isFromAdmin
+                      ? t.unreadCount
+                      : t.unreadCount + 1,
                   updatedAt: newMsg.created_at,
                 }
               }
@@ -205,9 +297,8 @@ export default function AdminSoportePage() {
             })
           )
 
-          // If current conversation is active, mark read immediately
           if (isCurrentActive) {
-            markTicketAsRead(newMsg.conversation_id, adminId)
+            void markTicketAsRead(newMsg.conversation_id, adminId)
           } else {
             window.dispatchEvent(new Event("update-support-unread-count"))
             window.dispatchEvent(new Event("update-mensajes-unread-count"))
@@ -217,48 +308,58 @@ export default function AdminSoportePage() {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [adminId, markTicketAsRead])
 
-  // 3. Mark ticket as read when selected - auto-seen on entrance
   const handleSelectTicket = (ticket: SupportTicket) => {
     setSelectedTicketId(ticket.id)
-    markTicketAsRead(ticket.id, adminId)
+    setMobileOpen(true)
+    setDetailsOpen(false)
+    setActionError("")
+    void markTicketAsRead(ticket.id, adminId)
   }
 
-  // 4. Manual toggle read / unread for active ticket
   const handleToggleTicketSeen = async (ticket: SupportTicket) => {
     const isCurrentlyRead = ticket.unreadCount === 0
     const nextUnread = isCurrentlyRead ? 1 : 0
     setTickets((prev) =>
-      prev.map((t) => (t.id === ticket.id ? { ...t, unreadCount: nextUnread } : t))
+      prev.map((t) =>
+        t.id === ticket.id ? { ...t, unreadCount: nextUnread } : t
+      )
     )
     try {
       await fetch("/api/admin/conversations/mark-seen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId: ticket.id, seen: !isCurrentlyRead }),
+        body: JSON.stringify({
+          conversationId: ticket.id,
+          seen: !isCurrentlyRead,
+        }),
       })
       if (!isCurrentlyRead) {
         await fetch("/api/chat/mark-as-read", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId: ticket.id, userId: adminId || "admin" }),
+          body: JSON.stringify({
+            conversationId: ticket.id,
+            userId: adminId || "admin",
+          }),
         })
       }
       window.dispatchEvent(new Event("update-support-unread-count"))
       window.dispatchEvent(new Event("update-mensajes-unread-count"))
-    } catch (e) {
-      console.error("Error toggling ticket seen:", e)
+    } catch {
+      setActionError("No pudimos actualizar el estado de lectura del ticket.")
     }
   }
 
-  // 5. Update status
-  const handleStatusChange = async (newStatus: 'open' | 'in_progress' | 'resolved') => {
+  const handleStatusChange = async (
+    newStatus: "open" | "in_progress" | "resolved"
+  ) => {
     if (!selectedTicketId) return
-    
-    // Immediate optimistic local update
+    setActionError("")
+
     setTickets((prev) =>
       prev.map((t) =>
         t.id === selectedTicketId
@@ -284,30 +385,39 @@ export default function AdminSoportePage() {
       window.dispatchEvent(new Event("update-support-unread-count"))
       window.dispatchEvent(new Event("update-mensajes-unread-count"))
       window.dispatchEvent(new Event("update-unread-count"))
-    } catch (err) {
-      console.error("[Admin Support] Error updating status:", err)
+    } catch {
+      setActionError("No pudimos guardar el nuevo estado del ticket.")
     }
   }
 
-  // 5. Send message as support admin
   const handleSendReply = async (presetText?: string) => {
     const textToSend = presetText || replyText
-    if ((!textToSend.trim() && !attachment) || isSending || !selectedTicketId || !adminId) return
+    if (
+      (!textToSend.trim() && !attachment) ||
+      isSending ||
+      !selectedTicketId ||
+      !adminId
+    )
+      return
 
     const activeTicket = tickets.find((t) => t.id === selectedTicketId)
     if (!activeTicket) return
 
     setIsSending(true)
+    setActionError("")
     const currentAttachment = attachment
     const content = textToSend.trim()
 
-    // Optimistic message
     const tempId = `temp-${Date.now()}`
     const optimisticMsg = {
       id: tempId,
       conversation_id: selectedTicketId,
       sender_id: adminId,
-      content: content || (currentAttachment?.type === 'image' ? "📷 Foto adjunta" : "📎 Documento adjunto"),
+      content:
+        content ||
+        (currentAttachment?.type === "image"
+          ? "Imagen adjunta"
+          : "Documento adjunto"),
       attachment_url: currentAttachment?.url || null,
       attachment_type: currentAttachment?.type || null,
       read_at: null,
@@ -321,7 +431,7 @@ export default function AdminSoportePage() {
               ...t,
               messages: [...t.messages, optimisticMsg],
               lastMessage: optimisticMsg,
-              status: t.status === 'open' ? 'in_progress' : t.status,
+              status: t.status === "open" ? "in_progress" : t.status,
             }
           : t
       )
@@ -347,7 +457,7 @@ export default function AdminSoportePage() {
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || "No se pudo enviar el mensaje")
 
       if (data.message) {
         setTickets((prev) =>
@@ -355,16 +465,18 @@ export default function AdminSoportePage() {
             t.id === selectedTicketId
               ? {
                   ...t,
-                  messages: t.messages.map((m) => (m.id === tempId ? data.message : m)),
+                  messages: t.messages.map((m) =>
+                    m.id === tempId ? data.message : m
+                  ),
                 }
               : t
           )
         )
       }
-    } catch (error) {
-      console.error("[Admin Support] Error sending reply:", error)
-      alert("Error al enviar la respuesta. Intenta de nuevo.")
-      // Revert optimistic message
+    } catch {
+      setActionError(
+        "No pudimos enviar la respuesta. Verifica tu conexión e inténtalo de nuevo."
+      )
       setTickets((prev) =>
         prev.map((t) =>
           t.id === selectedTicketId
@@ -382,19 +494,22 @@ export default function AdminSoportePage() {
     }
   }
 
-  // Handle file select
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     if (file.size > 10 * 1024 * 1024) {
-      alert("El archivo no debe exceder los 10 MB.")
+      setActionError("El archivo adjunto no debe superar los 10 MB.")
       return
     }
 
+    setActionError("")
     try {
       if (file.type.startsWith("image/")) {
-        const compressedBase64 = await compressImage(file, { maxWidth: 1200, quality: 0.85 })
+        const compressedBase64 = await compressImage(file, {
+          maxWidth: 1200,
+          quality: 0.85,
+        })
         setAttachment({
           url: compressedBase64,
           type: "image",
@@ -420,614 +535,745 @@ export default function AdminSoportePage() {
         }
         reader.readAsDataURL(file)
       }
-    } catch (err) {
-      console.error("Error loading attachment:", err)
-      alert("Error al cargar el archivo adjunto.")
+    } catch {
+      setActionError("No pudimos procesar el archivo adjunto.")
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
-  // Filtered tickets
-  const filteredTickets = tickets.filter((t) => {
+  async function handleCopy(value: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedKey(key)
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopiedKey(null), 2000)
+    } catch {
+      setActionError("No se pudo copiar el dato automáticamente.")
+    }
+  }
+
+  const filteredTickets = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
     const qClean = q.replace(/^#/, "").trim()
-    const ticketCode = `chat-${t.id.replace(/-/g, '').slice(0, 8).toLowerCase()}`
 
-    const matchesSearch =
-      searchQuery === "" ||
-      t.id.toLowerCase().includes(q) ||
-      t.id.toLowerCase().includes(qClean) ||
-      ticketCode.includes(q) ||
-      ticketCode.includes(qClean) ||
-      `#${ticketCode}`.includes(q) ||
-      t.user.name.toLowerCase().includes(q) ||
-      t.user.email.toLowerCase().includes(q) ||
-      t.user.companyName.toLowerCase().includes(q) ||
-      t.messages.some((m) => m.content?.toLowerCase().includes(q))
+    return tickets.filter((t) => {
+      const code = `chat-${t.id.replace(/-/g, "").slice(0, 8).toLowerCase()}`
+      const matchesSearch =
+        searchQuery === "" ||
+        t.id.toLowerCase().includes(q) ||
+        t.id.toLowerCase().includes(qClean) ||
+        code.includes(q) ||
+        code.includes(qClean) ||
+        `#${code}`.includes(q) ||
+        t.user.name.toLowerCase().includes(q) ||
+        t.user.email.toLowerCase().includes(q) ||
+        t.user.companyName.toLowerCase().includes(q) ||
+        t.messages.some((m) => m.content?.toLowerCase().includes(q))
 
-    const matchesStatus =
-      statusFilter === "all" || t.status === statusFilter
+      const matchesStatus =
+        statusFilter === "all" || t.status === statusFilter
 
-    return matchesSearch && matchesStatus
-  })
+      return matchesSearch && matchesStatus
+    })
+  }, [tickets, searchQuery, statusFilter])
 
   const activeTicket = tickets.find((t) => t.id === selectedTicketId)
 
-  // Stats
   const totalTickets = tickets.length
   const openCount = tickets.filter((t) => t.status === "open").length
-  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length
+  const inProgressCount = tickets.filter(
+    (t) => t.status === "in_progress"
+  ).length
   const resolvedCount = tickets.filter((t) => t.status === "resolved").length
   const unreadTotal = tickets.reduce((acc, t) => acc + (t.unreadCount || 0), 0)
 
-  const PRESET_REPLIES = [
-    "¡Hola! Gracias por comunicarte con soporte Agrilpa. ¿En qué podemos apoyarte hoy?",
-    "Hemos recibido tu solicitud y estamos revisando los detalles. En breve te damos respuesta.",
-    "Tu caso ha sido verificado con éxito. Por favor confirma si todo funciona correctamente.",
-    "Hemos dado por resuelta tu consulta. Quedamos a tu completa disposición.",
-  ]
-
-  if (loading) {
+  const formatSnippet = (msg: any) => {
+    if (!msg) return "Nueva consulta de soporte"
+    if (msg.attachment_url && !msg.content) {
+      return msg.attachment_type === "image"
+        ? "Imagen adjunta"
+        : "Documento adjunto"
+    }
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-        <p className="text-sm text-muted-foreground">Cargando Centro de Soporte...</p>
-      </div>
+      msg.content
+        ?.replace(/^📷\s*Foto adjunta$/i, "Imagen adjunta")
+        .replace(/^📎\s*Documento adjunto$/i, "Documento adjunto") ||
+      "Nueva consulta de soporte"
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header & Metrics */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <section className={s.page} aria-label="Centro de soporte de Agrilpa">
+      <header className={s.header}>
         <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <Headphones className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Centro de Soporte Agrilpa
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Gestiona y responde las solicitudes de ayuda y asistencia técnica de los usuarios en tiempo real.
+          <h1>Soporte</h1>
+          <p>
+            Atiende las consultas de ayuda y seguimiento técnico de los usuarios
+            en tiempo real.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchTickets(false)}
-            disabled={isRefreshing}
-            className="rounded-xl gap-1.5"
+        <div className={s.headerActions}>
+          <span className={s.summaryText}>
+            {integer(totalTickets)}{" "}
+            {totalTickets === 1 ? "conversación" : "conversaciones"} ·{" "}
+            {integer(unreadTotal)} sin revisar
+          </span>
+          <button
+            type="button"
+            className={s.secondaryButton}
+            onClick={() => void fetchTickets(false)}
+            disabled={isRefreshing || loading}
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              size={16}
+              className={isRefreshing || loading ? s.spinner : undefined}
+              aria-hidden="true"
+            />
             Actualizar
-          </Button>
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="rounded-2xl border border-border shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Total Tickets</p>
-              <p className="text-2xl font-bold text-foreground mt-0.5">{totalTickets}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-              <MessageSquare className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
+      {fetchError && (
+        <div className={s.notice} role="alert">
+          <span>{fetchError}</span>
+          <button
+            type="button"
+            className={s.secondaryButton}
+            onClick={() => void fetchTickets(false)}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
-        <Card className="rounded-2xl border border-amber-200/80 bg-amber-50/40 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-amber-800">Abiertos / Nuevos</p>
-              <p className="text-2xl font-bold text-amber-900 mt-0.5">{openCount}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
+      {actionError && (
+        <div className={s.notice} role="alert">
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className={s.secondaryButton}
+            onClick={() => setActionError("")}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
-        <Card className="rounded-2xl border border-blue-200/80 bg-blue-50/40 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-blue-800">En Atención</p>
-              <p className="text-2xl font-bold text-blue-900 mt-0.5">{inProgressCount}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
-              <Clock className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
+      <dl className={s.metrics} aria-label="Resumen de tickets de soporte">
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={statusFilter === "all"}
+          onClick={() => setStatusFilter("all")}
+        >
+          <dt>Total de tickets</dt>
+          <dd>{integer(totalTickets)}</dd>
+          <span>{integer(unreadTotal)} pendientes de lectura</span>
+        </button>
 
-        <Card className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-emerald-800">Resueltos</p>
-              <p className="text-2xl font-bold text-emerald-900 mt-0.5">{resolvedCount}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={statusFilter === "open"}
+          onClick={() => setStatusFilter("open")}
+        >
+          <dt>Abiertos</dt>
+          <dd>{integer(openCount)}</dd>
+          <span>Solicitudes nuevas por atender</span>
+        </button>
 
-      {/* Main Support Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[640px] items-start">
-        
-        {/* Left Column: Tickets List (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col h-[680px] bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
-          
-          {/* Search and Filters */}
-          <div className="p-3.5 border-b border-border/80 space-y-2.5 bg-gray-50/60">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por usuario, correo o texto..."
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={statusFilter === "in_progress"}
+          onClick={() => setStatusFilter("in_progress")}
+        >
+          <dt>En atención</dt>
+          <dd>{integer(inProgressCount)}</dd>
+          <span>Casos con seguimiento activo</span>
+        </button>
+
+        <button
+          type="button"
+          className={s.metric}
+          aria-pressed={statusFilter === "resolved"}
+          onClick={() => setStatusFilter("resolved")}
+        >
+          <dt>Resueltos</dt>
+          <dd>{integer(resolvedCount)}</dd>
+          <span>Consultas cerradas</span>
+        </button>
+      </dl>
+
+      <div className={s.workspace} data-mobile-open={mobileOpen}>
+        <aside className={s.list} aria-label="Listado de tickets de soporte">
+          <div className={s.listTools}>
+            <div className={s.search}>
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Buscar tickets por usuario, correo o código"
+                placeholder="Buscar usuario, correo o código"
+                data-no-auto-caps="true"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-xs rounded-xl bg-white border-border"
               />
               {searchQuery && (
                 <button
+                  type="button"
+                  className={s.iconBtn}
+                  aria-label="Limpiar búsqueda"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X size={15} aria-hidden="true" />
                 </button>
               )}
             </div>
 
-            {/* Status Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-              <button
-                onClick={() => setStatusFilter("all")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0 ${
-                  statusFilter === "all"
-                    ? "bg-primary text-white shadow-xs"
-                    : "bg-white text-muted-foreground hover:bg-gray-100 border border-border/60"
-                }`}
-              >
-                Todos ({tickets.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter("open")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0 ${
-                  statusFilter === "open"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "bg-white text-muted-foreground hover:bg-gray-100 border border-border/60"
-                }`}
-              >
-                Abiertos ({openCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter("in_progress")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0 ${
-                  statusFilter === "in_progress"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-white text-muted-foreground hover:bg-gray-100 border border-border/60"
-                }`}
-              >
-                En atención ({inProgressCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter("resolved")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0 ${
-                  statusFilter === "resolved"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-white text-muted-foreground hover:bg-gray-100 border border-border/60"
-                }`}
-              >
-                Resueltos ({resolvedCount})
-              </button>
+            <div
+              className={s.filters}
+              role="group"
+              aria-label="Filtrar tickets por estado"
+            >
+              {(
+                [
+                  { value: "all", label: "Todos", count: totalTickets },
+                  { value: "open", label: "Abiertos", count: openCount },
+                  {
+                    value: "in_progress",
+                    label: "En atención",
+                    count: inProgressCount,
+                  },
+                  {
+                    value: "resolved",
+                    label: "Resueltos",
+                    count: resolvedCount,
+                  },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={statusFilter === item.value}
+                  onClick={() => setStatusFilter(item.value)}
+                >
+                  {item.label}
+                  <span>{integer(item.count)}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Ticket List */}
-          <ScrollArea className="flex-1">
-            {filteredTickets.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-xs flex flex-col items-center justify-center h-48 gap-2">
-                <Headphones className="w-8 h-8 opacity-30" />
-                <p>No se encontraron conversaciones de soporte con los filtros aplicados.</p>
+          <div className={s.rows}>
+            {loading ? (
+              <div className={s.empty} role="status">
+                <Loader2 size={22} className={s.spinner} aria-hidden="true" />
+                <span>Cargando tickets de soporte…</span>
+              </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className={s.empty}>
+                <h3>
+                  {searchQuery || statusFilter !== "all"
+                    ? "Sin coincidencias"
+                    : "Bandeja de soporte al día"}
+                </h3>
+                <p>
+                  {searchQuery || statusFilter !== "all"
+                    ? "Prueba otra búsqueda o cambia el filtro de estado."
+                    : "Las nuevas consultas de asistencia aparecerán en esta columna."}
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-border/60">
-                {filteredTickets.map((ticket) => {
-                  const isSelected = ticket.id === selectedTicketId
-                  const lastMsg = ticket.lastMessage
-                  const statusColors = {
-                    open: "bg-amber-100 text-amber-800 border-amber-200",
-                    in_progress: "bg-blue-100 text-blue-800 border-blue-200",
-                    resolved: "bg-emerald-100 text-emerald-800 border-emerald-200",
-                  }
-                  const statusLabels = {
-                    open: "Abierto",
-                    in_progress: "En atención",
-                    resolved: "Resuelto",
-                  }
-
-                  return (
-                    <button
-                      key={ticket.id}
-                      onClick={() => handleSelectTicket(ticket)}
-                      className={`w-full text-left p-3.5 transition-all flex items-start gap-3 hover:bg-gray-50/80 ${
-                        isSelected ? "bg-emerald-50/70 border-l-4 border-l-primary" : ""
-                      }`}
-                    >
-                      <Avatar className="w-10 h-10 border border-border/60 shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                          {ticket.user.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <h4 className="font-semibold text-xs text-foreground truncate">
-                            {ticket.user.name}
-                          </h4>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {lastMsg?.created_at ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+              filteredTickets.map((ticket) => {
+                const isSelected = ticket.id === selectedTicketId
+                const lastMsg = ticket.lastMessage
+                const lastDate = lastMsg?.created_at || ticket.updatedAt
+                return (
+                  <button
+                    key={ticket.id}
+                    type="button"
+                    className={s.row}
+                    aria-pressed={isSelected}
+                    onClick={() => handleSelectTicket(ticket)}
+                  >
+                    <span className={s.avatar} aria-hidden="true">
+                      {initials(ticket.user.name)}
+                    </span>
+                    <div className={s.rowBody}>
+                      <div className={s.rowTop}>
+                        <strong>{ticket.user.name}</strong>
+                        <time dateTime={lastDate}>
+                          {dateLabel(lastDate, "time")}
+                        </time>
+                      </div>
+                      <p className={s.rowCompany}>
+                        {ticket.user.companyName} · {ticket.user.email}
+                      </p>
+                      <p className={s.snippet}>{formatSnippet(lastMsg)}</p>
+                      <div className={s.rowFoot}>
+                        <div className={s.rowBadges}>
+                          <span
+                            className={s.statusTag}
+                            data-status={ticket.status}
+                          >
+                            {STATUS_LABELS[ticket.status] || "Abierto"}
+                          </span>
+                          <span className={s.ticketCode}>
+                            #{ticketCode(ticket.id)}
                           </span>
                         </div>
-
-                        <p className="text-[11px] text-muted-foreground truncate mb-1.5 font-normal">
-                          {lastMsg?.content || (lastMsg?.attachment_type === 'image' ? "📷 Foto adjunta" : "Nueva consulta")}
-                        </p>
-
-                        <div className="flex items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${
-                                statusColors[ticket.status] || "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {statusLabels[ticket.status] || "Abierto"}
-                            </Badge>
-                            <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border/40 font-semibold">
-                              #CHAT-{ticket.id.replace(/-/g, '').slice(0, 8).toUpperCase()}
-                            </span>
-                          </div>
-
-                          {ticket.unreadCount > 0 && (
-                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-xs animate-pulse">
-                              {ticket.unreadCount} nuevo{ticket.unreadCount > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
+                        {ticket.unreadCount > 0 && (
+                          <span className={s.unreadIndicator}>
+                            <i aria-hidden="true" />
+                            {ticket.unreadCount} sin leer
+                          </span>
+                        )}
                       </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-
-        {/* Right Column: Chat Console & User Details (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col h-[680px] bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
-          {activeTicket ? (
-            <>
-              {/* Header: User Info & Status Selector */}
-              <div className="p-4 border-b border-border/80 bg-gray-50/70 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar className="w-10 h-10 border border-border shrink-0">
-                    <AvatarFallback className="bg-primary/15 text-primary font-bold text-sm">
-                      {activeTicket.user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-sm text-foreground truncate">
-                        {activeTicket.user.name}
-                      </h3>
-                      <Badge variant="outline" className="text-[10px] bg-white border-border text-muted-foreground">
-                        {activeTicket.user.companyName}
-                      </Badge>
-                      <span className="text-[10px] font-mono font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20">
-                        #CHAT-{activeTicket.id.replace(/-/g, '').slice(0, 8).toUpperCase()}
-                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-primary/70" />
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </aside>
+
+        <div className={s.detail}>
+          {!activeTicket ? (
+            <div className={s.empty}>
+              <h3>Selecciona un ticket de soporte</h3>
+              <p>
+                Elige una conversación de la lista izquierda para consultar la
+                ficha del usuario y enviar una respuesta.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className={s.detailHeader}>
+                <div className={s.chatTop}>
+                  <div className={s.userIdentity}>
+                    <button
+                      type="button"
+                      className={s.back}
+                      aria-label="Volver al listado de tickets"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <ArrowLeft size={18} aria-hidden="true" />
+                    </button>
+                    <span className={s.avatar} aria-hidden="true">
+                      {initials(activeTicket.user.name)}
+                    </span>
+                    <div className={s.userTitle}>
+                      <div className={s.userTitleRow}>
+                        <h2>{activeTicket.user.name}</h2>
+                        <span className={s.ticketCode}>
+                          #{ticketCode(activeTicket.id)}
+                        </span>
+                      </div>
+                      <p className={s.userSub}>
+                        {activeTicket.user.companyName} ·{" "}
                         {activeTicket.user.email}
-                      </span>
-                      {activeTicket.user.phone && activeTicket.user.phone !== "No especificado" && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-primary/70" />
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={s.topControls}>
+                    <button
+                      type="button"
+                      className={s.secondaryButton}
+                      onClick={() => void handleToggleTicketSeen(activeTicket)}
+                    >
+                      {activeTicket.unreadCount === 0 ? (
+                        <>
+                          <CheckCheck size={15} aria-hidden="true" />
+                          <span>Revisado</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={15} aria-hidden="true" />
+                          <span>Marcar revisado</span>
+                        </>
+                      )}
+                    </button>
+
+                    <Select
+                      value={activeTicket.status}
+                      onValueChange={(val: any) => void handleStatusChange(val)}
+                    >
+                      <SelectTrigger
+                        className={s.statusSelect}
+                        aria-label="Estado del ticket de soporte"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Abierto</SelectItem>
+                        <SelectItem value="in_progress">En atención</SelectItem>
+                        <SelectItem value="resolved">Resuelto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={s.participantsSummary}
+                  aria-expanded={detailsOpen}
+                  aria-controls="support-user-details"
+                  onClick={() => setDetailsOpen((open) => !open)}
+                >
+                  <div className={s.summaryItems}>
+                    <span>
+                      <Mail size={14} aria-hidden="true" />
+                      {activeTicket.user.email}
+                    </span>
+                    {activeTicket.user.phone &&
+                      activeTicket.user.phone !== "No especificado" && (
+                        <span>
+                          <Phone size={14} aria-hidden="true" />
                           {activeTicket.user.phone}
                         </span>
                       )}
-                    </div>
                   </div>
-                </div>
+                  <span className={s.summaryToggle}>
+                    <span>
+                      {detailsOpen ? "Ocultar datos" : "Ver datos del usuario"}
+                    </span>
+                    <ChevronDown
+                      size={15}
+                      className={detailsOpen ? s.rotated : undefined}
+                      aria-hidden="true"
+                    />
+                  </span>
+                </button>
 
-                {/* Actions: Mark as seen & Status Switcher */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant={activeTicket.unreadCount === 0 ? "outline" : "default"}
-                    onClick={() => handleToggleTicketSeen(activeTicket)}
-                    className="h-8 text-xs gap-1.5 rounded-xl font-semibold shadow-2xs"
+                {detailsOpen && (
+                  <dl
+                    id="support-user-details"
+                    className={s.participantDetails}
                   >
-                    {activeTicket.unreadCount === 0 ? (
-                      <>
-                        <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden sm:inline">Revisado</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Marcar como visto</span>
-                      </>
-                    )}
-                  </Button>
-
-                  <span className="text-xs font-medium text-muted-foreground ml-1">Estado:</span>
-                  <Select
-                    value={activeTicket.status}
-                    onValueChange={(val: any) => handleStatusChange(val)}
-                  >
-                    <SelectTrigger className="h-8 w-36 text-xs rounded-xl bg-white border-border font-medium">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open" className="text-xs text-amber-700 font-medium">
-                        🟡 Abierto / Pendiente
-                      </SelectItem>
-                      <SelectItem value="in_progress" className="text-xs text-blue-700 font-medium">
-                        🔵 En Atención
-                      </SelectItem>
-                      <SelectItem value="resolved" className="text-xs text-emerald-700 font-medium">
-                        🟢 Resuelto
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <dt>Nombre completo</dt>
+                      <dd>{activeTicket.user.fullName}</dd>
+                    </div>
+                    <div>
+                      <dt>Empresa</dt>
+                      <dd>{activeTicket.user.companyName}</dd>
+                    </div>
+                    <div>
+                      <dt>Correo electrónico</dt>
+                      <dd>
+                        <span>{activeTicket.user.email}</span>
+                        <button
+                          type="button"
+                          className={s.copyBtn}
+                          aria-label="Copiar correo electrónico"
+                          onClick={() =>
+                            void handleCopy(activeTicket.user.email, "email")
+                          }
+                        >
+                          {copiedKey === "email" ? (
+                            <Check size={15} aria-hidden="true" />
+                          ) : (
+                            <Copy size={15} aria-hidden="true" />
+                          )}
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Teléfono</dt>
+                      <dd>
+                        <span>{activeTicket.user.phone}</span>
+                        {activeTicket.user.phone &&
+                          activeTicket.user.phone !== "No especificado" && (
+                            <button
+                              type="button"
+                              className={s.copyBtn}
+                              aria-label="Copiar teléfono"
+                              onClick={() =>
+                                void handleCopy(
+                                  activeTicket.user.phone,
+                                  "phone"
+                                )
+                              }
+                            >
+                              {copiedKey === "phone" ? (
+                                <Check size={15} aria-hidden="true" />
+                              ) : (
+                                <Copy size={15} aria-hidden="true" />
+                              )}
+                            </button>
+                          )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Código de referencia</dt>
+                      <dd>
+                        <span>#{ticketCode(activeTicket.id)}</span>
+                        <button
+                          type="button"
+                          className={s.copyBtn}
+                          aria-label="Copiar código de referencia"
+                          onClick={() =>
+                            void handleCopy(
+                              `#${ticketCode(activeTicket.id)}`,
+                              "code"
+                            )
+                          }
+                        >
+                          {copiedKey === "code" ? (
+                            <Check size={15} aria-hidden="true" />
+                          ) : (
+                            <Copy size={15} aria-hidden="true" />
+                          )}
+                        </button>
+                      </dd>
+                    </div>
+                  </dl>
+                )}
               </div>
 
-              {/* Message Thread */}
-              <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#FBFBF9]">
+              <div
+                ref={chatScrollRef}
+                className={s.thread}
+                role="log"
+                aria-label="Mensajes del ticket de soporte"
+              >
                 {activeTicket.messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground text-xs py-12 gap-2">
-                    <HelpCircle className="w-8 h-8 opacity-30 text-primary" />
-                    <p>No hay mensajes registrados aún en este ticket de soporte.</p>
+                  <div className={s.empty}>
+                    <h3>Sin mensajes en este ticket</h3>
+                    <p>
+                      Escribe una respuesta abajo para iniciar la atención con
+                      el usuario.
+                    </p>
                   </div>
                 ) : (
-                  activeTicket.messages.map((msg: any) => {
+                  activeTicket.messages.map((msg: any, index: number) => {
                     const isAdmin = msg.sender_id === adminId
+                    const day = dateLabel(msg.created_at, "day")
+                    const prevDay =
+                      index > 0
+                        ? dateLabel(
+                            activeTicket.messages[index - 1].created_at,
+                            "day"
+                          )
+                        : ""
+                    const showDay = index === 0 || day !== prevDay
+                    const showSender =
+                      showDay ||
+                      msg.sender_id !==
+                        activeTicket.messages[index - 1]?.sender_id
+                    const cleanContent = msg.content
+                      ?.replace(/^📷\s*Foto adjunta$/i, "")
+                      .replace(/^📎\s*Documento adjunto$/i, "")
+                      .trim()
+
                     return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col ${isAdmin ? "items-end" : "items-start"}`}
-                      >
-                        <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-muted-foreground">
-                          {isAdmin ? (
-                            <span className="font-semibold text-primary flex items-center gap-1">
-                              <ShieldCheck className="w-3 h-3" /> Soporte Agrilpa
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-foreground">
-                              {activeTicket.user.name}
-                            </span>
-                          )}
-                          <span>•</span>
-                          <span>
-                            {msg.created_at
-                              ? new Date(msg.created_at).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "Ahora"}
-                          </span>
-                        </div>
-
+                      <Fragment key={msg.id}>
+                        {showDay && day && <div className={s.day}>{day}</div>}
                         <div
-                          className={`max-w-[82%] sm:max-w-[70%] rounded-2xl px-3.5 py-2.5 text-xs shadow-xs space-y-2 ${
-                            isAdmin
-                              ? "bg-primary text-white rounded-tr-xs"
-                              : "bg-white text-foreground border border-border/80 rounded-tl-xs"
-                          }`}
+                          className={s.messageRow}
+                          data-side={isAdmin ? "admin" : "user"}
                         >
-                          {/* Attachment Display */}
-                          {msg.attachment_url && (
-                            <div className="rounded-xl overflow-hidden mb-1.5">
-                              {msg.attachment_type === "image" ? (
-                                <div
-                                  onClick={() => setPreviewImage(msg.attachment_url)}
-                                  className="cursor-pointer group relative rounded-lg overflow-hidden border border-black/10 bg-black/5 max-h-56 flex items-center justify-center"
-                                >
-                                  <img
-                                    src={msg.attachment_url}
-                                    alt="Adjunto"
-                                    className="object-contain max-h-56 w-full rounded-lg group-hover:scale-105 transition-transform"
-                                  />
-                                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white">
-                                    <Eye className="w-4 h-4" />
-                                    <span className="text-[11px] font-medium">Ver imagen</span>
+                          {showSender && (
+                            <span className={s.sender}>
+                              {isAdmin
+                                ? "Soporte Agrilpa"
+                                : activeTicket.user.name}
+                            </span>
+                          )}
+                          <div className={s.bubble}>
+                            {msg.attachment_url && (
+                              <div>
+                                {msg.attachment_type === "image" ? (
+                                  <div className={s.imageAttachment}>
+                                    <button
+                                      type="button"
+                                      aria-label="Ver imagen adjunta"
+                                      onClick={() =>
+                                        setPreviewImage(msg.attachment_url)
+                                      }
+                                    >
+                                      <img
+                                        src={msg.attachment_url}
+                                        alt="Adjunto enviado en soporte"
+                                        loading="lazy"
+                                      />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={s.fileAction}
+                                      onClick={() =>
+                                        downloadAttachment(
+                                          msg.attachment_url,
+                                          "adjunto-soporte.jpg"
+                                        )
+                                      }
+                                    >
+                                      <Download size={13} aria-hidden="true" />
+                                      Descargar imagen
+                                    </button>
                                   </div>
-                                </div>
-                              ) : (
-                                <div
-                                  className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${
-                                    isAdmin
-                                      ? "bg-white/15 border-white/25 text-white"
-                                      : "bg-gray-50 border-border text-foreground"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <FileText className="w-4 h-4 shrink-0 text-primary" />
-                                    <span className="text-xs font-medium truncate">Documento adjunto</span>
+                                ) : (
+                                  <div className={s.documentAttachment}>
+                                    <span className="flex items-center gap-2 min-w-0">
+                                      <FileText size={16} aria-hidden="true" />
+                                      <span className="truncate">
+                                        Documento adjunto
+                                      </span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className={s.fileAction}
+                                      onClick={() =>
+                                        downloadAttachment(
+                                          msg.attachment_url,
+                                          "documento-soporte"
+                                        )
+                                      }
+                                    >
+                                      <Download size={13} aria-hidden="true" />
+                                      Descargar
+                                    </button>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => downloadAttachment(msg.attachment_url, "documento-soporte")}
-                                    className={`h-7 px-2 text-xs rounded-lg ${
-                                      isAdmin ? "hover:bg-white/20 text-white" : "hover:bg-gray-200"
-                                    }`}
-                                  >
-                                    <Download className="w-3.5 h-3.5 mr-1" />
-                                    Descargar
-                                  </Button>
-                                </div>
+                                )}
+                              </div>
+                            )}
+
+                            {cleanContent && (
+                              <p className={s.messageText}>{cleanContent}</p>
+                            )}
+
+                            <div className={s.messageMeta}>
+                              <time dateTime={msg.created_at}>
+                                {dateLabel(msg.created_at, "time") || "Ahora"}
+                              </time>
+                              {isAdmin && (
+                                <span>
+                                  {msg.read_at ? (
+                                    <>
+                                      <CheckCheck
+                                        size={13}
+                                        aria-hidden="true"
+                                      />
+                                      Leído
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check size={13} aria-hidden="true" />
+                                      Enviado
+                                    </>
+                                  )}
+                                </span>
                               )}
                             </div>
-                          )}
-
-                          {/* Content */}
-                          {msg.content && (
-                            <p className="whitespace-pre-wrap break-words leading-relaxed">
-                              {msg.content}
-                            </p>
-                          )}
-
-                          {/* Read status */}
-                          {isAdmin && (
-                            <div className="flex items-center justify-end gap-1 text-[10px] text-white/80 pt-0.5">
-                              {msg.read_at ? (
-                                <span className="flex items-center gap-0.5 text-emerald-200">
-                                  <CheckCheck className="w-3 h-3" /> Leído por usuario
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-0.5 text-white/70">
-                                  <Check className="w-3 h-3" /> Enviado
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      </Fragment>
                     )
                   })
                 )}
               </div>
- 
-               {/* Quick Response Shortcuts */}
-               <div className="px-4 py-2.5 bg-gray-50 border-t border-border/70 flex items-center gap-2 overflow-x-auto text-xs shrink-0 no-scrollbar">
-                 <span className="text-[11px] font-bold text-muted-foreground shrink-0 flex items-center gap-1">
-                   Plantillas:
-                 </span>
-                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                   {PRESET_REPLIES.map((preset, idx) => (
-                     <button
-                       key={idx}
-                       onClick={() => handleSendReply(preset)}
-                       disabled={isSending}
-                       className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-foreground hover:text-emerald-900 border border-border/80 text-[11px] font-medium transition-all shrink-0 whitespace-nowrap shadow-2xs hover:shadow-xs hover:border-primary/40 active:scale-95"
-                       title={preset}
-                     >
-                       {preset}
-                     </button>
-                   ))}
-                 </div>
-               </div>
 
-              {/* Attachment Preview Box */}
-              {attachment && (
-                <div className="p-2.5 bg-gray-50 border-t border-border flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2">
-                    {attachment.type === "image" ? (
-                      <img
-                        src={attachment.url}
-                        alt="Preview"
-                        className="w-8 h-8 rounded object-cover border"
-                      />
-                    ) : (
-                      <FileText className="w-6 h-6 text-primary" />
-                    )}
-                    <div className="text-xs">
-                      <p className="font-semibold text-foreground truncate max-w-xs">
-                        {attachment.name}
-                      </p>
-                      <p className="text-muted-foreground text-[10px]">{attachment.size}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setAttachment(null)}
-                    className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+              <div className={s.composer}>
+                <div className={s.quickBar}>
+                  <span className={s.quickLabel}>Respuestas rápidas:</span>
+                  {PRESET_REPLIES.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => void handleSendReply(preset)}
+                      disabled={isSending}
+                      className={s.quickChip}
+                      title={preset}
+                    >
+                      {preset}
+                    </button>
+                  ))}
                 </div>
-              )}
 
-              {/* Reply Input Bar */}
-              <div className="p-3 bg-white border-t border-border/80 flex items-center gap-2 shrink-0">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="hidden"
-                />
+                {attachment && (
+                  <div className={s.attachmentBar}>
+                    <div className={s.attachmentInfo}>
+                      {attachment.type === "image" ? (
+                        <img src={attachment.url} alt="Vista previa" />
+                      ) : (
+                        <FileText size={20} aria-hidden="true" />
+                      )}
+                      <div>
+                        <strong>{attachment.name}</strong>
+                        <span>{attachment.size} · Listo para enviar</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={s.iconBtn}
+                      aria-label="Quitar archivo adjunto"
+                      onClick={() => setAttachment(null)}
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Adjuntar imagen o archivo"
-                  className="h-10 w-10 rounded-xl shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-gray-100"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </Button>
+                <div className={s.inputRow}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                    aria-label="Seleccionar archivo adjunto"
+                  />
 
-                <Input
-                  placeholder="Escribe una respuesta oficial como Soporte Agrilpa..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSendReply()
-                    }
-                  }}
-                  disabled={isSending}
-                  className="flex-1 h-10 rounded-xl text-xs bg-gray-50/80 border-border focus:bg-white"
-                />
+                  <button
+                    type="button"
+                    className={s.attachButton}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Adjuntar imagen o documento"
+                    title="Adjuntar imagen o documento (máximo 10 MB)"
+                  >
+                    <Paperclip size={17} aria-hidden="true" />
+                  </button>
 
-                <Button
-                  onClick={() => handleSendReply()}
-                  disabled={isSending || (!replyText.trim() && !attachment)}
-                  className="h-10 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-xs gap-1.5 shrink-0"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Responder</span>
-                </Button>
+                  <input
+                    type="text"
+                    className={s.replyInput}
+                    placeholder="Escribe una respuesta como Soporte Agrilpa…"
+                    aria-label="Escribir respuesta de soporte"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        void handleSendReply()
+                      }
+                    }}
+                    disabled={isSending}
+                  />
+
+                  <button
+                    type="button"
+                    className={s.primaryButton}
+                    onClick={() => void handleSendReply()}
+                    disabled={isSending || (!replyText.trim() && !attachment)}
+                  >
+                    <Send size={15} aria-hidden="true" />
+                    <span>Responder</span>
+                  </button>
+                </div>
               </div>
             </>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground text-xs p-12 gap-3">
-              <div className="p-4 rounded-full bg-gray-100 text-muted-foreground">
-                <Headphones className="w-10 h-10 opacity-40" />
-              </div>
-              <h3 className="font-semibold text-sm text-foreground">Selecciona una conversación de soporte</h3>
-              <p className="max-w-sm">
-                Haz clic en cualquier ticket de la lista izquierda para ver el historial y responder directamente al usuario.
-              </p>
-            </div>
           )}
         </div>
-
       </div>
 
-      {/* Lightbox for zooming photos */}
       <MediaLightbox
         imageUrl={previewImage}
-        isOpen={Boolean(previewImage)}
         onClose={() => setPreviewImage(null)}
+        title="Adjunto de soporte"
       />
-    </div>
+    </section>
   )
 }

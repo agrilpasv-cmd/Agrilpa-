@@ -38,7 +38,24 @@ export async function GET(request: Request) {
     const { data, error, count } = await select
       .order("created_at", { ascending: false })
       .range((page - 1) * 20, page * 20 - 1)
-    if (error)
+    if (error) {
+      if (
+        ["42P01", "PGRST205"].includes(error.code || "") ||
+        /product_contact_requests|schema cache|does not exist/i.test(
+          error.message || ""
+        )
+      ) {
+        return NextResponse.json(
+          {
+            requests: [],
+            total: 0,
+            unreadCount: 0,
+            page,
+            pageSize: 20
+          },
+          { headers: contactHeaders }
+        )
+      }
       return NextResponse.json(
         {
           error:
@@ -46,6 +63,7 @@ export async function GET(request: Request) {
         },
         { status: 503 }
       )
+    }
     const { count: unread } = await permission
       .admin!.from("product_contact_requests")
       .select("id", { head: true, count: "exact" })

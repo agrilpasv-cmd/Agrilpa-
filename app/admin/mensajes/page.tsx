@@ -47,7 +47,7 @@ export default function AdminMensajesPage() {
     }
   }, [retry])
   async function toggle() {
-    if (!settings?.ready || saving) return
+    if (!settings || saving) return
     setSaving(true)
     setError("")
     setNotice("")
@@ -57,7 +57,7 @@ export default function AdminMensajesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: settings.mode === "admin_form" ? "chat" : "admin_form",
-          updatedAt: settings.updatedAt
+          updatedAt: settings.updatedAt || new Date().toISOString()
         })
       })
       const result = await response.json()
@@ -97,60 +97,58 @@ export default function AdminMensajesPage() {
   return (
     <div className={s.page}>
       <header className={s.header}>
-        <h1>Mensajes</h1>
-        <p>
-          Gestiona las consultas de los productos y consulta los chats entre
-          usuarios.
-        </p>
-      </header>
-      <section
-        className={s.mode}
-        aria-label="Modo de contacto de la plataforma"
-      >
-        <div>
-          <h2 id="contact-mode-label">Recibir contactos mediante formulario</h2>
-          <p id="contact-mode-help">
-            {settings?.mode === "admin_form"
-              ? "Todas las personas, con o sin cuenta, envían sus datos al equipo de Agrilpa. Las consultas llegan a Solicitudes de contacto."
-              : "Al contactar con un producto se abre el chat entre usuarios. Para enviar mensajes se requiere una cuenta."}
+        <div className={s.headerIntro}>
+          <h1>Mensajes</h1>
+          <p>
+            Gestiona las consultas de los productos y consulta los chats entre
+            usuarios.
           </p>
-          {settings && !settings.ready && (
-            <p>
-              Aplica la migración de contactos en Supabase para habilitar el
-              interruptor. El chat actual sigue disponible.
+        </div>
+        <section
+          className={s.mode}
+          aria-label="Modo de contacto de la plataforma"
+        >
+          <div className={s.modeCopy}>
+            <h2 id="contact-mode-label">
+              Recibir contactos mediante formulario
+            </h2>
+            <p id="contact-mode-help">
+              {settings?.mode === "admin_form"
+                ? "Las consultas de productos se reciben en Solicitudes de contacto."
+                : "Al contactar un producto se abre el chat directo entre usuarios."}
             </p>
-          )}
-        </div>
-        <div className={s.modeControl}>
-          <span>
-            {saving
-              ? "Guardando…"
-              : settings
-                ? settings.mode === "admin_form"
-                  ? "Formulario activo"
-                  : "Chat con registro"
-                : "Cargando…"}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings?.mode === "admin_form"}
-            aria-labelledby="contact-mode-label"
-            aria-describedby="contact-mode-help"
-            disabled={!settings?.ready || saving}
-            onClick={toggle}
-            className={s.switch}
-          >
-            {saving ? (
-              <Loader2 size={22} className={s.spinner} />
-            ) : (
-              <span className={s.track}>
-                <i />
-              </span>
-            )}
-          </button>
-        </div>
-      </section>
+          </div>
+          <div className={s.modeControl}>
+            <span>
+              {saving
+                ? "Guardando…"
+                : settings
+                  ? settings.mode === "admin_form"
+                    ? "Formulario activo"
+                    : "Chat con registro"
+                  : "Cargando…"}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings?.mode === "admin_form"}
+              aria-labelledby="contact-mode-label"
+              aria-describedby="contact-mode-help"
+              disabled={!settings || saving}
+              onClick={toggle}
+              className={s.switch}
+            >
+              {saving ? (
+                <Loader2 size={22} className={s.spinner} />
+              ) : (
+                <span className={s.track}>
+                  <i />
+                </span>
+              )}
+            </button>
+          </div>
+        </section>
+      </header>
       {error && (
         <div className={s.notice} role="alert">
           {error}{" "}
@@ -158,7 +156,7 @@ export default function AdminMensajesPage() {
         </div>
       )}
       {notice && (
-        <p className={s.date} role="status">
+        <p className={s.noticeStatus} role="status">
           {notice}
         </p>
       )}
@@ -193,12 +191,16 @@ export default function AdminMensajesPage() {
         </button>
       </div>
       <div
+        className={s.tabpanel}
         role="tabpanel"
         id={tab === "contacts" ? "contacts-panel" : "chats-panel"}
         aria-labelledby={tab === "contacts" ? "contacts-tab" : "chats-tab"}
       >
         {tab === "contacts" ? (
-          <ProductContactInbox onUnread={setUnread} />
+          <ProductContactInbox
+            onUnread={setUnread}
+            mode={settings?.mode || "chat"}
+          />
         ) : (
           <PlatformConversationsPanel />
         )}
