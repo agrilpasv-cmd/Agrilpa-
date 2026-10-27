@@ -41,15 +41,17 @@ export default function AdminLayout({
   const [unreadContactanosCount, setUnreadContactanosCount] = useState(0)
   const [unreadSupportCount, setUnreadSupportCount] = useState(0)
   const [unreadMensajesCount, setUnreadMensajesCount] = useState(0)
+  const [unreadProductContactCount, setUnreadProductContactCount] = useState(0)
 
   // Fetch unread counts
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const [resContactar, resContactanos, resSupport, resMensajes] = await Promise.all([
+      const [resContactar, resContactanos, resSupport, resMensajes, resProductContacts] = await Promise.all([
         fetch(`/api/admin/contact-clicks/unread-count?t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/contact-submissions/unread-count?t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/support/unread-count?t=${Date.now()}`, { cache: "no-store" }),
-        fetch(`/api/admin/conversations/unread-count?t=${Date.now()}`, { cache: "no-store" })
+        fetch(`/api/admin/conversations/unread-count?t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`/api/admin/product-contacts/unread-count?t=${Date.now()}`, { cache: "no-store" })
       ])
       
       if (resContactar.ok) {
@@ -78,6 +80,10 @@ export default function AdminLayout({
         if (typeof data4.unreadCount === 'number') {
           setUnreadMensajesCount(data4.unreadCount)
         }
+      }
+      if (resProductContacts.ok) {
+        const data = await resProductContacts.json()
+        if (typeof data.unreadCount === 'number') setUnreadProductContactCount(data.unreadCount)
       }
     } catch (error) {
       console.error("Failed to fetch unread contact counts:", error)
@@ -166,7 +172,7 @@ export default function AdminLayout({
     <div className="min-h-screen bg-background">
       <div className="flex">
         <PanelSidebar
-          items={menuItems.map(item => ({ ...item, notifications: item.href === "/admin/mensajes" ? unreadMensajesCount : item.href === "/admin/soporte" ? unreadSupportCount : item.href === "/admin/contactar" ? unreadContactCount : item.href === "/admin/contactanos" ? unreadContactanosCount : 0 }))}
+          items={menuItems.map(item => ({ ...item, notifications: item.href === "/admin/mensajes" ? unreadMensajesCount + unreadProductContactCount : item.href === "/admin/soporte" ? unreadSupportCount : item.href === "/admin/contactar" ? unreadContactCount : item.href === "/admin/contactanos" ? unreadContactanosCount : 0 }))}
           admin open={isSidebarOpen} onOpenChange={setIsSidebarOpen} onLogout={handleLogout} loggingOut={isLoggingOut}
         />
 

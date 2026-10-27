@@ -1,4 +1,5 @@
 "use client"
+import { useGlobalChat } from "@/components/chat/chat-context"
 
 import { notFound, useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -9,13 +10,6 @@ import { Search, Filter, Star, MapPin, MessageCircle, X, AlertCircle, ShieldChec
 import { createClient } from "@/lib/supabase/client"
 import { PRODUCT_CATEGORIES } from "@/lib/constants"
 import { useToast } from "@/hooks/use-toast"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { formatMinOrder } from "@/lib/utils"
 
@@ -26,6 +20,9 @@ interface UserProduct {
   category: string
   price: string
   currency?: string
+  unit?: string
+  price_type?: string
+  min_order_quantity?: number
   quantity: string
   description: string
   country: string
@@ -54,6 +51,7 @@ const normalizeText = (text: string) =>
     .toLowerCase()
 
 export default function ProductosPage() {
+  const { requestProductContact } = useGlobalChat()
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -68,21 +66,12 @@ export default function ProductosPage() {
   const [containerFilter, setContainerFilter] = useState("todos")
   const [userProducts, setUserProducts] = useState<UserProduct[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false)
 
   useEffect(() => {
     window.scrollTo(0, 0)
     fetchUserProducts()
-    checkAuth()
   }, [])
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    setIsAuthenticated(!!session)
-    setCurrentUserId(session?.user?.id || null)
-  }
 
   const categories = [
     "todos",
@@ -214,7 +203,6 @@ export default function ProductosPage() {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session?.user?.id) {
-        setIsAuthDialogOpen(true)
         return
       }
 
@@ -563,29 +551,8 @@ export default function ProductosPage() {
                           e.preventDefault()
                           e.stopPropagation()
 
-                          if (!isAuthenticated || !currentUserId) {
-                            setIsAuthDialogOpen(true)
-                            return
-                          }
-
-                          const contactMethod = (product as any).contactMethod
-                          const contactInfo = (product as any).contactInfo
-
-                          if (contactMethod === "WhatsApp") {
-                            const phone = contactInfo.replace(/\D/g, "")
-                            const message = encodeURIComponent(`Hola vi tu producto "${product.name}" en la plataforma Agrilpa 🌱, y estoy interesado.`)
-                            window.open(`https://wa.me/${phone}?text=${message}`, '_blank')
-                            trackContactClick(product, "whatsapp")
-                          } else if (contactMethod === "Email") {
-                            window.open(`mailto:${contactInfo}`, '_blank')
-                            trackContactClick(product, "email")
-                          } else if (contactMethod && contactInfo) {
-                            alert(`Contactar vía ${contactMethod}: ${contactInfo}`)
-                            trackContactClick(product, "generic")
-                          } else {
-                            router.push(`/producto/${product.slug}`)
-                            trackContactClick(product, "generic")
-                          }
+                          requestProductContact({ sellerName:product.seller || "Vendedor Agrilpa", vendorId:(product as any).vendorId, product:{id:String(product.id),title:product.name,image:product.image || "/placeholder.svg",price:String(product.price || ""),currency:product.currency || "USD",quantity:""} })
+                          trackContactClick(product, "platform")
                         }}
                       >
                         <MessageCircle className="w-4 h-4" />
@@ -606,28 +573,6 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* Auth Dialog */}
-      <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-primary" />
-              Acceso Restringido
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              Para contactar con los vendedores y ver detalles exclusivos de exportación, necesitas iniciar sesión o registrarte en Agrilpa.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 pt-4">
-            <Button onClick={() => router.push('/login')} className="w-full rounded-xl h-11 font-bold">
-              Iniciar Sesión
-            </Button>
-            <Button onClick={() => router.push('/register')} variant="outline" className="w-full rounded-xl h-11 font-bold">
-              Crear Cuenta Gratis
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

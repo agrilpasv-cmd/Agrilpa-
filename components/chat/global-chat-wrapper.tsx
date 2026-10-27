@@ -19,6 +19,7 @@ export function GlobalChatWrapper() {
     pendingNotification,
     clearPendingNotification,
     openChatForNotification,
+    requestProductContact,
     openSupportChat,
     isUserOnline,
     conversations
@@ -37,7 +38,8 @@ export function GlobalChatWrapper() {
       openChatForNotification(pendingNotification)
     } else if (activeChat && !activeChat.isSupport) {
       // If there is an active regular product chat, open it
-      setIsOpen(true)
+      if (pathname?.startsWith('/producto/')) requestProductContact(activeChat)
+      else setIsOpen(true)
     } else {
       // Find the latest regular product conversation
       const regularConvo = conversations?.find((c) => c.product_id && !c.is_support)

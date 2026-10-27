@@ -1,0 +1,218 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 50%, var(--card));
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.trigger:hover {
+  border-color: var(--foreground);
+}
+.trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.trigger[data-state="open"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.trigger[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+.trigger:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.pin,
+.chevron {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.chevron {
+  margin-left: auto;
+  transition: transform 150ms ease-out;
+}
+.trigger[data-state="open"] .chevron {
+  transform: rotate(180deg);
+}
+.flag {
+  width: 24px !important;
+  height: 17px !important;
+  border-radius: 2px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.placeholder {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.phoneTrigger {
+  gap: 6px;
+  height: 100%;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+.phoneTrigger .flag {
+  width: 20px !important;
+  height: 14px !important;
+}
+.dial {
+  font-size: 14px;
+  font-weight: 550;
+}
+.menu {
+  z-index: 70;
+  width: var(--radix-popover-trigger-width);
+  min-width: 230px;
+  max-width: calc(100vw - 32px);
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 8px 24px #00000016;
+  font-family: inherit;
+}
+.phoneMenu {
+  width: 310px;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.search svg {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.search input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  text-transform: none;
+}
+.search:focus-within {
+  box-shadow: inset 0 -2px var(--primary);
+}
+.list {
+  max-height: min(
+    260px,
+    calc(var(--radix-popover-content-available-height) - 65px)
+  );
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+  scroll-padding: 5px;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.option > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.option small {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.option[data-active="true"] {
+  background: var(--muted);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+}
+.option[aria-selected="true"] {
+  background: color-mix(in srgb, var(--primary) 10%, var(--popover));
+  font-weight: 600;
+}
+.check {
+  color: color-mix(in srgb, var(--primary) 65%, var(--foreground));
+  flex-shrink: 0;
+}
+.empty {
+  padding: 22px 12px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .chevron {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.container {
+  position: relative;
+  min-width: 0;
+}
+.clearable .trigger {
+  padding-right: 74px;
+}
+.clearable .chevron {
+  position: absolute;
+  right: 12px;
+}
+.clearCountry {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  right: 28px;
+  top: 2px;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.clearCountry:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.clearCountry:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+:global([data-slot="dialog-content"]):has(.menu) {
+  overflow: visible !important;
+}

@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { buildPasswordResetEmail } from './emails/password-reset'
 import agrilpaEmailLogo from './emails/agrilpa-logo.json'
+import type { ProductContactRequest } from './contact/types'
 
 const getResendClient = () => {
     if (!process.env.RESEND_API_KEY) {
@@ -15,6 +16,7 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ? `Agrilpa <${process.env.RESEN
 // Colors from the requested "Minimalist Black, White, Dark Green" theme
 const THEME = {
     primary: '#1a4d2e', // Dark Green
+    notificationPrimary: '#489e00',
     secondary: '#f3f4f6', // Light Gray/White
     text: '#111827', // Almost Black
     accent: '#4ade80', // Lighter Green for highlights
@@ -24,23 +26,24 @@ const THEME = {
 /**
  * Helper to generate consistent minimalist email HTML
  */
-const getMinimalistTemplate = (title: string, content: string, cta?: { text: string, url: string }) => `
+const getMinimalistTemplate = (title: string, content: string, cta?: { text: string, url: string }, options: { year?: number, notification?: boolean } = {}) => `
 <!DOCTYPE html>
-<html>
+<html lang="es" dir="ltr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    ${options.notification ? '<style>@media(max-width:600px){.notification-content{padding:24px!important}.notification-footer{padding:20px 24px!important}.notification-action{display:block!important;text-align:center!important}}</style>' : ''}
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9fafb;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid ${THEME.border}; border-radius: 8px; overflow: hidden; margin-top: 20px; margin-bottom: 20px;">
+    <div lang="es" dir="ltr" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid ${THEME.border}; border-radius: 8px; overflow: hidden; margin-top: 20px; margin-bottom: 20px;">
         <!-- Minimalist Header -->
-        <div style="background-color: #000000; padding: 40px 20px; text-align: center; border-bottom: 4px solid ${THEME.primary};">
-            <img src="https://agrilpa-mvp-v2.vercel.app/logo-email.png" alt="Agrilpa" height="120" style="display: block; margin: 0 auto; max-width: 400px;" />
+        <div style="background-color: #000000; padding: ${options.notification ? '0 20px' : '40px 20px'}; text-align: center; border-bottom: 4px solid ${options.notification ? THEME.notificationPrimary : THEME.primary};">
+            <img src="${options.notification ? 'https://agrilpa.com/logo-email.png' : 'https://agrilpa-mvp-v2.vercel.app/logo-email.png'}" alt="Agrilpa" height="${options.notification ? 240 : 120}" style="display: block; margin: 0 auto; max-width: 400px;" />
         </div>
         
         <!-- Content -->
-        <div style="padding: 40px;">
-            <h2 style="color: ${THEME.text}; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 600;">${title}</h2>
+        <div class="notification-content" style="padding: 40px;">
+            <h1 style="color: ${THEME.text}; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 600;">${title}</h1>
             
             <div style="color: #4b5563; font-size: 16px; line-height: 1.6;">
                 ${content}
@@ -48,14 +51,14 @@ const getMinimalistTemplate = (title: string, content: string, cta?: { text: str
 
             ${cta ? `
             <div style="margin-top: 30px; margin-bottom: 10px;">
-                <a href="${cta.url}" style="display: inline-block; background-color: ${THEME.primary}; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500; font-size: 16px;">${cta.text}</a>
+                <a class="notification-action" href="${cta.url}" style="display: inline-block; background-color: ${options.notification ? THEME.notificationPrimary : THEME.primary}; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500; font-size: 16px;${options.notification ? 'line-height:24px;' : ''}">${cta.text}</a>
             </div>
             ` : ''}
         </div>
 
         <!-- Minimalist Footer -->
-        <div style="background-color: ${THEME.secondary}; padding: 20px 40px; border-top: 1px solid ${THEME.border}; text-align: center;">
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">© ${new Date().getFullYear()} Agrilpa. Comercio Justo y Sostenible 🌍</p>
+        <div class="notification-footer" style="background-color: ${THEME.secondary}; padding: 20px 40px; border-top: 1px solid ${THEME.border}; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: ${options.notification ? '#4b5563' : '#6b7280'};">© ${options.year || new Date().getFullYear()} Agrilpa. Comercio Justo y Sostenible 🌍</p>
         </div>
     </div>
 </body>
@@ -580,5 +583,109 @@ export async function sendPasswordResetEmail({
     } catch (err: any) {
         console.error('[Email] Failed to send password reset email:', err)
         return { success: false, error: { message: err.message } }
+    }
+}
+
+function escapeNotificationHtml(value: string) {
+    return value.replace(
+        /[&<>"']/g,
+        (character) =>
+            ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]!
+    )
+}
+
+export function buildProductContactAdminEmail(
+    recipientName: string,
+    contact: ProductContactRequest
+) {
+    const safe = escapeNotificationHtml
+    const inboxUrl = 'https://agrilpa.com/admin/mensajes?tab=solicitudes'
+    const reference = `SOL-${contact.id.slice(0, 8).toUpperCase()}`
+    const rows = [
+        ['Producto', contact.product_title],
+        ['Vendedor', contact.seller_name],
+        ['Persona interesada', contact.full_name],
+        ['País', contact.country_name],
+        ['Correo electrónico', contact.email],
+        ['WhatsApp', contact.phone],
+        ['Referencia', reference]
+    ]
+    const content = `
+        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${safe(contact.full_name)} envió una consulta sobre ${safe(contact.product_title)}.</div>
+        <p>Hola${recipientName.trim() ? ` <strong>${safe(recipientName.trim())}</strong>` : ''},</p>
+        <p>Recibimos una nueva solicitud de contacto desde un producto de Agrilpa. Ya está disponible en <strong>Mensajes → Solicitudes de contacto</strong>.</p>
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;border-collapse:collapse;margin:24px 0;font-size:15px;">
+            ${rows.map(([label, value]) => `<tr><td style="width:36%;padding:12px 10px 12px 0;border-bottom:1px solid ${THEME.border};color:#4b5563;vertical-align:top;">${label}</td><td style="padding:12px 0;border-bottom:1px solid ${THEME.border};color:${THEME.text};font-weight:600;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">${safe(value)}</td></tr>`).join('')}
+        </table>
+        ${contact.message ? `<h2 style="font-size:16px;color:${THEME.text};margin:24px 0 10px;">Mensaje de la persona</h2><p style="margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;">${safe(contact.message)}</p>` : ''}
+        <p style="font-size:14px;margin:24px 0 0;">Revisa la solicitud en el panel para coordinar el contacto con el vendedor.</p>
+    `
+    return {
+        subject: `Nueva solicitud de contacto: ${contact.product_title.replace(/[\r\n]+/g, ' ').slice(0, 120)}`,
+        html: getMinimalistTemplate(
+            'Nueva solicitud de contacto',
+            content,
+            { text: 'Revisar solicitudes', url: inboxUrl },
+            {
+                notification: true,
+                year: new Date(contact.created_at).getUTCFullYear()
+            }
+        ),
+        text: `Hola${recipientName.trim() ? ` ${recipientName.trim()}` : ''},\n\nRecibimos una nueva solicitud de contacto desde un producto de Agrilpa.\n\n${rows.map(([label, value]) => `${label}: ${value}`).join('\n')}\n${contact.message ? `\nMensaje de la persona:\n${contact.message}\n` : ''}\nRevisar solicitudes:\n${inboxUrl}\n\nAgrilpa`
+    }
+}
+
+export async function sendProductContactAdminEmail({
+    recipientEmail,
+    recipientName,
+    contact,
+    idempotencyKey
+}: {
+    recipientEmail: string
+    recipientName: string
+    contact: ProductContactRequest
+    idempotencyKey: string
+}) {
+    try {
+        const resend = getResendClient()
+        const email = buildProductContactAdminEmail(recipientName, contact)
+        const options = { idempotencyKey, signal: AbortSignal.timeout(10000) }
+        const { data, error } = await resend.emails.send(
+            {
+                from: FROM_EMAIL,
+                to: recipientEmail,
+                replyTo: contact.email,
+                ...email
+            },
+            options
+        )
+        if (error)
+            return {
+                success: false as const,
+                error: {
+                    code: error.name,
+                    retryable:
+                        error.statusCode === 429 ||
+                        (error.statusCode != null && error.statusCode >= 500) ||
+                        error.name === 'concurrent_idempotent_requests' ||
+                        (error.statusCode == null && error.name === 'application_error')
+                }
+            }
+        return { success: true as const, data }
+    } catch (error) {
+        const configured = !!process.env.RESEND_API_KEY
+        return {
+            success: false as const,
+            error: {
+                code: configured ? 'network_error' : 'missing_api_key',
+                retryable: configured
+            }
+        }
     }
 }

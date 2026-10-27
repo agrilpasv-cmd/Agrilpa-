@@ -244,7 +244,7 @@ export default function ProductPage() {
 
   const product = userProduct
   
-  const { setActiveChat, setIsOpen, openChat } = useGlobalChat()
+  const { setActiveChat, setIsOpen, requestProductContact } = useGlobalChat()
 
   useEffect(() => {
     if (product && product.id && product.vendorId) {
@@ -337,7 +337,7 @@ export default function ProductPage() {
     }
 
     if (product && product.id && product.vendorId) {
-      openChat({
+      requestProductContact({
         sellerName: product.producer,
         vendorId: product.vendorId,
         product: {

@@ -1,12 +1,14 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { isConversationSeenByAdmin } from "@/lib/admin-chat-seen-state";
+import { requireContactAdmin } from "@/lib/contact/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const adminClient = createAdminClient();
+    const permission = await requireContactAdmin();
+    if (permission.response) return permission.response;
+    const adminClient = permission.admin!;
 
     // Fetch user-to-user conversations with updated_at (excluding support tickets)
     const { data: convos, error } = await adminClient

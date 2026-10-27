@@ -1,12 +1,14 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { type NextRequest, NextResponse } from "next/server";
 import { isConversationSeenByAdmin } from "@/lib/admin-chat-seen-state";
+import { requireContactAdmin } from "@/lib/contact/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const permission = await requireContactAdmin();
+    if (permission.response) return permission.response;
+    const adminClient = permission.admin!;
 
     // 1. Fetch only user-to-user / product conversations from Supabase (excluding support tickets where product_id is null)
     const { data: convos, error: convosError } = await adminClient

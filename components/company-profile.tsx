@@ -20,7 +20,7 @@ const action = "h-11 rounded-xl bg-primary text-white font-semibold hover:bg-pri
 
 export function CompanyProfile() {
   const { userId } = useParams<{ userId: string }>()
-  const { currentUserId, openChat, isUserOnline } = useGlobalChat()
+  const { currentUserId, requestProductContact, isUserOnline } = useGlobalChat()
   const [profile, setProfile] = useState<PublicCompanyProfile | null>(null)
   const [products, setProducts] = useState<CompanyProduct[]>([])
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading")
@@ -112,7 +112,7 @@ export function CompanyProfile() {
   function contact(product: CompanyProduct) {
     if (isOwner) return
     setContactOpen(false)
-    openChat({
+    requestProductContact({
       sellerName: name,
       vendorId: profile!.id,
       sellerOnline: isUserOnline(profile!.id),

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { isSupportConversation } from '@/lib/chat-channels'
 import { ConversationProduct } from '@/types/chat'
 import { playMessageNotificationSound } from '@/lib/sound'
+import { ProductContactDialog } from '@/components/contact/product-contact-dialog'
 
 export interface ActiveChat {
   sellerName: string;
@@ -43,6 +44,7 @@ interface ChatContextType {
   setActiveChat: (chat: ActiveChat | null) => void;
   setIsOpen: (isOpen: boolean) => void;
   openChat: (chat: ActiveChat) => void;
+  requestProductContact: (chat: ActiveChat) => void;
   refreshUnreadCount: () => Promise<void>;
   conversations: any[];
 }
@@ -51,6 +53,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null)
+  const [contactTarget, setContactTarget] = useState<ActiveChat | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
@@ -452,6 +455,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setPendingNotification(null)
   }, [])
 
+  const requestProductContact = useCallback((chat: ActiveChat) => {
+    setIsOpen(false)
+    setContactTarget(chat)
+  }, [])
+  const openLegacyProductChat = useCallback(() => {
+    if (contactTarget) openChat(contactTarget)
+    setContactTarget(null)
+  }, [contactTarget, openChat])
+
   const openChatForNotification = useCallback((notif?: PendingMessageNotification | null) => {
     const target = notif || pendingNotification
     if (target) {
@@ -534,11 +546,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setActiveChat,
         setIsOpen,
         openChat,
+        requestProductContact,
         refreshUnreadCount,
         conversations,
       }}
     >
       {children}
+      {contactTarget && <ProductContactDialog key={`${contactTarget.product.id}:${contactTarget.vendorId}`} target={contactTarget} onClose={() => setContactTarget(null)} onLegacy={openLegacyProductChat} currentUserId={currentUserId} />}
     </ChatContext.Provider>
   )
 }

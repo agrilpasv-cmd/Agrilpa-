@@ -1,21 +1,26 @@
-import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { requireContactAdmin } from "@/lib/contact/server"
 
 export const dynamic = 'force-dynamic'
 
+interface StatsUser {
+    id: string
+    created_at: string
+    plan_type?: string | null
+    user_type?: string | null
+    user_sub_type?: string | null
+    how_heard_about_us?: string | null
+    has_export_certificates?: boolean | null
+    annual_volume?: string | number | null
+    provider_countries?: string[] | null
+    supply_countries?: string[] | null
+}
+
 export async function GET(request: Request) {
     try {
-        // Create admin client to bypass RLS
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-            {
-                auth: {
-                    autoRefreshToken: false,
-                    persistSession: false,
-                },
-            }
-        )
+        const permission = await requireContactAdmin()
+        if (permission.response) return permission.response
+        const supabaseAdmin = permission.admin!
 
         // 1. Fetch Users Count & Breakdown
         const { data: profiles, error: usersError } = await supabaseAdmin
@@ -23,7 +28,7 @@ export async function GET(request: Request) {
             .select("id, created_at, plan_type, user_type, user_sub_type, how_heard_about_us, has_export_certificates, annual_volume, provider_countries, supply_countries")
 
         // If users table fails, try auth users as fallback for count
-        let usersData = profiles || []
+        let usersData: StatsUser[] = profiles || []
         if (usersError) {
             console.error("Error fetching users table:", usersError)
             // Fallback: list auth users
@@ -179,20 +184,7 @@ export async function GET(request: Request) {
         }
 
         // 4. Analytics Data - (Disabled to reduce database load)
-        const detailedAnalytics = {
-            summary: {
-                visitors: 0,
-                pageViews: 0,
-                bounceRate: "0%",
-                activeUsers: { total: 0, registered: 0, guests: 0 },
-            },
-            trend: [],
-            topPages: [],
-            topReferrers: [],
-            topCountries: [],
-            topOS: [],
-            topDevices: []
-        }
+        const detailedAnalytics = null
 
         // Calculate daily active users for today (in local server time or UTC, last 30 days of activities)
         const thirtyDaysAgo = new Date()
@@ -254,27 +246,10 @@ export async function GET(request: Request) {
             console.error("[Stats API] Error fetching user activities:", e)
         }
 
-        // Mock data para las nuevas métricas requeridas por el rediseño gráfico (hasta que se acumule histórico real)
-        const onboardingRetention = { completed: 91.2, dropOff: 5.1, attribution: 94.9, friction: "1m 38s" }
-        const avgOnboardingTime = { desktop: "1m 15s", mobile: "1m 38s" }
-        
-        // Simular eventos recientes basados en la actividad si no hay suficientes
-        const recentEvents = [
-            { id: "1", type: "Nuevo registro completado", method: "TikTok", timeAgo: "hace 2 min", category: "primary", user: "(USR-94821)" },
-            { id: "2", type: "Hilo de cotización iniciado", method: "Sensores IoT", timeAgo: "hace 5 min", category: "alert", user: "(USR-94820)" },
-            { id: "3", type: "Atribución registrada", method: "ChatGPT / Consultas", timeAgo: "hace 12 min", category: "warning", user: "" },
-            { id: "4", type: "Hilo de cotización iniciado", method: "Semillas Maíz Híbrido", timeAgo: "hace 18 min", category: "success", user: "" },
-            { id: "5", type: "Nuevo registro completado", method: "Google Search", timeAgo: "hace 24 min", category: "primary", user: "" }
-        ]
-
-        // Throughput data (21 días para la gráfica de barras, basándonos parcialmente en last7DaysActive)
-        const throughput = Array.from({ length: 21 }, (_, i) => {
-            const dayNum = i + 1;
-            // Simulamos clientes, dando un pico al final
-            let clients = Math.floor(Math.random() * 50) + 10;
-            if (dayNum === 12 || dayNum === 18) clients += 80;
-            return { day: dayNum, clients }
-        })
+        const onboardingRetention = null
+        const avgOnboardingTime = null
+        const recentEvents: unknown[] = []
+        const throughput: unknown[] = []
 
         return NextResponse.json({
             totalUsers,
@@ -285,8 +260,8 @@ export async function GET(request: Request) {
             freeUsers,
             totalQuotations,
             monthlyData,
-            analyticsData: detailedAnalytics.topCountries, // Keeping legacy prop for safety
-            detailedAnalytics, // New Full Data
+            analyticsData: [],
+            detailedAnalytics,
             databaseStatus: "Activa",
             compradorUsers,
             vendedorUsers,

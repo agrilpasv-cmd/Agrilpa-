@@ -2,9 +2,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { markConversationAdminSeen } from "@/lib/admin-chat-seen-state";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { requireContactAdmin } from "@/lib/contact/server";
 
 export async function POST(request: NextRequest) {
   try {
+    const permission = await requireContactAdmin();
+    if (permission.response) return permission.response;
     const body = await request.json();
     const { conversationId, seen = true } = body;
 
