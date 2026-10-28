@@ -13,6 +13,7 @@ export default function AdminMensajesPage() {
   const [settings, setSettings] = useState<{
     mode: ProductContactMode
     ready: boolean
+    preview?: boolean
     updatedAt: string | null
   } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -31,7 +32,8 @@ export default function AdminMensajesPage() {
           )
         if (active) {
           setSettings(result)
-          setError("")
+          if (result.preview) setNotice("Vista previa local: puedes probar ambos modos, pero las solicitudes todavía no se guardan ni envían avisos.")
+          setError(result.ready ? "" : "Falta aplicar la migración de contactos en Supabase para activar el formulario y recibir solicitudes.")
           if (initialMode.current) {
             const requestedTab = new URLSearchParams(window.location.search).get("tab")
             setTab(requestedTab === "solicitudes" || result.mode === "admin_form" ? "contacts" : "chats")
@@ -47,7 +49,7 @@ export default function AdminMensajesPage() {
     }
   }, [retry])
   async function toggle() {
-    if (!settings || saving) return
+    if (!settings?.ready || saving) return
     setSaving(true)
     setError("")
     setNotice("")
@@ -68,7 +70,9 @@ export default function AdminMensajesPage() {
       setSettings(result)
       setTab(result.mode === "admin_form" ? "contacts" : "chats")
       setNotice(
-        result.mode === "admin_form"
+        result.preview
+          ? "Modo actualizado en la vista previa local. Los envíos reales siguen deshabilitados."
+          : result.mode === "admin_form"
           ? "Modo formulario activado para todos los contactos nuevos."
           : "Modo chat con registro activado para los contactos nuevos."
       )
@@ -134,7 +138,7 @@ export default function AdminMensajesPage() {
               aria-checked={settings?.mode === "admin_form"}
               aria-labelledby="contact-mode-label"
               aria-describedby="contact-mode-help"
-              disabled={!settings || saving}
+              disabled={!settings?.ready || saving}
               onClick={toggle}
               className={s.switch}
             >

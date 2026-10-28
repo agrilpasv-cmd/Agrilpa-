@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import type { ProductContactMode } from "./types"
+import { readLocalContactSettings } from "./local-settings"
 
 export const contactHeaders = { "Cache-Control": "no-store, max-age=0" }
 export async function requireContactAdmin() {
@@ -39,42 +40,13 @@ export async function requireContactAdmin() {
     }
   return { admin, user }
 }
-const fallbackStore = globalThis as typeof globalThis & {
-  __agrilpaFallbackContactMode?: {
-    mode: ProductContactMode
-    updatedAt: string
-  }
-}
-
-export function hasFallbackContactMode() {
-  return Boolean(fallbackStore.__agrilpaFallbackContactMode)
-}
-
-export function getFallbackContactMode() {
-  if (!fallbackStore.__agrilpaFallbackContactMode) {
-    fallbackStore.__agrilpaFallbackContactMode = {
-      mode: "chat",
-      updatedAt: new Date().toISOString()
-    }
-  }
-  return fallbackStore.__agrilpaFallbackContactMode
-}
-
-export function setFallbackContactMode(mode: ProductContactMode) {
-  fallbackStore.__agrilpaFallbackContactMode = {
-    mode,
-    updatedAt: new Date().toISOString()
-  }
-  return fallbackStore.__agrilpaFallbackContactMode
-}
-
 export async function readProductContactMode() {
-  const isUnitTest = process.env.SUPABASE_SERVICE_ROLE_KEY === "test-only"
-  if (!isUnitTest && process.env.NODE_ENV === "development") {
-    const local = getFallbackContactMode()
+  if (process.env.NODE_ENV === "development" && process.env.AGRILPA_LOCAL_CONTACT_MODE === "admin_form") {
+    const local = readLocalContactSettings()
     return {
       mode: local.mode,
       ready: true,
+      preview: true,
       updatedAt: local.updatedAt
     }
   }
@@ -85,14 +57,6 @@ export async function readProductContactMode() {
     .eq("id", true)
     .maybeSingle()
   if (error && !["42P01", "PGRST205"].includes(error.code)) throw error
-  if (!data && !isUnitTest) {
-    const fallback = getFallbackContactMode()
-    return {
-      mode: fallback.mode,
-      ready: true,
-      updatedAt: fallback.updatedAt
-    }
-  }
   return {
     mode: (data?.mode === "admin_form"
       ? "admin_form"

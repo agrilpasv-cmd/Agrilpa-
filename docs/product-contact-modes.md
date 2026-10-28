@@ -31,6 +31,10 @@ Delivery Gate del correo: **PASS** en el alcance local verificado. Dirección **
 
 ## Activación en Agrilpa
 
+Corrección del interruptor: se eliminó el almacenamiento en `globalThis`, que podía divergir entre las rutas del administrador y del visitante. En producción, las dos rutas consultan la misma fila de Supabase y nunca simulan un guardado cuando faltan las tablas. La previsualización local explícita (`NODE_ENV=development` y `AGRILPA_LOCAL_CONTACT_MODE=admin_form`) comparte un archivo privado ignorado por Git, `data/.product-contact-mode.local.json`, que conserva el modo al recargar. La administración identifica esa vista previa y avisa que no guarda solicitudes ni envía correos. Sin esa bandera, el servidor local usa la configuración de Supabase, igual que producción.
+
+Verificado: prueba de instancias independientes del módulo, control de cambios simultáneos por versión, pérdida de tablas sin éxito falso y prueba de navegador sobre un producto real. Cambiar de chat a formulario funciona sin recargar la ficha; el formulario vuelve a abrirse después de recargar. Las llamadas de tracking de la prueba se interceptaron y no se enviaron solicitudes ni correos.
+
 1. En el proyecto **Agrilpa** de Supabase, abrir **SQL Editor** y ejecutar el contenido completo de `supabase/migrations/20261026173941_product_contact_modes.sql`.
 2. Publicar esta versión del código mediante el flujo habitual del proyecto.
 3. Entrar como administrador en `/admin/mensajes` y activar **Recibir contactos mediante formulario**.

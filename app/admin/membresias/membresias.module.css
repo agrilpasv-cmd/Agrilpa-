@@ -26,7 +26,7 @@
 }
 
 .page :is(button, a, input, select):focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--foreground);
   outline-offset: 2px;
 }
 
@@ -150,8 +150,8 @@ button.metric:hover {
 }
 
 button.metric[aria-pressed="true"] {
-  border-color: var(--primary);
-  background: var(--member-tint);
+  border-color: color-mix(in srgb, var(--foreground) 55%, var(--background));
+  background: color-mix(in srgb, var(--foreground) 4%, var(--background));
 }
 
 .metric dt {
@@ -340,7 +340,7 @@ button.metric[aria-pressed="true"] {
 }
 
 .table tbody tr:hover {
-  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+  background: color-mix(in srgb, var(--foreground) 3%, var(--card));
 }
 
 .table th:last-child,

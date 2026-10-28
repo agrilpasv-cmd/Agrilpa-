@@ -1,11 +1,30 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useCallback, useEffect, useState, type ChangeEvent } from "react"
+import { RefreshCw, Trash2, Save } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/components/ui/use-toast"
-import { X, Plus, Loader2, Save, Check, Clock } from "lucide-react"
-import Image from "next/image"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog"
+import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminNotice,
+  AdminEmpty,
+  AdminStatus,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  adminStyles as s
+} from "@/components/admin/workspace"
 
 interface HeroImage {
   id: string
@@ -15,342 +34,357 @@ interface HeroImage {
   order_index: number
   created_at: string
 }
-
 export default function HeroAdminPage() {
   const [images, setImages] = useState<HeroImage[]>([])
-  const [intervalSeconds, setIntervalSeconds] = useState<string>("3.5")
-  const [isSavingInterval, setIsSavingInterval] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isUploading, setIsUploading] = useState(false)
-  const { toast } = useToast()
-
-  const fetchImages = async () => {
+  const [interval, setInterval] = useState("")
+  const [loading, setLoading] = useState(true),
+    [uploading, setUploading] = useState(false),
+    [saving, setSaving] = useState(false)
+  const [error, setError] = useState(""),
+    [notice, setNotice] = useState("")
+  const [target, setTarget] = useState<HeroImage | null>(null),
+    [deleting, setDeleting] = useState(false)
+  const fetchImages = useCallback(async () => {
+    setLoading(true)
+    setError("")
     try {
-      setIsLoading(true)
-      const res = await fetch("/api/admin/hero")
-      const data = await res.json()
-      if (data.images) {
-        setImages(data.images)
-      }
-      if (data.interval) {
-        setIntervalSeconds((data.interval / 1000).toString())
-      }
-    } catch (error) {
-      console.error("Error fetching images:", error)
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las imágenes del Hero.",
-        variant: "destructive"
-      })
+      const response = await fetch("/api/admin/hero", { cache: "no-store" })
+      const result = await response.json()
+      if (!response.ok || !Array.isArray(result.images))
+        throw new Error(result.error || "No pudimos cargar los banners.")
+      setImages(result.images)
+      setInterval(
+        typeof result.interval === "number"
+          ? String(result.interval / 1000)
+          : ""
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cargar los banners."
+      )
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  }
-
+  }, [])
   useEffect(() => {
     fetchImages()
-  }, [])
-
-  const handleSaveInterval = async () => {
-    const parsed = parseFloat(intervalSeconds)
-    if (isNaN(parsed) || parsed < 0.5) {
-      toast({
-        title: "Valor inválido",
-        description: "El tiempo debe ser al menos 0.5 segundos.",
-        variant: "destructive"
-      })
+  }, [fetchImages])
+  const saveInterval = async () => {
+    const seconds = Number(interval)
+    if (!interval || !Number.isFinite(seconds) || seconds < 0.5) {
+      setError("El intervalo debe ser de al menos 0.5 segundos.")
       return
     }
-
+    setSaving(true)
+    setError("")
+    setNotice("")
     try {
-      setIsSavingInterval(true)
-      const res = await fetch("/api/admin/hero", {
+      const response = await fetch("/api/admin/hero", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          id: "00000000-0000-0000-0000-000000000000", 
-          link_url: (parsed * 1000).toString() 
+        body: JSON.stringify({
+          id: "00000000-0000-0000-0000-000000000000",
+          link_url: String(seconds * 1000)
         })
       })
-      
-      if (!res.ok) throw new Error("Error al guardar tiempo")
-      
-      toast({
-        title: "Éxito",
-        description: "Tiempo de rotación actualizado.",
-      })
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el tiempo.",
-        variant: "destructive"
-      })
+      if (!response.ok)
+        throw new Error("No pudimos guardar el tiempo de rotación.")
+      setNotice("Tiempo de rotación actualizado.")
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos guardar el intervalo."
+      )
     } finally {
-      setIsSavingInterval(false)
+      setSaving(false)
     }
   }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget,
+      file = input.files?.[0]
     if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Archivo inválido",
-        description: "Por favor, selecciona una imagen.",
-        variant: "destructive"
-      })
+    if (!file.type.startsWith("image/")) {
+      setError("Selecciona un archivo de imagen.")
+      input.value = ""
       return
     }
-
+    setUploading(true)
+    setError("")
+    setNotice("")
     try {
-      setIsUploading(true)
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch("/api/admin/hero", {
+      const data = new FormData()
+      data.append("file", file)
+      const response = await fetch("/api/admin/hero", {
         method: "POST",
-        body: formData,
+        body: data
       })
-
-      if (!res.ok) throw new Error("Error al subir imagen")
-      
-      toast({
-        title: "Éxito",
-        description: "Imagen subida correctamente.",
-      })
-      
-      fetchImages()
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Error",
-        description: "No se pudo subir la imagen.",
-        variant: "destructive"
-      })
+      if (!response.ok) throw new Error("No pudimos subir la imagen.")
+      await fetchImages()
+      setNotice("Imagen añadida al carrusel.")
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "No pudimos subir la imagen."
+      )
     } finally {
-      setIsUploading(false)
-      e.target.value = ""
+      setUploading(false)
+      input.value = ""
     }
   }
-
-  const handleDelete = async (id: string, url: string) => {
-    if (!confirm("¿Estás seguro de eliminar esta imagen?")) return
-
-    try {
-      const res = await fetch(`/api/admin/hero?id=${id}&url=${encodeURIComponent(url)}`, {
-        method: "DELETE"
-      })
-
-      if (!res.ok) throw new Error("Error al eliminar")
-
-      toast({
-        title: "Éxito",
-        description: "Imagen eliminada.",
-      })
-      
-      setImages(images.filter(img => img.id !== id))
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la imagen.",
-        variant: "destructive"
-      })
+  const updateLink = async (id: string, link: string) => {
+    const value = link.trim()
+    if (
+      value &&
+      !(value.startsWith("/") && !value.startsWith("//")) &&
+      !/^https?:\/\/[^\s]+$/i.test(value)
+    ) {
+      setError(
+        "Usa una dirección https:// o una ruta de Agrilpa, por ejemplo /productos."
+      )
+      return false
     }
-  }
-
-  const handleUpdateLink = async (id: string, linkUrl: string) => {
+    setError("")
+    setNotice("")
     try {
-      const res = await fetch("/api/admin/hero", {
+      const response = await fetch("/api/admin/hero", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, link_url: linkUrl })
+        body: JSON.stringify({ id, link_url: value })
       })
-      
-      if (!res.ok) throw new Error("Error al actualizar link")
-      
-      toast({
-        title: "Actualizado",
-        description: "El enlace se ha guardado correctamente.",
-      })
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el enlace.",
-        variant: "destructive"
-      })
+      if (!response.ok) throw new Error("No pudimos guardar el enlace.")
+      setImages((previous) =>
+        previous.map((image) =>
+          image.id === id ? { ...image, link_url: value } : image
+        )
+      )
+      setNotice("Enlace del banner actualizado.")
+      return true
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "No pudimos guardar el enlace."
+      )
+      return false
     }
   }
-
+  const remove = async () => {
+    if (!target || deleting) return
+    setDeleting(true)
+    setError("")
+    try {
+      const response = await fetch(
+        `/api/admin/hero?id=${encodeURIComponent(target.id)}&url=${encodeURIComponent(target.image_url)}`,
+        { method: "DELETE" }
+      )
+      if (!response.ok) throw new Error("No pudimos eliminar la imagen.")
+      setImages((previous) =>
+        previous.filter((image) => image.id !== target.id)
+      )
+      setTarget(null)
+      setNotice("Banner eliminado.")
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos eliminar la imagen."
+      )
+    } finally {
+      setDeleting(false)
+    }
+  }
   return (
-    <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
-      <div className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Hero Banners</h1>
-          <p className="text-muted-foreground mt-1">Sube banners publicitarios y configura hacia dónde redirigen al hacer clic.</p>
-          <div className="flex flex-col gap-2 mt-4">
-            <p className="text-sm text-gray-500 italic">Se mostrarán en el carrusel derecho de la página de inicio.</p>
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-700 px-4 py-2 rounded-lg w-fit">
-              <span className="font-semibold text-xs uppercase tracking-wider">Medida recomendada:</span>
-              <span className="font-bold">1920 x 1080 px</span>
-              <span className="text-blue-400 mx-1">|</span>
-              <span className="text-xs">Relación 16:9</span>
+    <AdminWorkspace>
+      <AdminHeader
+        title="Hero de inicio"
+        description="Gestiona las imágenes y los enlaces del carrusel derecho de la página principal."
+        actions={
+          <Button
+            variant="outline"
+            disabled={loading || uploading}
+            onClick={fetchImages}
+          >
+            <RefreshCw size={16} aria-hidden="true" />
+            Actualizar
+          </Button>
+        }
+      />
+      {error && <AdminNotice error>{error}</AdminNotice>}
+      {notice && <AdminNotice>{notice}</AdminNotice>}
+      <div className={s.split}>
+        <div className={s.stack}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 600 }}>
+              Banners del carrusel
+            </h2>
+            <p className={s.secondary}>
+              {images.length}{" "}
+              {images.length === 1 ? "imagen cargada" : "imágenes cargadas"}{" "}
+              para el carrusel.
+            </p>
+          </div>
+          {loading ? (
+            <AdminEmpty title="Cargando banners…" />
+          ) : !images.length ? (
+            <Card>
+              <AdminEmpty
+                title="Todavía no hay banners"
+                description="Añade la primera imagen desde el panel de carga."
+              />
+            </Card>
+          ) : (
+            <div className={s.bannerGrid}>
+              {images.map((image, index) => (
+                <BannerItem
+                  key={image.id}
+                  image={image}
+                  number={index + 1}
+                  onDelete={() => setTarget(image)}
+                  onUpdate={updateLink}
+                />
+              ))}
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Interval Setting */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-w-[300px]">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            Tiempo de Rotación
-          </h3>
-          <div className="flex gap-2 items-center">
-            <Input 
-              type="number"
-              step="0.1"
-              min="0.5"
-              value={intervalSeconds}
-              onChange={(e) => setIntervalSeconds(e.target.value)}
-              className="w-24 text-center"
+        <aside className={s.stack}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Rotación del carrusel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={s.field}>
+                <label htmlFor="hero-interval">
+                  Intervalo entre imágenes (segundos)
+                </label>
+                <Input
+                  id="hero-interval"
+                  type="number"
+                  min=".5"
+                  step=".1"
+                  value={interval}
+                  disabled={loading || saving}
+                  onChange={(event) => setInterval(event.target.value)}
+                />
+                <p>Mínimo 0.5 segundos.</p>
+                <Button disabled={loading || saving} onClick={saveInterval}>
+                  {saving ? "Guardando…" : "Guardar intervalo"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <div className={s.upload}>
+            <h2 style={{ fontSize: 18, fontWeight: 600 }}>Añadir imagen</h2>
+            <p className={s.secondary}>
+              Medida recomendada: 1920 × 1080 px, relación 16:9.
+            </p>
+            <label htmlFor="hero-upload" className={s.rowTitle}>
+              {uploading ? "Subiendo imagen…" : "Seleccionar archivo de imagen"}
+            </label>
+            <input
+              id="hero-upload"
+              type="file"
+              accept="image/*"
+              disabled={uploading}
+              onChange={upload}
             />
-            <span className="text-sm text-gray-500 font-medium">segundos</span>
-            <Button 
-              size="sm" 
-              onClick={handleSaveInterval}
-              disabled={isSavingInterval}
-              className="ml-auto"
-            >
-              {isSavingInterval ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
-            </Button>
+            <p className={s.secondary}>
+              Después de subirla podrás configurar su enlace.
+            </p>
           </div>
-        </div>
+        </aside>
       </div>
-
-      {isLoading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          
-          {images.map((img) => (
-            <BannerItem 
-              key={img.id} 
-              img={img} 
-              onDelete={handleDelete} 
-              onUpdate={handleUpdateLink} 
-            />
-          ))}
-
-          {/* Upload Card */}
-          <label className="relative rounded-2xl border-2 border-dashed border-gray-300 hover:border-primary bg-gray-50/50 hover:bg-gray-50 transition-colors flex flex-col items-center justify-center min-h-[250px] cursor-pointer group">
-            {isUploading ? (
-              <div className="flex flex-col items-center text-primary">
-                <Loader2 className="w-10 h-10 animate-spin mb-3" />
-                <span className="font-medium">Subiendo...</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center text-gray-400 group-hover:text-primary transition-colors">
-                <div className="w-14 h-14 rounded-full border-2 border-current flex items-center justify-center mb-3">
-                  <Plus className="w-7 h-7" />
-                </div>
-                <span className="font-medium">Añadir Imagen(es)</span>
-              </div>
-            )}
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={handleFileUpload}
-              disabled={isUploading}
-            />
-          </label>
-
-        </div>
-      )}
-    </div>
+      <AlertDialog
+        open={!!target}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setTarget(null)
+        }}
+      >
+        <AlertDialogContent className={s.dialog}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este banner?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La imagen se eliminará del carrusel de inicio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <Button variant="destructive" disabled={deleting} onClick={remove}>
+              {deleting ? "Eliminando…" : "Eliminar banner"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AdminWorkspace>
   )
 }
-
-function BannerItem({ img, onDelete, onUpdate }: { 
-  img: HeroImage, 
-  onDelete: (id: string, url: string) => void,
-  onUpdate: (id: string, link: string) => Promise<void>
+function BannerItem({
+  image,
+  number,
+  onDelete,
+  onUpdate
+}: {
+  image: HeroImage
+  number: number
+  onDelete: () => void
+  onUpdate: (id: string, link: string) => Promise<boolean>
 }) {
-  const [link, setLink] = useState(img.link_url || "")
-  const [isSaving, setIsSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  const handleSave = async () => {
-    if (isSaving) return
-    setIsSaving(true)
+  const [link, setLink] = useState(image.link_url || ""),
+    [saving, setSaving] = useState(false),
+    [saved, setSaved] = useState(false)
+  const save = async () => {
+    if (saving) return
+    setSaving(true)
     setSaved(false)
-    await onUpdate(img.id, link)
-    setIsSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    try {
+      setSaved(await onUpdate(image.id, link))
+    } finally {
+      setSaving(false)
+    }
   }
-
   return (
-    <div className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-4 group/item">
-      {/* Delete Button */}
-      <button 
-        onClick={() => onDelete(img.id, img.image_url)}
-        className="absolute -top-3 -right-3 z-10 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full shadow-md transition-colors"
-        title="Eliminar"
-      >
-        <X className="w-4 h-4" />
-      </button>
-
-      {/* Image Preview */}
-      <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
-        <Image 
-          src={img.image_url} 
-          alt="Hero banner" 
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+    <Card>
+      <div className={s.bannerHeading}>
+        <h2>Banner {number}</h2>
+        <AdminStatus>{image.is_active ? "Activo" : "Inactivo"}</AdminStatus>
+        <Button
+          variant="ghost"
+          onClick={onDelete}
+          aria-label={`Eliminar banner ${number}`}
+        >
+          <Trash2 size={17} />
+        </Button>
+      </div>
+      <div className={s.bannerPreview}>
+        <img
+          src={image.image_url}
+          alt={`Vista previa del banner ${number}`}
+          loading="lazy"
         />
       </div>
-
-      {/* Link Input */}
-      <div className="flex flex-col gap-1.5 mt-auto">
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vincular a Enlace / Página</label>
-        <div className="flex gap-2">
-          <Input 
-            placeholder="https://... o /productos"
+      <div className={s.bannerFields}>
+        <div className={s.field}>
+          <label htmlFor={`banner-link-${image.id}`}>
+            Enlace al hacer clic
+          </label>
+          <Input
+            id={`banner-link-${image.id}`}
             value={link}
-            onChange={(e) => setLink(e.target.value)}
-            className="bg-gray-50 border-gray-200 focus-visible:ring-primary h-10 text-sm"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSave()
+            placeholder="https://… o /productos"
+            onChange={(event) => {
+              setLink(event.target.value)
+              setSaved(false)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") save()
             }}
           />
-          <Button
-            size="sm"
-            variant={saved ? "outline" : "default"}
-            className={`shrink-0 transition-all h-10 px-3 gap-1.5 ${
-              saved ? "border-green-500 text-green-600" : ""
-            }`}
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
-            ) : saved ? (
-              <><Check className="w-4 h-4" /> Guardado</>
-            ) : (
-              <><Save className="w-4 h-4" /> Guardar</>
-            )}
-          </Button>
+          <p>Déjalo vacío si la imagen no debe abrir una página.</p>
         </div>
-        <p className="text-xs text-gray-400">Presiona «Guardar» o Enter para confirmar el enlace</p>
+        <Button variant="outline" disabled={saving} onClick={save}>
+          <Save size={16} aria-hidden="true" />
+          {saving ? "Guardando…" : saved ? "Guardado" : "Guardar enlace"}
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }
-

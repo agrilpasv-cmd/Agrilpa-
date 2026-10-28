@@ -1,330 +1,330 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { 
-  Loader2, 
-  Search, 
-  User as UserIcon, 
-  Clock, 
-  ExternalLink, 
-  RefreshCcw,
-  MessageCircle,
-  Mail,
-  LogIn,
-  Package,
-  FileText,
-  MousePointer2,
-  X,
-  ChevronDown
-} from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { Badge } from "@/components/ui/badge"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { RefreshCw, X } from "lucide-react"
+import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminMetrics,
+  AdminSearch,
+  AdminSelect,
+  AdminNotice,
+  AdminEmpty,
+  AdminStatus,
+  Button,
+  Card,
+  CardContent,
+  adminStyles as s,
+  adminDate
+} from "@/components/admin/workspace"
 
 interface UserActivity {
   id: string
   user_id: string | null
   activity_type: string
   description: string
-  metadata: any
   path: string
   created_at: string
   user_email?: string
   user_name?: string
 }
-
-interface UserSummary {
-  user_id: string
-  user_name: string
-  user_email: string
-  count: number
+const eventLabels: Record<string, string> = {
+  login: "Inicio de sesión",
+  contact_whatsapp: "Contacto por WhatsApp",
+  contact_email: "Contacto por correo",
+  create_product: "Publicación creada",
+  quote_request: "Solicitud de cotización",
+  click: "Clic",
+  page_view: "Vista de página"
 }
-
 export default function ActividadAdminPage() {
   const [activities, setActivities] = useState<UserActivity[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterType, setFilterType] = useState<string>("all")
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [selectedUserLabel, setSelectedUserLabel] = useState<string>("")
-  const [view, setView] = useState<"tabla" | "usuarios">("tabla")
-
-  const fetchActivities = async (userId?: string) => {
+  const [loading, setLoading] = useState(true),
+    [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(""),
+    [query, setQuery] = useState(""),
+    [type, setType] = useState("all")
+  const [view, setView] = useState("events"),
+    [user, setUser] = useState<{ id: string; name: string } | null>(null)
+  const fetchActivities = useCallback(async () => {
+    setLoading(true)
+    setError("")
     try {
-      setIsLoading(true)
-      const url = userId ? `/api/admin/activities?userId=${userId}` : "/api/admin/activities"
-      const res = await fetch(url)
-      const data = await res.json()
-      if (data.activities) {
-        setActivities(data.activities)
-      }
-    } catch (error) {
-      console.error("Error fetching activities:", error)
+      const params =
+        user && user.id !== "guest"
+          ? `?userId=${encodeURIComponent(user.id)}`
+          : ""
+      const response = await fetch(`/api/admin/activities${params}`, {
+        cache: "no-store"
+      })
+      const result = await response.json()
+      if (!response.ok || !Array.isArray(result.activities))
+        throw new Error(result.error || "No pudimos cargar la actividad.")
+      setActivities(result.activities)
+      setLoaded(true)
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cargar la actividad."
+      )
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  }
-
+  }, [user])
   useEffect(() => {
-    fetchActivities(selectedUserId || undefined)
-  }, [selectedUserId])
-
-  // Build user summary for "por usuario" view
-  const userSummary: UserSummary[] = Object.values(
-    activities.reduce((acc: Record<string, UserSummary>, a) => {
-      const key = a.user_id || "guest"
-      if (!acc[key]) {
-        acc[key] = {
-          user_id: a.user_id || "guest",
-          user_name: a.user_name || "Invitado",
-          user_email: a.user_email || "No registrado",
-          count: 0,
-        }
-      }
-      acc[key].count++
-      return acc
-    }, {})
-  ).sort((a, b) => b.count - a.count)
-
-  const filteredActivities = activities.filter((activity) => {
-    const matchesSearch =
-      activity.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      activity.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      activity.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      activity.activity_type.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = filterType === "all" || activity.activity_type === filterType
-    return matchesSearch && matchesType
-  })
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'login': return <LogIn className="w-4 h-4 text-blue-500" />
-      case 'contact_whatsapp': return <MessageCircle className="w-4 h-4 text-green-500" />
-      case 'contact_email': return <Mail className="w-4 h-4 text-orange-500" />
-      case 'create_product': return <Package className="w-4 h-4 text-purple-500" />
-      case 'quote_request': return <FileText className="w-4 h-4 text-pink-500" />
-      case 'page_view': return <ExternalLink className="w-4 h-4 text-gray-400" />
-      case 'click': return <MousePointer2 className="w-4 h-4 text-primary" />
-      default: return <MousePointer2 className="w-4 h-4 text-gray-500" />
-    }
-  }
-
-  const getActivityBadgeClass = (type: string) => {
-    const styles: Record<string, string> = {
-      login: "bg-blue-100 text-blue-700",
-      contact_whatsapp: "bg-green-100 text-green-700",
-      contact_email: "bg-orange-100 text-orange-700",
-      create_product: "bg-purple-100 text-purple-700",
-      quote_request: "bg-pink-100 text-pink-700",
-      page_view: "bg-gray-100 text-gray-700",
-      click: "bg-primary/10 text-primary",
-    }
-    return styles[type] || "bg-gray-100 text-gray-700"
-  }
-
-  const handleSelectUser = (u: UserSummary) => {
-    setSelectedUserId(u.user_id === "guest" ? null : u.user_id)
-    setSelectedUserLabel(u.user_email || u.user_name)
-    setView("tabla")
-  }
-
-  const handleClearUser = () => {
-    setSelectedUserId(null)
-    setSelectedUserLabel("")
     fetchActivities()
+  }, [fetchActivities])
+  const base = user
+    ? activities.filter((item) =>
+        user.id === "guest" ? !item.user_id : item.user_id === user.id
+      )
+    : activities
+  const shown = base.filter(
+    (item) =>
+      (type === "all" || item.activity_type === type) &&
+      [
+        item.description,
+        item.user_name,
+        item.user_email,
+        item.activity_type,
+        eventLabels[item.activity_type],
+        item.path
+      ].some((value) =>
+        value
+          ?.toLocaleLowerCase("es")
+          .includes(query.trim().toLocaleLowerCase("es"))
+      )
+  )
+  const summary = useMemo(() => {
+    const groups = new Map<
+      string,
+      { id: string; name: string; email: string; count: number }
+    >()
+    for (const item of activities) {
+      const id = item.user_id || "guest",
+        value = groups.get(id) || {
+          id,
+          name: item.user_name || "Visitantes",
+          email: item.user_id
+            ? item.user_email || ""
+            : "Eventos sin cuenta asociada",
+          count: 0
+        }
+      value.count++
+      groups.set(id, value)
+    }
+    return [...groups.values()].sort((a, b) => b.count - a.count)
+  }, [activities])
+  const chooseUser = (id: string, name: string) => {
+    setUser({ id, name })
+    setView("events")
+    setQuery("")
+    setType("all")
   }
-
   return (
-    <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Registro de Actividad</h1>
-          <p className="text-muted-foreground mt-1">
-            Monitorea en tiempo real las acciones y navegación de los usuarios.
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <AdminWorkspace>
+      <AdminHeader
+        title="Registro de actividad"
+        description="Consulta las acciones y la navegación registradas en la plataforma."
+        actions={
           <Button
-            variant={view === "tabla" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("tabla")}
+            variant="outline"
+            disabled={loading}
+            onClick={fetchActivities}
           >
-            Tabla
-          </Button>
-          <Button
-            variant={view === "usuarios" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("usuarios")}
-          >
-            Por Usuario
-          </Button>
-          <Button onClick={() => fetchActivities(selectedUserId || undefined)} variant="outline" size="sm" className="gap-2">
-            <RefreshCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={16} aria-hidden="true" />
             Actualizar
           </Button>
-        </div>
-      </div>
-
-      {/* Active user filter banner */}
-      {selectedUserId && (
-        <div className="flex items-center gap-3 mb-6 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-          <UserIcon className="w-4 h-4 text-blue-600" />
-          <span className="text-sm font-medium text-blue-800">
-            Filtrando por: <span className="font-bold">{selectedUserLabel}</span>
-          </span>
-          <button onClick={handleClearUser} className="ml-auto text-blue-500 hover:text-blue-700">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* VIEW: Por Usuario */}
-      {view === "usuarios" && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-              Usuarios — {userSummary.length} encontrados
-            </p>
+        }
+      />
+      {error && <AdminNotice error>{error}</AdminNotice>}
+      <AdminMetrics
+        items={[
+          {
+            label: "Eventos consultados",
+            value: loaded ? base.length : null,
+            hint: "Registros de la consulta actual"
+          },
+          {
+            label: "Usuarios con actividad",
+            value: loaded
+              ? new Set(base.map((item) => item.user_id).filter(Boolean)).size
+              : null,
+            hint: "Cuentas identificadas en esta lista"
+          },
+          {
+            label: "Eventos de visitantes",
+            value: loaded ? base.filter((item) => !item.user_id).length : null,
+            hint: "Eventos sin usuario registrado, no personas únicas"
+          }
+        ]}
+      />
+      {user && (
+        <AdminNotice>
+          <div className={s.toolbar} style={{ marginBottom: 0 }}>
+            <span>
+              Actividad de <strong>{user.name}</strong>
+            </span>
+            <Button
+              variant="outline"
+              aria-label="Quitar filtro de usuario"
+              onClick={() => setUser(null)}
+            >
+              <X size={16} aria-hidden="true" />
+              Quitar filtro
+            </Button>
           </div>
-          {isLoading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {userSummary.map((u) => (
-                <button
-                  key={u.user_id}
-                  onClick={() => handleSelectUser(u)}
-                  className="w-full flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <UserIcon className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{u.user_name}</p>
-                    <p className="text-sm text-gray-500 truncate">{u.user_email}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="secondary" className="text-xs">{u.count} acciones</Badge>
-                    <ChevronDown className="w-4 h-4 text-gray-400 -rotate-90" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        </AdminNotice>
       )}
-
-      {/* VIEW: Tabla */}
-      {view === "tabla" && (
-        <>
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por usuario, email, acción..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+      <Card>
+        <CardContent>
+          <div className={s.tabs} aria-label="Vista del registro">
+            <button
+              type="button"
+              aria-pressed={view === "events"}
+              onClick={() => setView("events")}
+            >
+              Eventos
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "users"}
+              onClick={() => setView("users")}
+            >
+              Por usuario
+            </button>
+          </div>
+          {view === "events" && (
+            <div className={s.toolbar}>
+              <AdminSearch
+                value={query}
+                onChange={setQuery}
+                label="Buscar persona, acción o página"
+              />
+              <AdminSelect
+                value={type}
+                onChange={setType}
+                label="Filtrar tipo de evento"
+                options={[
+                  { value: "all", label: "Todos los eventos" },
+                  ...Object.entries(eventLabels).map(([value, label]) => ({
+                    value,
+                    label
+                  }))
+                ]}
               />
             </div>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="all">Todos los eventos</option>
-              <option value="login">Inicios de Sesión</option>
-              <option value="contact_whatsapp">WhatsApp</option>
-              <option value="contact_email">Email</option>
-              <option value="create_product">Publicaciones</option>
-              <option value="quote_request">Cotizaciones</option>
-              <option value="click">Clicks</option>
-              <option value="page_view">Vistas de página</option>
-            </select>
-          </div>
-
-          {isLoading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : filteredActivities.length === 0 ? (
-            <div className="text-center p-12 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-              <p className="text-gray-500">No se encontró actividad reciente.</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
+          )}
+          <p className={s.secondary}>
+            La consulta obtiene hasta 500 eventos recientes. Los filtros y
+            recuentos corresponden a los registros cargados.
+          </p>
+        </CardContent>
+        <div className={s.tableScroll}>
+          {loading && !loaded ? (
+            <AdminEmpty title="Cargando actividad…" />
+          ) : view === "users" ? (
+            !summary.length ? (
+              <AdminEmpty title="Sin actividad registrada" />
+            ) : (
+              <table>
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
-                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Acción</th>
-                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Descripción</th>
-                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Página</th>
-                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Fecha</th>
+                  <tr>
+                    <th scope="col">Usuario</th>
+                    <th scope="col">Eventos en la consulta</th>
+                    <th scope="col">Actividad</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredActivities.map((activity) => (
-                    <tr key={activity.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="p-4">
-                        <button
-                          className="flex items-center gap-3 text-left hover:opacity-70 transition-opacity"
-                          onClick={() => {
-                            if (activity.user_id) {
-                              setSelectedUserId(activity.user_id)
-                              setSelectedUserLabel(activity.user_email || activity.user_name || "")
-                              fetchActivities(activity.user_id)
-                            }
-                          }}
-                          title={activity.user_id ? "Ver toda la actividad de este usuario" : "Invitado"}
+                <tbody>
+                  {summary.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <span className={s.rowTitle}>{item.name}</span>
+                        <span className={s.rowMeta}>{item.email}</span>
+                      </td>
+                      <td>{item.count}</td>
+                      <td>
+                        <Button
+                          variant="outline"
+                          onClick={() => chooseUser(item.id, item.name)}
                         >
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                            <UserIcon className="w-4 h-4 text-gray-400" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm text-gray-900">{activity.user_name || "Invitado"}</span>
-                            <span className="text-xs text-gray-500">{activity.user_email || "No registrado"}</span>
-                          </div>
-                        </button>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="secondary" className={`gap-1.5 font-medium ${getActivityBadgeClass(activity.activity_type)}`}>
-                          {getActivityIcon(activity.activity_type)}
-                          {activity.activity_type.replace(/_/g, ' ')}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-sm text-gray-600 line-clamp-1" title={activity.description}>
-                          {activity.description}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md w-fit max-w-[150px] truncate">
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{activity.path}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 whitespace-nowrap">
-                          <Clock className="w-3 h-3" />
-                          {format(new Date(activity.created_at), "d MMM, HH:mm", { locale: es })}
-                        </div>
+                          Ver actividad
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            )
+          ) : !shown.length ? (
+            <AdminEmpty
+              title="No hay eventos para mostrar"
+              description="Prueba con otro filtro o actualiza el registro."
+            />
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Persona</th>
+                  <th scope="col">Acción</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col">Página</th>
+                  <th scope="col">Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          chooseUser(
+                            item.user_id || "guest",
+                            item.user_name || "Visitantes"
+                          )
+                        }
+                        aria-label={`Ver actividad de ${item.user_name || "visitantes"}`}
+                      >
+                        <span style={{ textAlign: "left" }}>
+                          <span className={s.rowTitle}>
+                            {item.user_name || "Visitante"}
+                          </span>
+                          <span className={s.rowMeta}>
+                            {item.user_email || "Sin cuenta asociada"}
+                          </span>
+                        </span>
+                      </Button>
+                    </td>
+                    <td>
+                      <AdminStatus>
+                        {eventLabels[item.activity_type] ||
+                          item.activity_type.replaceAll("_", " ")}
+                      </AdminStatus>
+                    </td>
+                    <td
+                      style={{
+                        minWidth: 220,
+                        maxWidth: 420,
+                        overflowWrap: "anywhere"
+                      }}
+                    >
+                      {item.description || "Sin descripción"}
+                    </td>
+                    <td style={{ maxWidth: 220, overflowWrap: "anywhere" }}>
+                      {item.path || "Sin página"}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {adminDate(item.created_at, true)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-        </>
-      )}
-    </div>
+        </div>
+      </Card>
+    </AdminWorkspace>
   )
 }

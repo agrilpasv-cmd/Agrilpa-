@@ -1,268 +1,327 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, RefreshCw, Eye, Trash2, Pencil, X, Save, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
+import { Eye, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog"
-import { Input } from "@/components/ui/input"
-import { PRODUCT_CATEGORIES } from "@/lib/constants"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminMetrics,
+  AdminSearch,
+  AdminSelect,
+  AdminNotice,
+  AdminEmpty,
+  Button,
+  Card,
+  CardContent,
+  adminStyles as s,
+  adminDate
+} from "@/components/admin/workspace"
 
 interface Product {
-    id: string
-    title: string
-    category: string
-    price: string
-    quantity: string
-    description: string
-    country: string
-    state?: string
-    min_order: string
-    packaging: string
-    packaging_size: number
-    certifications: string
-    maturity: string
-    image: string
-    created_at: string
-    user_id: string
-    currency?: string
-    unit?: string
-    price_type?: string
-    min_order_quantity?: number
-    user: {
-        full_name: string
-        email: string
-        company_name: string
-    }
+  id: string
+  title: string
+  category: string
+  price: string | number
+  price_type?: string
+  currency?: string
+  unit?: string
+  created_at: string
+  user_id: string
+  user?: { full_name?: string; email?: string; company_name?: string }
 }
-
-const ALL_COUNTRIES = [
-    "El Salvador", "Guatemala", "Honduras", "Nicaragua", "Costa Rica", "Panamá", "Belice",
-    "México", "Estados Unidos", "Canadá",
-    "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Ecuador", "Paraguay", "Perú", "Uruguay", "Venezuela", "Guyana", "Surinam",
-    "Cuba", "República Dominicana", "Jamaica", "Haití", "Trinidad y Tobago", "Puerto Rico",
-    "España", "Francia", "Alemania", "Italia", "Portugal", "Países Bajos", "Bélgica", "Polonia", "Reino Unido",
-    "China", "India", "Japón", "Corea del Sur", "Tailandia", "Vietnam", "Indonesia", "Filipinas", "Malasia", "Turquía",
-    "Sudáfrica", "Nigeria", "Kenia", "Etiopía", "Ghana", "Costa de Marfil", "Tanzania", "Uganda", "Marruecos", "Egipto",
-    "Australia", "Nueva Zelanda",
-]
-
 export default function AdminPublicationsPage() {
-    const router = useRouter()
-    const [products, setProducts] = useState<Product[]>([])
-    const [loading, setLoading] = useState(true)
-    const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-    const { toast } = useToast()
-
-    // Delete
-    const [isDeleting, setIsDeleting] = useState<string | null>(null)
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-    const [productToDelete, setProductToDelete] = useState<string | null>(null)
-
-
-
-    const fetchProducts = useCallback(async (showLoading = false) => {
-        if (showLoading) setLoading(true)
-        try {
-            const response = await fetch(`/api/admin/products?t=${Date.now()}`, {
-                cache: "no-store",
-                headers: { "Cache-Control": "no-cache, no-store, must-revalidate", Pragma: "no-cache" },
-            })
-            if (!response.ok) throw new Error("Failed to fetch products")
-            const data = await response.json()
-            setProducts(data || [])
-            setLastUpdate(new Date())
-        } catch (error: any) {
-            toast({ title: "Error", description: "No se pudieron cargar las publicaciones", variant: "destructive" })
-        } finally {
-            setLoading(false)
-        }
-    }, [toast])
-
-    useEffect(() => { fetchProducts(true) }, [fetchProducts])
-
-    // ── Delete ──
-    const handleDeleteClick = (id: string) => { setProductToDelete(id); setDeleteDialogOpen(true) }
-
-    const confirmDelete = async () => {
-        if (!productToDelete) return
-        setIsDeleting(productToDelete)
-        setDeleteDialogOpen(false)
-        try {
-            const response = await fetch("/api/admin/products/delete", {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: productToDelete }),
-            })
-            if (response.ok) {
-                setProducts((prev) => prev.filter((p) => p.id !== productToDelete))
-                toast({ title: "Publicación eliminada", description: "El producto ha sido eliminado correctamente" })
-            } else {
-                throw new Error("Failed to delete")
-            }
-        } catch {
-            toast({ title: "Error", description: "No se pudo eliminar la publicación", variant: "destructive" })
-        } finally {
-            setIsDeleting(null)
-            setProductToDelete(null)
-        }
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState("")
+  const [query, setQuery] = useState("")
+  const [category, setCategory] = useState("all")
+  const [deleting, setDeleting] = useState(false)
+  const [target, setTarget] = useState<Product | null>(null)
+  const { toast } = useToast()
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const response = await fetch("/api/admin/products", { cache: "no-store" })
+      const result = await response.json()
+      if (!response.ok || !Array.isArray(result))
+        throw new Error(result.error || "No pudimos cargar las publicaciones.")
+      setProducts(result)
+      setLoaded(true)
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cargar las publicaciones."
+      )
+    } finally {
+      setLoading(false)
     }
-
-
-    if (loading && products.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        )
+  }, [])
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
+  const categories = [
+    ...new Set(products.map((product) => product.category).filter(Boolean))
+  ].sort()
+  const shown = products.filter(
+    (product) =>
+      (category === "all" || product.category === category) &&
+      [
+        product.title,
+        product.category,
+        product.user?.full_name,
+        product.user?.company_name,
+        product.user?.email
+      ].some((value) =>
+        value
+          ?.toLocaleLowerCase("es")
+          .includes(query.trim().toLocaleLowerCase("es"))
+      )
+  )
+  const remove = async () => {
+    if (!target || deleting) return
+    setDeleting(true)
+    try {
+      const response = await fetch("/api/admin/products/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: target.id })
+      })
+      if (!response.ok) throw new Error("No pudimos eliminar la publicación.")
+      setProducts((previous) =>
+        previous.filter((product) => product.id !== target.id)
+      )
+      setTarget(null)
+      toast({ title: "Publicación eliminada" })
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos eliminar la publicación."
+      )
+    } finally {
+      setDeleting(false)
     }
-
-    return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Gestión de Publicaciones</h1>
-                    <p className="text-muted-foreground">Administra los productos publicados por los usuarios</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {lastUpdate && (
-                        <span className="text-xs text-muted-foreground">
-                            Última actualización: {lastUpdate.toLocaleTimeString()}
-                        </span>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => fetchProducts(true)} disabled={loading}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                        Actualizar
-                    </Button>
-                    <Button size="sm" onClick={() => router.push("/admin/publicaciones/nueva")} disabled={loading} className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Nueva Publicación
-                    </Button>
-                </div>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Publicaciones Activas</CardTitle>
-                    <CardDescription>Total de publicaciones: {products.length}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {products.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">No hay publicaciones registradas</div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="text-left p-4 font-medium w-[80px]">Imagen</th>
-                                        <th className="text-left p-4 font-medium">Producto</th>
-                                        <th className="text-left p-4 font-medium">Categoría</th>
-                                        <th className="text-left p-4 font-medium">Precio</th>
-                                        <th className="text-left p-4 font-medium">Vendedor</th>
-                                        <th className="text-left p-4 font-medium">Empresa</th>
-                                        <th className="text-left p-4 font-medium">Fecha</th>
-                                        <th className="text-right p-4 font-medium">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {products.map((product) => (
-                                        <tr key={product.id} className="border-b hover:bg-muted/50">
-                                            <td className="p-4">
-                                                <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden">
-                                                    <img
-                                                        src={`/api/products/${product.id}/thumb`}
-                                                        alt={product.title}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            </td>
-                                            <td className="p-4 font-medium max-w-[200px]">
-                                                <p className="truncate">{product.title}</p>
-                                            </td>
-                                            <td className="p-4">{product.category}</td>
-                                            <td className="p-4">{product.price_type === "quote" || !product.price || product.price === "Por Cotizar" ? "Por Cotizar" : `${product.price}$ / ${product.unit || "kg"}`}</td>
-                                            <td className="p-4 text-sm">
-                                                <div className="font-medium">{product.user?.full_name || "Desconocido"}</div>
-                                                <div className="text-xs text-muted-foreground">{product.user?.email}</div>
-                                            </td>
-                                            <td className="p-4">{product.user?.company_name || "-"}</td>
-                                            <td className="p-4 text-sm text-muted-foreground">
-                                                {new Date(product.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => router.push(`/admin/publicaciones/${product.id}/editar`)}
-                                                        title="Editar producto"
-                                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => router.push(`/producto/${product.id}`)}
-                                                        title="Ver producto"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => handleDeleteClick(product.id)}
-                                                        disabled={isDeleting === product.id}
-                                                        title="Eliminar producto"
-                                                    >
-                                                        {isDeleting === product.id ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-4 h-4" />
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-
-
-            {/* ── Delete Dialog ── */}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar publicación?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta acción no se puede deshacer. El producto será eliminado permanentemente del catálogo.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-                            Eliminar
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+  }
+  return (
+    <AdminWorkspace>
+      <AdminHeader
+        title="Publicaciones"
+        description="Consulta los productos publicados y gestiona su información."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={fetchProducts}
+              disabled={loading}
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+              Actualizar
+            </Button>
+            <Button asChild>
+              <Link href="/admin/publicaciones/nueva">
+                <Plus size={16} aria-hidden="true" />
+                Nueva publicación
+              </Link>
+            </Button>
+          </>
+        }
+      />
+      {error && <AdminNotice error>{error}</AdminNotice>}
+      <AdminMetrics
+        items={[
+          {
+            label: "Publicaciones consultadas",
+            value: loaded ? products.length : null,
+            hint: "Registros de este listado"
+          },
+          {
+            label: "Vendedores",
+            value: loaded
+              ? new Set(
+                  products.map((product) => product.user_id).filter(Boolean)
+                ).size
+              : null,
+            hint: "Con publicaciones en este listado"
+          },
+          {
+            label: "Categorías",
+            value: loaded ? categories.length : null,
+            hint: "Con productos registrados"
+          }
+        ]}
+      />
+      <Card>
+        <CardContent>
+          <div className={s.toolbar}>
+            <AdminSearch
+              value={query}
+              onChange={setQuery}
+              label="Buscar producto, vendedor o empresa"
+            />
+            <AdminSelect
+              value={category}
+              onChange={setCategory}
+              label="Filtrar categoría"
+              options={[
+                { value: "all", label: "Todas las categorías" },
+                ...categories.map((value) => ({ value, label: value }))
+              ]}
+            />
+          </div>
+          <p className={s.secondary}>
+            {shown.length} publicaciones en la lista
+            {query || category !== "all" ? " filtrada" : ""}.
+          </p>
+        </CardContent>
+        <div className={s.tableScroll}>
+          {loading && !loaded ? (
+            <AdminEmpty title="Cargando publicaciones…" />
+          ) : shown.length === 0 ? (
+            <AdminEmpty
+              title={
+                products.length ? "No hay coincidencias" : "Sin publicaciones"
+              }
+              description={
+                products.length
+                  ? "Prueba con otro término o categoría."
+                  : "Aquí aparecerán los productos registrados."
+              }
+            />
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Producto</th>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Precio publicado</th>
+                  <th scope="col">Vendedor</th>
+                  <th scope="col">Registro</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((product) => (
+                  <tr key={product.id}>
+                    <td>
+                      <Link
+                        href={`/producto/${product.id}`}
+                        className={s.productLink}
+                      >
+                        <img
+                          className={s.thumb}
+                          src={`/api/products/${product.id}/thumb`}
+                          alt=""
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.onerror = null
+                            event.currentTarget.src = "/placeholder.svg"
+                          }}
+                        />
+                        <span className={s.rowTitle}>{product.title}</span>
+                      </Link>
+                    </td>
+                    <td>{product.category || "Sin categoría"}</td>
+                    <td>
+                      {product.price_type === "quote" ||
+                      product.price === "" ||
+                      product.price == null ||
+                      product.price === "Por Cotizar" ? (
+                        "Por cotizar"
+                      ) : (
+                        <>
+                          {product.price} {product.currency || ""} /{" "}
+                          {product.unit || "kg"}
+                          {!product.currency && (
+                            <small className={s.rowMeta}>
+                              Moneda no indicada
+                            </small>
+                          )}
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <span className={s.rowTitle}>
+                        {product.user?.company_name ||
+                          product.user?.full_name ||
+                          "Sin nombre"}
+                      </span>
+                      <span className={s.rowMeta}>{product.user?.email}</span>
+                    </td>
+                    <td>{adminDate(product.created_at)}</td>
+                    <td>
+                      <div className={s.actions}>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          aria-label={`Editar ${product.title}`}
+                        >
+                          <Link
+                            href={`/admin/publicaciones/${product.id}/editar`}
+                          >
+                            <Pencil size={17} />
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          aria-label={`Ver ${product.title}`}
+                        >
+                          <Link href={`/producto/${product.id}`}>
+                            <Eye size={17} />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          aria-label={`Eliminar ${product.title}`}
+                          onClick={() => setTarget(product)}
+                        >
+                          <Trash2 size={17} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-    )
+      </Card>
+      <AlertDialog
+        open={!!target}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setTarget(null)
+        }}
+      >
+        <AlertDialogContent className={s.dialog}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar publicación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará “{target?.title}” permanentemente del catálogo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <Button variant="destructive" disabled={deleting} onClick={remove}>
+              {deleting ? "Eliminando…" : "Eliminar publicación"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AdminWorkspace>
+  )
 }

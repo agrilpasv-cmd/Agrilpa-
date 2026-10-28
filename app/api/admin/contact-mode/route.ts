@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import {
   requireContactAdmin,
   readProductContactMode,
-  setFallbackContactMode,
   sameContactOrigin,
   contactHeaders
 } from "@/lib/contact/server"
+import { writeLocalContactSettings } from "@/lib/contact/local-settings"
 export const dynamic = "force-dynamic"
 export async function GET() {
   try {
@@ -40,11 +40,18 @@ export async function PATCH(request: Request) {
         { error: "La configuración no es válida. Actualiza la página." },
         { status: 400 }
       )
-    const isUnitTest = process.env.SUPABASE_SERVICE_ROLE_KEY === "test-only"
-    if (!isUnitTest && process.env.NODE_ENV === "development") {
-      const updated = setFallbackContactMode(mode)
+    if (process.env.NODE_ENV === "development" && process.env.AGRILPA_LOCAL_CONTACT_MODE === "admin_form") {
+      const updated = writeLocalContactSettings(mode, updatedAt)
+      if (!updated)
+        return NextResponse.json(
+          {
+            error:
+              "La configuración cambió. Actualiza la página antes de intentarlo de nuevo."
+          },
+          { status: 409 }
+        )
       return NextResponse.json(
-        { mode: updated.mode, updatedAt: updated.updatedAt, ready: true },
+        { mode: updated.mode, updatedAt: updated.updatedAt, ready: true, preview: true },
         { headers: contactHeaders }
       )
     }
@@ -60,15 +67,12 @@ export async function PATCH(request: Request) {
       .select("mode,updated_at")
       .maybeSingle()
     if (error) {
-      if (!isUnitTest && ["42P01", "PGRST205"].includes(error.code || "")) {
-        const updated = setFallbackContactMode(mode)
-        return NextResponse.json(
-          { mode: updated.mode, updatedAt: updated.updatedAt, ready: true },
-          { headers: contactHeaders }
-        )
-      }
       return NextResponse.json(
-        { error: "No pudimos guardar el modo de contacto." },
+        {
+          error: ["42P01", "PGRST205"].includes(error.code || "")
+            ? "Falta aplicar la migración de contactos en Supabase. El modo no se ha cambiado."
+            : "No pudimos guardar el modo de contacto."
+        },
         { status: 503 }
       )
     }

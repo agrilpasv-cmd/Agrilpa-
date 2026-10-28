@@ -23,7 +23,7 @@ export async function GET() {
 
     if (error) {
       console.error("[API] Error fetching purchase requests:", error)
-      return NextResponse.json({ requests: [] }, { status: 200 })
+      return NextResponse.json({ error: "No pudimos consultar los pedidos." }, { status: 503 })
     }
 
     if (!requests || requests.length === 0) {
@@ -98,6 +98,6 @@ export async function GET() {
     return response
   } catch (error) {
     console.error("[API] Pedidos error:", error)
-    return NextResponse.json({ requests: [] }, { status: 200 })
+    return NextResponse.json({ error: "No pudimos consultar los pedidos." }, { status: 503 })
   }
 }

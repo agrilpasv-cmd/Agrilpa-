@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { readPurchaseDraft, validatePurchaseDraft } from "@/lib/purchase-requests/form"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,26 +29,14 @@ export async function POST(request: Request) {
 
     // Parse FormData
     const formData = await request.formData()
-    const productName = formData.get("productName") as string
-    const category = formData.get("category") as string
-    const quantity = formData.get("quantity") as string
-    const unit = formData.get("unit") as string || "kg"
-    const desiredDate = formData.get("desiredDate") as string || null
-    const country = formData.get("country") as string || null
-    const deliveryState = formData.get("deliveryState") as string || null
-    const deliveryAddress = formData.get("deliveryAddress") as string || null
-    const description = formData.get("description") as string || null
-    const budget = formData.get("budget") as string || null
-    const specs = formData.get("specs") as string || null
-    const sourceType = formData.get("sourceType") as string || "cualquiera"
-    const contactMethod = formData.get("contactMethod") as string || "email"
-    const contactValue = formData.get("contactValue") as string || null
+    const draft = readPurchaseDraft(formData)
+    const { productName, category, quantity, unit, desiredDate, country, deliveryState, deliveryAddress, description, budget, specs, sourceType, contactMethod, contactValue } = draft
     const emoji = formData.get("emoji") as string || null
 
-    // Validate required fields
-    if (!productName || !category || !quantity) {
+    const fields = validatePurchaseDraft(draft)
+    if (Object.keys(fields).length) {
       return NextResponse.json(
-        { error: "Nombre del producto, categoría y cantidad son requeridos" },
+        { error: "Revisa los campos de tu solicitud.", fields },
         { status: 400 }
       )
     }

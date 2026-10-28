@@ -1,512 +1,515 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { validContactEmail } from "@/lib/contact/types"
 import {
-    Mail, Send, Loader, CheckCircle2, AlertCircle, Users,
-    Search, X, UserCheck, ChevronDown, ChevronUp, ShieldAlert,
-    Type, Code, Eye
-} from "lucide-react"
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog"
+import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminSearch,
+  AdminNotice,
+  AdminEmpty,
+  AdminStatus,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  adminStyles as s
+} from "@/components/admin/workspace"
 
 interface UserRecord {
-    id: string
-    email: string
-    full_name?: string
-    company_name?: string
-    role?: string
+  id: string
+  email: string
+  full_name?: string
+  company_name?: string
+  role?: string
 }
-
 type RecipientMode = "all" | "selected" | "specific"
-type ContentMode = "text" | "html"
-
+interface SendResult {
+  success: boolean
+  sent?: number
+  failed?: number
+  totalUsers?: number
+  error?: string
+}
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
 export default function NewsletterPage() {
-    const [subject, setSubject] = useState("")
-    const [content, setContent] = useState("")
-    const [contentMode, setContentMode] = useState<ContentMode>("text")
-    const [showPreview, setShowPreview] = useState(false)
-    const [includeGreeting, setIncludeGreeting] = useState(true)
-
-    const [recipientMode, setRecipientMode] = useState<RecipientMode>("all")
-    const [specificEmail, setSpecificEmail] = useState("")
-
-    const [allUsers, setAllUsers] = useState<UserRecord[]>([])
-    const [loadingUsers, setLoadingUsers] = useState(false)
-    const [userSearch, setUserSearch] = useState("")
-    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
-    const [usersExpanded, setUsersExpanded] = useState(true)
-
-    const [confirming, setConfirming] = useState(false)
-    const [isSending, setIsSending] = useState(false)
-    const [result, setResult] = useState<{
-        success: boolean
-        sent?: number
-        failed?: number
-        totalUsers?: number
-        error?: string
-    } | null>(null)
-
-    useEffect(() => {
-        if (recipientMode === "selected" && allUsers.length === 0) {
-            setLoadingUsers(true)
-            fetch("/api/admin/users")
-                .then(r => r.json())
-                .then((data: UserRecord[]) => setAllUsers(Array.isArray(data) ? data : []))
-                .catch(() => setAllUsers([]))
-                .finally(() => setLoadingUsers(false))
-        }
-    }, [recipientMode])
-
-    const filteredUsers = useMemo(() => {
-        const q = userSearch.toLowerCase().trim()
-        if (!q) return allUsers
-        return allUsers.filter(u =>
-            (u.email || "").toLowerCase().includes(q) ||
-            (u.full_name || "").toLowerCase().includes(q) ||
-            (u.company_name || "").toLowerCase().includes(q)
-        )
-    }, [allUsers, userSearch])
-
-    const selectedUsers = useMemo(
-        () => allUsers.filter(u => selectedUserIds.has(u.id)),
-        [allUsers, selectedUserIds]
+  const [subject, setSubject] = useState(""),
+    [content, setContent] = useState("")
+  const [contentMode, setContentMode] = useState<"text" | "html">("text"),
+    [preview, setPreview] = useState(false)
+  const [greeting, setGreeting] = useState(true),
+    [recipientMode, setRecipientMode] = useState<RecipientMode>("all"),
+    [email, setEmail] = useState("")
+  const [users, setUsers] = useState<UserRecord[]>([]),
+    [loadedUsers, setLoadedUsers] = useState(false),
+    [loadingUsers, setLoadingUsers] = useState(false)
+  const [usersError, setUsersError] = useState(""),
+    [search, setSearch] = useState(""),
+    [selected, setSelected] = useState<Set<string>>(new Set())
+  const [sending, setSending] = useState(false),
+    [confirming, setConfirming] = useState(false),
+    [result, setResult] = useState<SendResult | null>(null)
+  const loadUsers = useCallback(async () => {
+    setLoadingUsers(true)
+    setUsersError("")
+    try {
+      const response = await fetch("/api/admin/users", { cache: "no-store" })
+      const data = await response.json()
+      if (!response.ok || !Array.isArray(data))
+        throw new Error(data.error || "No pudimos cargar los destinatarios.")
+      setUsers(data)
+      setLoadedUsers(true)
+    } catch (cause) {
+      setUsersError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cargar los destinatarios."
+      )
+    } finally {
+      setLoadingUsers(false)
+    }
+  }, [])
+  useEffect(() => {
+    if (recipientMode === "selected" && !loadedUsers) loadUsers()
+  }, [recipientMode, loadedUsers, loadUsers])
+  const filtered = users.filter((user) =>
+    [user.email, user.full_name, user.company_name].some((value) =>
+      value
+        ?.toLocaleLowerCase("es")
+        .includes(search.trim().toLocaleLowerCase("es"))
     )
-
-    const toggleUser = (id: string) => {
-        setSelectedUserIds(prev => {
-            const next = new Set(prev)
-            next.has(id) ? next.delete(id) : next.add(id)
-            return next
-        })
+  )
+  const recipients = users.filter((user) => selected.has(user.id))
+  const summary =
+    recipientMode === "all"
+      ? "Todos los usuarios registrados"
+      : recipientMode === "specific"
+        ? email.trim() || "Correo sin completar"
+        : `${selected.size} ${selected.size === 1 ? "usuario seleccionado" : "usuarios seleccionados"}`
+  const canSend =
+    !!subject.trim() &&
+    !!content.trim() &&
+    (recipientMode === "all" ||
+      (recipientMode === "specific" && validContactEmail(email)) ||
+      (recipientMode === "selected" && selected.size > 0)) &&
+    !sending
+  const contentHtml =
+    contentMode === "html"
+      ? content
+      : escapeHtml(content).replaceAll("\n", "<br>")
+  const previewDocument = useMemo(
+    () =>
+      `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'"><style>body{font-family:Arial,sans-serif;margin:24px;color:#202020;font-size:16px;line-height:1.65;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style></head><body>${greeting ? "<p>Hola {{nombre_del_usuario}},</p>" : ""}<div>${contentHtml}</div></body></html>`,
+    [contentHtml, greeting]
+  )
+  const toggle = (id: string) => {
+    setSelected((previous) => {
+      const next = new Set(previous)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+    setConfirming(false)
+  }
+  const send = async () => {
+    if (!canSend) return
+    setConfirming(false)
+    setSending(true)
+    setResult(null)
+    const body: Record<string, unknown> = {
+      subject: subject.trim(),
+      content: contentHtml,
+      rawHtml: contentMode === "html",
+      includeGreeting: greeting
     }
-
-    const canSend = !!(subject.trim() && content.trim() && (
-        recipientMode === "all" ||
-        (recipientMode === "specific" && specificEmail.trim()) ||
-        (recipientMode === "selected" && selectedUserIds.size > 0)
-    ))
-
-    const recipientSummary = () => {
-        if (recipientMode === "all") return "todos los usuarios registrados"
-        if (recipientMode === "specific") return specificEmail
-        return `${selectedUserIds.size} usuario${selectedUserIds.size !== 1 ? "s" : ""} seleccionado${selectedUserIds.size !== 1 ? "s" : ""}`
+    if (recipientMode === "specific") body.specificEmail = email.trim()
+    if (recipientMode === "selected")
+      body.selectedEmails = recipients.map((user) => ({
+        email: user.email,
+        name: user.company_name || user.full_name || "Usuario"
+      }))
+    try {
+      const response = await fetch("/api/admin/send-newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+      const data = await response.json()
+      if (!response.ok || !data.success)
+        throw new Error(data.error || "No pudimos completar el envío.")
+      setResult({
+        success: true,
+        sent: data.sent,
+        failed: data.failed,
+        totalUsers: data.totalUsers,
+        error:
+          Array.isArray(data.errors) && data.errors.length
+            ? "Algunos destinatarios no recibieron el correo."
+            : undefined
+      })
+    } catch (cause) {
+      setResult({
+        success: false,
+        error:
+          cause instanceof Error
+            ? cause.message
+            : "No pudimos enviar el correo."
+      })
+    } finally {
+      setSending(false)
     }
-
-    const handleConfirm = () => {
-        if (!canSend) return
-        setResult(null)
-        setConfirming(true)
-    }
-
-    const handleSend = async () => {
-        setConfirming(false)
-        setIsSending(true)
-
-        // Build the HTML content to send
-        const htmlForEmail = contentMode === "html"
-            ? content   // user's raw HTML goes directly into the template
-            : content.replace(/\n/g, "<br>")  // plain text: convert newlines
-
-        try {
-            const body: Record<string, any> = { subject, content: htmlForEmail, rawHtml: contentMode === "html", includeGreeting }
-            if (recipientMode === "specific") {
-                body.specificEmail = specificEmail
-            } else if (recipientMode === "selected") {
-                body.selectedEmails = selectedUsers.map(u => ({
-                    email: u.email,
-                    name: u.company_name || u.full_name || "Usuario"
-                }))
-            }
-
-            const res = await fetch("/api/admin/send-newsletter", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            })
-
-            let data
-            try { data = await res.json() }
-            catch { throw new Error(`Error del servidor (${res.status})`) }
-
-            if (res.ok && data.success) {
-                setResult({
-                    success: true,
-                    sent: data.sent,
-                    failed: data.failed,
-                    totalUsers: data.totalUsers,
-                    error: data.errors ? `Algunos correos fallaron: ${data.errors.join(", ")}` : undefined
-                })
-                if (recipientMode === "all") { setSubject(""); setContent("") }
-            } else {
-                setResult({ success: false, error: data.error || `Error ${res.status}` })
-            }
-        } catch (err: any) {
-            setResult({ success: false, error: err.message || "Error desconocido al enviar." })
-        } finally {
-            setIsSending(false)
-        }
-    }
-
-    // Build the preview HTML (for the preview panel)
-    const previewHtml = useMemo(() => {
-        let bodyHtml = ""
-        if (contentMode === "html") {
-            bodyHtml = content
-        } else {
-            bodyHtml = content.split("\n").map(l => `<p style="margin:0 0 12px 0">${l || "&nbsp;"}</p>`).join("")
-        }
-
-        const greetingHtml = includeGreeting
-            ? `<p>Hola <strong>{{nombre_del_usuario}}</strong>,</p>`
-            : '';
-
-        return `
-            ${greetingHtml}
-            <div style="margin-top: ${includeGreeting ? '20px' : '0'};">
-                ${bodyHtml}
-            </div>
-        `
-    }, [content, contentMode, includeGreeting])
-
-    return (
-        <div className="space-y-6 p-6 max-w-5xl">
-            <div>
-                <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <Mail className="w-8 h-8 text-primary" />
-                    Newsletter
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                    Envía correos personalizados a los usuarios de la plataforma
+  }
+  return (
+    <AdminWorkspace>
+      <AdminHeader
+        title="Newsletter"
+        description="Prepara el contenido, elige los destinatarios y revisa el correo antes de enviarlo."
+      />
+      {result && (
+        <AdminNotice error={!result.success || !!result.failed}>
+          {result.success ? (
+            <>
+              <strong>Envío procesado.</strong>
+              {typeof result.sent === "number" && (
+                <p>
+                  {result.sent} correos enviados
+                  {typeof result.failed === "number"
+                    ? `, ${result.failed} fallidos`
+                    : ""}
+                  .
                 </p>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Send className="w-5 h-5" />
-                        Componer correo
-                    </CardTitle>
-                    <CardDescription>
-                        {recipientMode === "all" && "El correo será enviado a todos los usuarios registrados"}
-                        {recipientMode === "specific" && "El correo será enviado únicamente al destinatario especificado"}
-                        {recipientMode === "selected" && `El correo será enviado a ${selectedUserIds.size > 0 ? `${selectedUserIds.size} usuario${selectedUserIds.size !== 1 ? "s" : ""} seleccionado${selectedUserIds.size !== 1 ? "s" : ""}` : "los usuarios que selecciones"}`}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-
-                    {/* ── Recipient Mode ───────────────────────────────────────── */}
-                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
-                        <Label className="text-sm font-medium">Destinatarios</Label>
-                        <div className="flex flex-col gap-2">
-                            {(["all", "selected", "specific"] as RecipientMode[]).map(mode => (
-                                <label key={mode} className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="recipientMode"
-                                        checked={recipientMode === mode}
-                                        onChange={() => { setRecipientMode(mode); setConfirming(false) }}
-                                        className="accent-primary w-4 h-4"
-                                    />
-                                    <span>
-                                        {mode === "all" && "Enviar a todos los usuarios registrados"}
-                                        {mode === "selected" && "Seleccionar usuarios específicos"}
-                                        {mode === "specific" && "Enviar a un correo manualmente"}
-                                    </span>
-                                </label>
-                            ))}
-                        </div>
-                        {recipientMode === "specific" && (
-                            <div className="mt-3 pl-6">
-                                <Input
-                                    placeholder="correo@ejemplo.com"
-                                    value={specificEmail}
-                                    onChange={(e) => setSpecificEmail(e.target.value)}
-                                    type="email"
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── User Picker ──────────────────────────────────────────── */}
-                    {recipientMode === "selected" && (
-                        <div className="border rounded-lg overflow-hidden">
-                            <div
-                                className="flex items-center justify-between p-3 bg-muted/30 cursor-pointer select-none"
-                                onClick={() => setUsersExpanded(p => !p)}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <UserCheck className="w-4 h-4 text-primary" />
-                                    <span className="font-medium text-sm">
-                                        Usuarios registrados
-                                        {selectedUserIds.size > 0 && (
-                                            <span className="ml-2 px-2 py-0.5 bg-primary text-primary-foreground rounded-full text-xs">
-                                                {selectedUserIds.size} seleccionado{selectedUserIds.size !== 1 ? "s" : ""}
-                                            </span>
-                                        )}
-                                    </span>
-                                </div>
-                                {usersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </div>
-                            {usersExpanded && (
-                                <>
-                                    <div className="p-3 border-b flex items-center gap-2">
-                                        <div className="relative flex-1">
-                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                            <Input
-                                                placeholder="Buscar por nombre, empresa o correo..."
-                                                value={userSearch}
-                                                onChange={e => setUserSearch(e.target.value)}
-                                                className="pl-8 h-8 text-sm"
-                                            />
-                                        </div>
-                                        <Button variant="outline" size="sm" onClick={() => setSelectedUserIds(new Set(filteredUsers.map(u => u.id)))} className="text-xs h-8 px-2">
-                                            Seleccionar todos
-                                        </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => setSelectedUserIds(new Set())} className="text-xs h-8 px-2 text-muted-foreground">
-                                            Limpiar
-                                        </Button>
-                                    </div>
-                                    <div className="max-h-64 overflow-y-auto divide-y">
-                                        {loadingUsers ? (
-                                            <div className="flex items-center justify-center p-8 text-muted-foreground gap-2">
-                                                <Loader className="w-4 h-4 animate-spin" />
-                                                <span className="text-sm">Cargando usuarios...</span>
-                                            </div>
-                                        ) : filteredUsers.length === 0 ? (
-                                            <div className="p-6 text-center text-sm text-muted-foreground">
-                                                {userSearch ? "No se encontraron usuarios" : "No hay usuarios registrados"}
-                                            </div>
-                                        ) : filteredUsers.map(user => (
-                                            <label key={user.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedUserIds.has(user.id)}
-                                                    onChange={() => toggleUser(user.id)}
-                                                    className="accent-primary w-4 h-4 shrink-0"
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium truncate">{user.company_name || user.full_name || "Sin nombre"}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                                                </div>
-                                                {user.role === "admin" && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium shrink-0">Admin</span>
-                                                )}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                            {selectedUserIds.size > 0 && (
-                                <div className="p-3 border-t bg-muted/10 flex flex-wrap gap-1.5">
-                                    {selectedUsers.slice(0, 8).map(u => (
-                                        <span key={u.id} className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                                            {u.company_name || u.full_name || u.email}
-                                            <button onClick={() => toggleUser(u.id)} type="button" className="hover:text-destructive ml-0.5">
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </span>
-                                    ))}
-                                    {selectedUserIds.size > 8 && (
-                                        <span className="text-xs text-muted-foreground px-2 py-1">+{selectedUserIds.size - 8} más</span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ── Subject ─────────────────────────────────────────────── */}
-                    <div className="space-y-2">
-                        <Label htmlFor="subject" className="text-sm font-medium">Asunto del correo</Label>
-                        <Input
-                            id="subject"
-                            placeholder="Ej: ¡Novedades en Agrilpa! 🌱"
-                            value={subject}
-                            onChange={(e) => { setSubject(e.target.value); setConfirming(false) }}
-                            disabled={isSending}
-                            className="text-base"
-                        />
-                    </div>
-
-                    {/* ── Options ─────────────────────────────────────────────── */}
-                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
-                        <Label className="text-sm font-medium">Opciones adicionales</Label>
-                        <label className="flex items-center gap-2 cursor-pointer mt-1">
-                            <input
-                                type="checkbox"
-                                checked={includeGreeting}
-                                onChange={(e) => setIncludeGreeting(e.target.checked)}
-                                className="accent-primary w-4 h-4"
-                            />
-                            <span className="text-sm">
-                                Incluir saludo automático <span className="text-muted-foreground italic">(Hola nombre,)</span>
-                            </span>
-                        </label>
-                    </div>
-
-                    {/* ── Content Mode Toggle ──────────────────────────────────── */}
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">Contenido del mensaje</Label>
-                            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg border text-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => { setContentMode("text"); setShowPreview(false) }}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${contentMode === "text"
-                                            ? "bg-background shadow-sm text-foreground"
-                                            : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Type className="w-3.5 h-3.5" />
-                                    Texto
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setContentMode("html")}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${contentMode === "html"
-                                            ? "bg-background shadow-sm text-foreground"
-                                            : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Code className="w-3.5 h-3.5" />
-                                    HTML
-                                </button>
-                                {content && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPreview(p => !p)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${showPreview
-                                                ? "bg-background shadow-sm text-foreground"
-                                                : "text-muted-foreground hover:text-foreground"
-                                            }`}
-                                    >
-                                        <Eye className="w-3.5 h-3.5" />
-                                        Vista previa
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Editor area — side by side when preview is open */}
-                        <div className={`gap-4 ${showPreview ? "grid grid-cols-2" : ""}`}>
-                            {/* Editor */}
-                            <div className="flex flex-col">
-                                {contentMode === "html" && (
-                                    <div className="flex items-center gap-2 mb-1.5 px-1">
-                                        <Code className="w-3.5 h-3.5 text-muted-foreground" />
-                                        <span className="text-xs text-muted-foreground">Pega aquí tu HTML. El contenido se insertará dentro del template de Agrilpa.</span>
-                                    </div>
-                                )}
-                                <Textarea
-                                    id="content"
-                                    placeholder={
-                                        contentMode === "html"
-                                            ? "<h2>Título del correo</h2>\n<p>Tu mensaje aquí...</p>"
-                                            : "Escribe aquí el contenido del correo...\n\nPuedes usar varias líneas para separar párrafos."
-                                    }
-                                    value={content}
-                                    onChange={(e) => { setContent(e.target.value); setConfirming(false) }}
-                                    disabled={isSending}
-                                    rows={14}
-                                    className={`text-sm resize-none ${contentMode === "html" ? "font-mono bg-muted/20" : "text-base"}`}
-                                />
-                                <p className="text-xs text-muted-foreground mt-1.5 px-1">
-                                    {contentMode === "text"
-                                        ? "Cada línea nueva se convertirá en un salto de línea en el correo"
-                                        : "El HTML se insertará directamente en el cuerpo del email"}
-                                </p>
-                            </div>
-
-                            {/* Preview panel */}
-                            {showPreview && (
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-2 mb-1.5 px-1">
-                                        <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                                        <span className="text-xs text-muted-foreground font-medium">Vista previa del contenido</span>
-                                    </div>
-                                    <div
-                                        className="border rounded-md p-4 bg-white min-h-[200px] overflow-auto text-sm leading-relaxed"
-                                        style={{ maxHeight: "320px" }}
-                                        dangerouslySetInnerHTML={{ __html: previewHtml }}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1.5 px-1 italic">
-                                        Esta es solo la vista del cuerpo. El email real incluirá encabezado y pie de Agrilpa.
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── Inline Confirmation ──────────────────────────────────── */}
-                    {confirming && (
-                        <div className="p-4 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 flex items-start gap-3">
-                            <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" />
-                            <div className="flex-1">
-                                <p className="font-semibold">Confirma el envío</p>
-                                <p className="text-sm mt-1">
-                                    Se enviará el correo <strong>"{subject}"</strong> a <strong>{recipientSummary()}</strong>.
-                                    {contentMode === "html" && <span className="ml-1 text-xs bg-amber-200 px-1.5 py-0.5 rounded">Modo HTML</span>}
-                                </p>
-                                <div className="flex gap-2 mt-3">
-                                    <Button size="sm" onClick={handleSend} className="gap-1.5">
-                                        <Send className="w-4 h-4" />
-                                        Confirmar y enviar
-                                    </Button>
-                                    <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>Cancelar</Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Result ──────────────────────────────────────────────── */}
-                    {result && (
-                        <div className={`p-4 rounded-lg border flex items-start gap-3 ${result.success ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
-                            {result.success
-                                ? <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600 shrink-0" />
-                                : <AlertCircle className="w-5 h-5 mt-0.5 text-red-600 shrink-0" />
-                            }
-                            <div className="flex-1 overflow-hidden">
-                                {result.success ? (
-                                    <>
-                                        <p className="font-medium">¡Proceso finalizado!</p>
-                                        <p className="text-sm mt-1">
-                                            <Users className="w-4 h-4 inline mr-1" />
-                                            {result.sent} de {result.totalUsers} correos enviados
-                                            {result.failed ? ` (${result.failed} fallidos)` : ""}
-                                        </p>
-                                        {result.error && (
-                                            <div className="mt-2 p-2 bg-red-100/50 rounded text-xs font-mono text-red-700 whitespace-pre-wrap">{result.error}</div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="font-medium">Error al enviar</p>
-                                        <p className="text-sm mt-1">{result.error}</p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Send Button ──────────────────────────────────────────── */}
-                    {!confirming && (
-                        <Button onClick={handleConfirm} disabled={isSending || !canSend} className="w-full gap-2" size="lg">
-                            {isSending ? (
-                                <><Loader className="w-5 h-5 animate-spin" />Enviando...</>
-                            ) : (
-                                <><Send className="w-5 h-5" />
-                                    {recipientMode === "selected" && selectedUserIds.size > 0
-                                        ? `Enviar a ${selectedUserIds.size} usuario${selectedUserIds.size !== 1 ? "s" : ""}`
-                                        : "Enviar correo"
-                                    }
-                                </>
-                            )}
-                        </Button>
-                    )}
-                </CardContent>
-            </Card>
+              )}
+              {result.error && <p>{result.error}</p>}
+            </>
+          ) : (
+            result.error
+          )}
+        </AdminNotice>
+      )}
+      <div className={s.split}>
+        <div className={s.stack}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Contenido del correo</CardTitle>
+              <CardDescription>
+                El saludo y la plantilla de Agrilpa se añaden al realizar el
+                envío.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className={s.fields}>
+                <div className={s.field}>
+                  <label htmlFor="newsletter-subject">Asunto</label>
+                  <Input
+                    id="newsletter-subject"
+                    data-no-auto-caps="true"
+                    placeholder="Escribe el asunto del correo"
+                    value={subject}
+                    disabled={sending}
+                    onChange={(event) => {
+                      setSubject(event.target.value)
+                      setConfirming(false)
+                    }}
+                  />
+                </div>
+                <div className={s.field}>
+                  <label htmlFor="newsletter-content">Mensaje</label>
+                  <div className={s.tabs} aria-label="Formato del mensaje">
+                    <button
+                      type="button"
+                      aria-pressed={contentMode === "text"}
+                      disabled={sending}
+                      onClick={() => {
+                        setContentMode("text")
+                        setPreview(false)
+                        setConfirming(false)
+                      }}
+                    >
+                      Texto
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={contentMode === "html"}
+                      disabled={sending}
+                      onClick={() => {
+                        setContentMode("html")
+                        setConfirming(false)
+                      }}
+                    >
+                      HTML
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={preview}
+                      disabled={!content}
+                      onClick={() => setPreview((previous) => !previous)}
+                    >
+                      {preview ? "Volver a editar" : "Vista previa"}
+                    </button>
+                  </div>
+                  {preview ? (
+                    <>
+                      <p className={s.previewNote}>
+                        Vista previa del contenido. El nombre se reemplaza por
+                        el destinatario al enviar.
+                      </p>
+                      <iframe
+                        title="Vista previa del contenido del newsletter"
+                        className={s.previewFrame}
+                        sandbox=""
+                        srcDoc={previewDocument}
+                      />
+                    </>
+                  ) : (
+                    <Textarea
+                      className={s.editor}
+                      id="newsletter-content"
+                      data-no-auto-caps="true"
+                      rows={15}
+                      value={content}
+                      disabled={sending}
+                      placeholder={
+                        contentMode === "html"
+                          ? "Escribe o pega el HTML de tu mensaje"
+                          : "Escribe tu mensaje"
+                      }
+                      onChange={(event) => {
+                        setContent(event.target.value)
+                        setConfirming(false)
+                      }}
+                      style={{ resize: "vertical", fontFamily: "inherit" }}
+                    />
+                  )}
+                </div>
+                <label className={s.choice}>
+                  <input
+                    type="checkbox"
+                    checked={greeting}
+                    disabled={sending}
+                    onChange={(event) => {
+                      setGreeting(event.target.checked)
+                      setConfirming(false)
+                    }}
+                  />
+                  <span>
+                    Incluir saludo automático con el nombre del destinatario
+                  </span>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-    )
+        <aside className={s.stack}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Destinatarios</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <fieldset disabled={sending} className={s.field}>
+                <legend className="sr-only">
+                  Elegir destinatarios del newsletter
+                </legend>
+                {(
+                  [
+                    { value: "all", label: "Todos los usuarios registrados" },
+                    { value: "selected", label: "Seleccionar usuarios" },
+                    { value: "specific", label: "Un correo específico" }
+                  ] as { value: RecipientMode; label: string }[]
+                ).map((option) => (
+                  <label className={s.choice} key={option.value}>
+                    <input
+                      type="radio"
+                      name="newsletter-recipients"
+                      value={option.value}
+                      checked={recipientMode === option.value}
+                      onChange={() => {
+                        setRecipientMode(option.value)
+                        setConfirming(false)
+                      }}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+                {recipientMode === "specific" && (
+                  <div className={s.field}>
+                    <label htmlFor="newsletter-email">
+                      Correo del destinatario
+                    </label>
+                    <Input
+                      id="newsletter-email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => {
+                        setEmail(event.target.value)
+                        setConfirming(false)
+                      }}
+                      placeholder="nombre@empresa.com"
+                      aria-invalid={!!email && !validContactEmail(email)}
+                    />
+                    {!!email && !validContactEmail(email) && (
+                      <p>Escribe un correo completo con dominio válido.</p>
+                    )}
+                  </div>
+                )}
+                {recipientMode === "selected" && (
+                  <div>
+                    {usersError && (
+                      <AdminNotice error>
+                        {usersError}
+                        <Button variant="outline" onClick={loadUsers}>
+                          Reintentar destinatarios
+                        </Button>
+                      </AdminNotice>
+                    )}
+                    {loadingUsers ? (
+                      <p role="status">Cargando usuarios…</p>
+                    ) : (
+                      <>
+                        <AdminSearch
+                          value={search}
+                          onChange={setSearch}
+                          label="Buscar destinatarios"
+                        />
+                        <div className={s.filters} style={{ marginTop: 12 }}>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              setSelected(
+                                (previous) =>
+                                  new Set([
+                                    ...previous,
+                                    ...filtered
+                                      .filter((user) =>
+                                        validContactEmail(user.email || "")
+                                      )
+                                      .map((user) => user.id)
+                                  ])
+                              )
+                            }
+                          >
+                            Seleccionar visibles
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setSelected(new Set())}
+                            disabled={!selected.size}
+                          >
+                            Limpiar selección
+                          </Button>
+                        </div>
+                        <div className={s.userList}>
+                          {!filtered.length ? (
+                            <AdminEmpty title="No hay coincidencias" />
+                          ) : (
+                            filtered.map((user) => (
+                              <label key={user.id}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected.has(user.id)}
+                                  disabled={
+                                    !validContactEmail(user.email || "")
+                                  }
+                                  onChange={() => toggle(user.id)}
+                                  aria-label={`Seleccionar ${user.email}`}
+                                />
+                                <span>
+                                  <span className={s.rowTitle}>
+                                    {user.company_name ||
+                                      user.full_name ||
+                                      "Sin nombre"}
+                                  </span>
+                                  <span className={s.rowMeta}>
+                                    {user.email || "Sin correo"}
+                                  </span>
+                                </span>
+                                {user.role === "admin" && (
+                                  <AdminStatus>Admin</AdminStatus>
+                                )}
+                              </label>
+                            ))
+                          )}
+                        </div>
+                        <p className={s.secondary} style={{ paddingTop: 12 }}>
+                          {selected.size}{" "}
+                          {selected.size === 1
+                            ? "usuario seleccionado"
+                            : "usuarios seleccionados"}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </fieldset>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Revisión del envío</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={s.fields}>
+                <div>
+                  <span className={s.secondary}>Destinatarios</span>
+                  <p className={s.rowTitle}>{summary}</p>
+                </div>
+                <div>
+                  <span className={s.secondary}>Asunto</span>
+                  <p className={s.rowTitle}>
+                    {subject.trim() || "Sin completar"}
+                  </p>
+                </div>
+                <p className={s.secondary}>
+                  Se solicitará confirmación antes de enviar el correo.
+                </p>
+                <Button
+                  disabled={!canSend}
+                  onClick={() => {
+                    setResult(null)
+                    setConfirming(true)
+                  }}
+                >
+                  {sending ? "Enviando…" : "Revisar y enviar"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent className={s.dialog}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar envío del newsletter</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se enviará “{subject}” a {summary.toLocaleLowerCase("es")}. Revisa
+              el contenido y los destinatarios antes de confirmar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver a editar</AlertDialogCancel>
+            <Button disabled={!canSend} onClick={send}>
+              Confirmar envío
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AdminWorkspace>
+  )
 }

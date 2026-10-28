@@ -1,11 +1,39 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, Trash2, CheckSquare, Square } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { RefreshCw } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog"
+import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminMetrics,
+  AdminSearch,
+  AdminSelect,
+  AdminNotice,
+  AdminEmpty,
+  AdminStatus,
+  Button,
+  Card,
+  CardContent,
+  adminStyles as s,
+  adminDate
+} from "@/components/admin/workspace"
 
 interface ContactSubmission {
   id: string
@@ -19,303 +47,385 @@ interface ContactSubmission {
   created_at: string
   is_read?: boolean
 }
-
 export default function ContactanosPage() {
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([])
-  const [loading, setLoading] = useState(true)
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-  const [stats, setStats] = useState({
-    total: 0,
-    registered: 0,
-    unregistered: 0,
-  })
-  const [selectedMessage, setSelectedMessage] = useState<ContactSubmission | null>(null)
+  const [loading, setLoading] = useState(true),
+    [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(""),
+    [query, setQuery] = useState(""),
+    [filter, setFilter] = useState("all")
+  const [selectedMessage, setSelectedMessage] =
+    useState<ContactSubmission | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [isActionLoading, setIsActionLoading] = useState(false)
-
-  const fetchData = useCallback(async (showLoading = false) => {
-    if (showLoading) setLoading(true)
-
+  const [busy, setBusy] = useState(false),
+    [confirmDelete, setConfirmDelete] = useState(false)
+  const fetchData = useCallback(async (initial = false) => {
+    if (initial) setLoading(true)
     try {
-      const response = await fetch(`/api/admin/get-contact-submissions?t=${Date.now()}`, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
+      const response = await fetch("/api/admin/get-contact-submissions", {
+        cache: "no-store"
       })
-      const { data, error } = await response.json()
-
-      if (error) throw error
-
-      setSubmissions(data || [])
-      setLastUpdate(new Date())
-
-      const total = data?.length || 0
-      const registered = data?.filter((s: ContactSubmission) => s.is_registered).length || 0
-      const unregistered = total - registered
-
-      setStats({ total, registered, unregistered })
-    } catch (error) {
-      console.error("[Agrilpa] Error fetching contact submissions:", error)
+      const result = await response.json()
+      if (!response.ok || result.error || !Array.isArray(result.data))
+        throw new Error(result.error || "No pudimos cargar los mensajes.")
+      setSubmissions(result.data)
+      setLoaded(true)
+      setError("")
+      setSelectedIds(
+        (previous) =>
+          new Set(
+            [...previous].filter((id) =>
+              result.data.some((item: ContactSubmission) => item.id === id)
+            )
+          )
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cargar los mensajes."
+      )
     } finally {
-      setLoading(false)
+      if (initial) setLoading(false)
     }
   }, [])
-
   useEffect(() => {
     fetchData(true)
-    const interval = setInterval(() => fetchData(false), 3000)
-    return () => clearInterval(interval)
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") fetchData()
+    }, 30000)
+    return () => clearInterval(timer)
   }, [fetchData])
-
-  const handleManualRefresh = () => {
-    fetchData(true)
-  }
-
-  const markAsRead = async (submission: ContactSubmission) => {
-    setSelectedMessage(submission)
-    if (!submission.is_read) {
-      setSubmissions(prev => prev.map(s => s.id === submission.id ? { ...s, is_read: true } : s))
-      try {
-        await fetch("/api/admin/contact-submissions/mark-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: submission.id })
-        })
-        window.dispatchEvent(new Event('update-contactanos-unread-count'))
-      } catch (error) {
-        console.error("Error marking as read", error)
-      }
-    }
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(submissions.map(s => s.id)))
-    } else {
-      setSelectedIds(new Set())
-    }
-  }
-
-  const toggleSelection = (id: string, checked: boolean) => {
-    const newSet = new Set(selectedIds)
-    if (checked) {
-      newSet.add(id)
-    } else {
-      newSet.delete(id)
-    }
-    setSelectedIds(newSet)
-  }
-
-  const handleBulkAction = async (action: 'delete' | 'mark-read' | 'mark-unread') => {
-    if (selectedIds.size === 0) return
-    setIsActionLoading(true)
-    
+  const shown = submissions.filter(
+    (item) =>
+      (filter === "all" ||
+        (filter === "unread" && !item.is_read) ||
+        (filter === "registered" && item.is_registered) ||
+        (filter === "visitors" && !item.is_registered)) &&
+      [item.name, item.email, item.company, item.message].some((value) =>
+        value
+          ?.toLocaleLowerCase("es")
+          .includes(query.trim().toLocaleLowerCase("es"))
+      )
+  )
+  const allSelected =
+    shown.length > 0 && shown.every((item) => selectedIds.has(item.id))
+  const toggle = (id: string, checked: boolean) =>
+    setSelectedIds((previous) => {
+      const next = new Set(previous)
+      checked ? next.add(id) : next.delete(id)
+      return next
+    })
+  const openMessage = async (item: ContactSubmission) => {
+    setSelectedMessage(item)
+    if (item.is_read) return
     try {
-      const response = await fetch("/api/admin/contact-submissions/bulk-action", {
+      const response = await fetch("/api/admin/contact-submissions/mark-read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds), action })
+        body: JSON.stringify({ id: item.id })
       })
-      
-      if (response.ok) {
-        if (action === 'delete') {
-          setSubmissions(prev => prev.filter(s => !selectedIds.has(s.id)))
-        } else {
-          const isReadState = action === 'mark-read'
-          setSubmissions(prev => prev.map(s => selectedIds.has(s.id) ? { ...s, is_read: isReadState } : s))
-        }
-        setSelectedIds(new Set())
-        window.dispatchEvent(new Event('update-contactanos-unread-count'))
-        fetchData(false)
-      }
-    } catch (error) {
-      console.error("Error en accion masiva:", error)
-    } finally {
-      setIsActionLoading(false)
+      if (!response.ok)
+        throw new Error("No pudimos marcar el mensaje como leído.")
+      setSubmissions((previous) =>
+        previous.map((row) =>
+          row.id === item.id ? { ...row, is_read: true } : row
+        )
+      )
+      window.dispatchEvent(new Event("update-contactanos-unread-count"))
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos actualizar el mensaje."
+      )
     }
   }
-
+  const bulk = async (action: "delete" | "mark-read" | "mark-unread") => {
+    if (!selectedIds.size || busy) return
+    setBusy(true)
+    try {
+      const response = await fetch(
+        "/api/admin/contact-submissions/bulk-action",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: [...selectedIds], action })
+        }
+      )
+      if (!response.ok)
+        throw new Error("No pudimos completar la acción. Vuelve a intentarlo.")
+      setSubmissions((previous) =>
+        action === "delete"
+          ? previous.filter((item) => !selectedIds.has(item.id))
+          : previous.map((item) =>
+              selectedIds.has(item.id)
+                ? { ...item, is_read: action === "mark-read" }
+                : item
+            )
+      )
+      setSelectedIds(new Set())
+      setConfirmDelete(false)
+      setError("")
+      window.dispatchEvent(new Event("update-contactanos-unread-count"))
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos completar la acción."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Contáctanos</h1>
-          <p className="text-muted-foreground">Información de los formularios de contacto recibidos</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {lastUpdate && (
-            <span className="text-xs text-muted-foreground">
-              Última actualización: {lastUpdate.toLocaleTimeString()}
-            </span>
-          )}
-          <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+    <AdminWorkspace>
+      <AdminHeader
+        title="Contáctanos"
+        description="Revisa los mensajes recibidos desde el formulario de contacto de Agrilpa."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => fetchData(true)}
+            disabled={loading}
+          >
+            <RefreshCw size={16} aria-hidden="true" />
             Actualizar
           </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de Contactos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Usuarios Registrados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.registered}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">No Registrados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.unregistered}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Table */}
+        }
+      />
+      {error && <AdminNotice error>{error}</AdminNotice>}
+      <AdminMetrics
+        items={[
+          {
+            label: "Mensajes recibidos",
+            value: loaded ? submissions.length : null,
+            hint: "Registros de este listado"
+          },
+          {
+            label: "Sin leer",
+            value: loaded
+              ? submissions.filter((item) => !item.is_read).length
+              : null,
+            hint: "Pendientes de revisión"
+          },
+          {
+            label: "De usuarios registrados",
+            value: loaded
+              ? submissions.filter((item) => item.is_registered).length
+              : null,
+            hint: "Personas con cuenta en Agrilpa"
+          }
+        ]}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Historial de Contactos</CardTitle>
-          <CardDescription>Todos los mensajes de contacto recibidos</CardDescription>
-        </CardHeader>
         <CardContent>
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 mb-4 p-2 bg-muted/50 rounded-lg border border-border">
-              <span className="text-sm font-medium ml-2 mr-4">
-                {selectedIds.size} seleccionados
-              </span>
-              <Button size="sm" variant="outline" onClick={() => handleBulkAction('mark-read')} disabled={isActionLoading}>
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Marcar leídos
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => handleBulkAction('mark-unread')} disabled={isActionLoading}>
-                <Square className="w-4 h-4 mr-2" />
-                Marcar no leídos
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => handleBulkAction('delete')} disabled={isActionLoading}>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar
-              </Button>
+          <div className={s.toolbar}>
+            <AdminSearch
+              value={query}
+              onChange={setQuery}
+              label="Buscar nombre, correo, empresa o mensaje"
+            />
+            <AdminSelect
+              value={filter}
+              onChange={setFilter}
+              label="Filtrar mensajes de contacto"
+              options={[
+                { value: "all", label: "Todos los mensajes" },
+                { value: "unread", label: "Sin leer" },
+                { value: "registered", label: "Usuarios registrados" },
+                { value: "visitors", label: "Visitantes" }
+              ]}
+            />
+          </div>
+          {!!selectedIds.size && (
+            <div className={s.toolbar}>
+              <span>{selectedIds.size} seleccionados</span>
+              <div className={s.filters}>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => bulk("mark-read")}
+                >
+                  Marcar leídos
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => bulk("mark-unread")}
+                >
+                  Marcar sin leer
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Deseleccionar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Eliminar seleccionados
+                </Button>
+              </div>
             </div>
           )}
-          {loading && submissions.length === 0 ? (
-            <p className="text-muted-foreground">Cargando datos...</p>
-          ) : submissions.length === 0 ? (
-            <p className="text-muted-foreground">No hay contactos aún</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox 
-                      checked={submissions.length > 0 && selectedIds.size === submissions.length}
-                      onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                    />
-                  </TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Registrado</TableHead>
-                  <TableHead>Mensaje</TableHead>
-                  <TableHead>Fecha</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {submissions.map((submission) => (
-                  <TableRow key={submission.id} className={!submission.is_read ? "bg-red-50/50 hover:bg-red-100/50 font-medium" : ""}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedIds.has(submission.id)}
-                        onCheckedChange={(checked) => toggleSelection(submission.id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {submission.name}
-                      {!submission.is_read && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
-                          Nuevo
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">{submission.email}</TableCell>
-                    <TableCell className="text-sm">{submission.phone}</TableCell>
-                    <TableCell className="text-sm">{submission.company || "N/A"}</TableCell>
-                    <TableCell className="capitalize text-sm">{submission.user_type}</TableCell>
-                    <TableCell>{submission.is_registered ? "Sí" : "No"}</TableCell>
-                    <TableCell className="text-sm">
-                      <Button variant={!submission.is_read ? "default" : "outline"} size="sm" onClick={() => markAsRead(submission)}>
-                        Ver Mensaje
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-sm">{new Date(submission.created_at).toLocaleDateString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
         </CardContent>
-      </Card>
-
-      {selectedMessage && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-96 max-h-96 overflow-y-auto">
-            <CardHeader>
-              <CardTitle>Mensaje Completo</CardTitle>
-              <CardDescription>
-                {selectedMessage.name} - {selectedMessage.email}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-medium">De:</p>
-                <p className="text-sm">
-                  {selectedMessage.name} ({selectedMessage.email})
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Empresa:</p>
-                <p className="text-sm">{selectedMessage.company || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Teléfono:</p>
-                <p className="text-sm">{selectedMessage.phone}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Tipo de Usuario:</p>
-                <p className="text-sm capitalize">{selectedMessage.user_type}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Fecha:</p>
-                <p className="text-sm">{new Date(selectedMessage.created_at).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Mensaje:</p>
-                <p className="text-sm whitespace-pre-wrap break-words mt-2 bg-muted p-3 rounded">
-                  {selectedMessage.message}
-                </p>
-              </div>
-              <Button variant="outline" className="w-full bg-transparent" onClick={() => setSelectedMessage(null)}>
-                Cerrar
-              </Button>
-            </CardContent>
-          </Card>
+        <div className={s.tableScroll}>
+          {loading && !loaded ? (
+            <AdminEmpty title="Cargando mensajes…" />
+          ) : !shown.length ? (
+            <AdminEmpty
+              title={
+                submissions.length
+                  ? "No hay coincidencias"
+                  : "Sin mensajes recibidos"
+              }
+              description="Los mensajes del formulario de contacto aparecerán aquí."
+            />
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <Checkbox
+                      aria-label="Seleccionar mensajes visibles"
+                      checked={allSelected}
+                      onCheckedChange={(checked) =>
+                        setSelectedIds((previous) => {
+                          const next = new Set(previous)
+                          shown.forEach((item) =>
+                            checked ? next.add(item.id) : next.delete(item.id)
+                          )
+                          return next
+                        })
+                      }
+                    />
+                  </th>
+                  <th scope="col">Persona</th>
+                  <th scope="col">Contacto</th>
+                  <th scope="col">Empresa</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Mensaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((item) => (
+                  <tr key={item.id} data-selected={selectedIds.has(item.id)}>
+                    <td>
+                      <Checkbox
+                        checked={selectedIds.has(item.id)}
+                        aria-label={`Seleccionar mensaje de ${item.name}`}
+                        onCheckedChange={(checked) =>
+                          toggle(item.id, checked === true)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <span className={s.rowTitle}>{item.name}</span>
+                      <span className={s.rowMeta}>
+                        {item.is_registered
+                          ? "Usuario registrado"
+                          : "Visitante"}
+                        {item.user_type ? ` · ${item.user_type}` : ""}
+                      </span>
+                    </td>
+                    <td>
+                      <span>{item.email}</span>
+                      <span className={s.rowMeta}>
+                        {item.phone || "Sin teléfono"}
+                      </span>
+                    </td>
+                    <td>{item.company || "Sin empresa"}</td>
+                    <td>
+                      <AdminStatus>
+                        {item.is_read ? "Leído" : "Sin leer"}
+                      </AdminStatus>
+                    </td>
+                    <td>{adminDate(item.created_at)}</td>
+                    <td>
+                      <Button
+                        variant="outline"
+                        onClick={() => openMessage(item)}
+                      >
+                        Ver mensaje
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-      )}
-    </div>
+      </Card>
+      <Dialog
+        open={!!selectedMessage}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMessage(null)
+        }}
+      >
+        <DialogContent className={s.dialog}>
+          <DialogHeader>
+            <DialogTitle>Mensaje de {selectedMessage?.name}</DialogTitle>
+            <DialogDescription>{selectedMessage?.email}</DialogDescription>
+          </DialogHeader>
+          <dl className={s.detailGrid}>
+            <div>
+              <dt>Empresa</dt>
+              <dd>{selectedMessage?.company || "Sin empresa"}</dd>
+            </div>
+            <div>
+              <dt>Teléfono</dt>
+              <dd>{selectedMessage?.phone || "Sin teléfono"}</dd>
+            </div>
+            <div>
+              <dt>Tipo de usuario</dt>
+              <dd>{selectedMessage?.user_type || "Sin indicar"}</dd>
+            </div>
+            <div>
+              <dt>Recibido</dt>
+              <dd>
+                {selectedMessage && adminDate(selectedMessage.created_at, true)}
+              </dd>
+            </div>
+          </dl>
+          <div className={s.message}>{selectedMessage?.message}</div>
+          <Button variant="outline" onClick={() => setSelectedMessage(null)}>
+            Cerrar mensaje
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          if (!busy) setConfirmDelete(open)
+        }}
+      >
+        <AlertDialogContent className={s.dialog}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ¿Eliminar {selectedIds.size} mensajes?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Los mensajes seleccionados se eliminarán permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => bulk("delete")}
+            >
+              {busy ? "Eliminando…" : "Confirmar eliminación"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AdminWorkspace>
   )
 }

@@ -7,6 +7,20 @@ import {
   ShoppingCart, FileText, ChevronLeft, ChevronRight, Expand
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+function SellerAvatar({ name, src }: { name?: string; src?: string }) {
+  const label = name?.trim() || "Vendedor"
+  const initial = Array.from(label)[0].toLocaleUpperCase("es")
+  return (
+    <Avatar className="size-11 rounded-full border border-border bg-background">
+      <AvatarImage src={src?.trim() || undefined} alt={`Foto de ${label}`} className="object-cover" />
+      <AvatarFallback className="bg-primary/10 text-foreground font-semibold text-base" role="img" aria-label={`Inicial de ${label}: ${initial}`}>
+        {initial}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
 
 interface ProductHeroProps {
   product: any
@@ -144,19 +158,7 @@ export function ProductHero({
           <Link href={`/vendedor/${product.vendorId}`} className="block">
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all group">
               {/* Avatar */}
-              {product.sellerAvatar || product.avatar_url ? (
-                <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 shadow-sm">
-                  <img
-                    src={product.sellerAvatar || product.avatar_url}
-                    alt={product.producer || "Vendedor"}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="shrink-0 w-11 h-11 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                  {(product.producer || "P").slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <SellerAvatar name={product.producer} src={product.sellerAvatar || product.avatar_url} />
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Productor</p>
@@ -176,19 +178,7 @@ export function ProductHero({
           </Link>
         ) : (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-700">
-            {product.sellerAvatar || product.avatar_url ? (
-              <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 shadow-sm">
-                <img
-                  src={product.sellerAvatar || product.avatar_url}
-                  alt={product.producer || "Vendedor"}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="shrink-0 w-11 h-11 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                {(product.producer || "P").slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            <SellerAvatar name={product.producer} src={product.sellerAvatar || product.avatar_url} />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Productor</p>
               <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{product.producer}</p>

@@ -1,0 +1,620 @@
+.page {
+  --admin-secondary: color-mix(
+    in srgb,
+    var(--muted-foreground) 82%,
+    var(--foreground)
+  );
+  --admin-tint: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  padding: 26px 16px 40px;
+  width: 100%;
+  min-width: 0;
+  color: var(--foreground);
+  background: var(--background);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.page :is(h1, h2, h3, p, dl, dd, dt) {
+  margin: 0;
+}
+.page :is(button, a, input, textarea, summary, select):focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 3px;
+}
+.page :is(input, textarea, [role="combobox"]):focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+.page :is(button, summary) {
+  cursor: pointer;
+}
+.page button:disabled {
+  cursor: wait;
+}
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  margin-bottom: 26px;
+}
+.header > div:first-child {
+  min-width: 0;
+  flex: 1 1 330px;
+}
+.header h1 {
+  font-size: clamp(27px, 2.6vw, 34px);
+  line-height: 1.25;
+  letter-spacing: -0.7px;
+  font-weight: 650;
+}
+.header p {
+  color: var(--admin-secondary);
+  font-size: 15px;
+  max-width: 760px;
+  margin-top: 7px;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 24px !important;
+}
+.metrics > div {
+  min-width: 0;
+  min-height: 160px;
+  padding: 20px 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.metrics dt {
+  color: var(--admin-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.metrics dd {
+  font-size: 36px;
+  line-height: 1.25;
+  letter-spacing: -0.6px;
+  font-weight: 600;
+  padding: 14px 0 8px;
+  overflow-wrap: anywhere;
+}
+.metrics dd[data-unavailable="true"] {
+  font-size: 22px;
+}
+.metrics dd.metricHint {
+  font-size: 13px;
+  color: var(--admin-secondary);
+  margin-top: auto;
+  font-weight: 400;
+  padding: 0;
+  letter-spacing: normal;
+  line-height: 1.55;
+}
+.button[data-slot] {
+  min-height: 44px;
+  height: auto;
+  min-width: 44px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+}
+.button[data-admin-variant="default"] {
+  background: var(--foreground);
+  color: var(--background);
+  border: 1px solid var(--foreground);
+}
+.button[data-admin-variant="default"]:hover {
+  background: color-mix(in srgb, var(--foreground) 88%, var(--background));
+}
+.button[data-admin-variant="outline"],
+.button[data-admin-variant="secondary"],
+.button[data-admin-variant="ghost"] {
+  color: var(--foreground);
+  background: var(--card);
+  border-color: var(--border);
+}
+.button[data-admin-variant="outline"]:hover,
+.button[data-admin-variant="ghost"]:hover,
+.button[data-admin-variant="secondary"]:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, var(--background));
+  color: var(--foreground);
+}
+.button[data-admin-variant="link"] {
+  color: var(--foreground);
+}
+.card[data-slot] {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  background-image: none;
+  box-shadow: 0 2px 8px #00000004;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.cardHeader[data-slot] {
+  padding: 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: var(--card);
+  min-width: 0;
+}
+.cardContent[data-slot] {
+  padding: 22px;
+  min-width: 0;
+}
+.cardTitle[data-slot] {
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.secondary[data-slot],
+.secondary {
+  color: var(--admin-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.toolbar > div {
+  min-width: 0;
+}
+.filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.search {
+  position: relative;
+  flex: 1 1 280px;
+  max-width: 520px;
+  min-width: 0;
+}
+.search svg {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--admin-secondary);
+  pointer-events: none;
+}
+.search input {
+  height: 44px;
+  padding-left: 40px;
+  font-size: 15px;
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--foreground) 50%, var(--background));
+  box-shadow: none;
+}
+.select[data-slot] {
+  min-height: 44px;
+  height: auto;
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--foreground) 50%, var(--background));
+  font-size: 14px;
+  border-radius: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+.notice {
+  background: var(--admin-tint);
+  border: 1px solid var(--border);
+  padding: 14px 17px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.notice[data-error="true"] {
+  border-left: 3px solid var(--destructive);
+}
+.notice p + p {
+  margin-top: 5px;
+}
+.empty {
+  padding: 60px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: center;
+}
+.empty h3 {
+  font-size: 17px;
+  font-weight: 500;
+}
+.empty p {
+  font-size: 14px;
+  color: var(--admin-secondary);
+  max-width: 480px;
+}
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.page table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+.page thead {
+  background: var(--admin-tint);
+}
+.page th {
+  font-weight: 500;
+  color: var(--admin-secondary);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.page :is(td, th) {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.page tbody tr:last-child td {
+  border-bottom: 0;
+}
+.page tbody tr:hover {
+  background: var(--admin-tint);
+}
+.page tr[data-selected="true"] {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--background));
+}
+.page td :is(small, .text-xs) {
+  font-size: 12px;
+  color: var(--admin-secondary);
+}
+.page td button {
+  flex-shrink: 0;
+}
+.page [data-slot="checkbox"] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+.page [data-slot="checkbox"]::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 50%, var(--background));
+  background: var(--card);
+}
+.page [data-slot="checkbox"][data-state="checked"] {
+  background: transparent;
+  color: var(--background);
+}
+.page [data-slot="checkbox"][data-state="checked"]::before {
+  background: var(--foreground);
+  border-color: var(--foreground);
+}
+.page [data-slot="checkbox-indicator"] {
+  position: relative;
+  z-index: 1;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--card));
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+.rowTitle {
+  display: block;
+  font-weight: 550;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.rowMeta {
+  display: block;
+  color: var(--admin-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.productLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 190px;
+  max-width: 360px;
+  color: var(--foreground);
+}
+.productLink:hover .rowTitle {
+  text-decoration: underline;
+}
+.thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--admin-tint);
+  flex-shrink: 0;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
+.tabs button {
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 0;
+  background: transparent;
+  color: var(--admin-secondary);
+  border-radius: 7px;
+  font-size: 14px;
+}
+.tabs button[aria-pressed="true"] {
+  background: var(--foreground);
+  color: var(--background);
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.fields {
+  display: grid;
+  gap: 20px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.field > label,
+.field > legend {
+  font-size: 14px;
+  font-weight: 500;
+}
+.field :is(input:not([type="checkbox"]):not([type="radio"]), textarea) {
+  min-height: 44px;
+  font-size: 16px;
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--foreground) 50%, var(--background));
+}
+.field p {
+  color: var(--admin-secondary);
+  font-size: 13px;
+}
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.choice input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--foreground);
+  flex-shrink: 0;
+}
+.choice span {
+  overflow-wrap: anywhere;
+}
+.userList {
+  max-height: 280px;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+.userList label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 3px;
+  border-bottom: 1px solid var(--border);
+  min-height: 60px;
+  cursor: pointer;
+}
+.userList label > span {
+  min-width: 0;
+  flex: 1;
+}
+.userList input {
+  flex-shrink: 0;
+  accent-color: var(--foreground);
+  width: 17px;
+  height: 17px;
+}
+.previewFrame {
+  width: 100%;
+  height: 440px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+}
+.field textarea.editor {
+  min-height: 320px;
+  field-sizing: fixed;
+}
+.selectMenu [role="option"][data-highlighted] {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--background));
+  color: var(--foreground);
+}
+.upload input::file-selector-button {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-right: 10px;
+  background: var(--foreground);
+  color: var(--background);
+  font: inherit;
+  cursor: pointer;
+}
+.previewNote {
+  padding: 0 0 14px;
+  color: var(--admin-secondary);
+  font-size: 13px;
+}
+.bannerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+}
+.bannerPreview {
+  aspect-ratio: 16/9;
+  background: var(--admin-tint);
+  overflow: hidden;
+}
+.bannerPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bannerHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.bannerHeading h2 {
+  font-size: 15px;
+  font-weight: 550;
+}
+.bannerFields {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.upload {
+  padding: 28px 20px;
+  border: 1px dashed
+    color-mix(in srgb, var(--foreground) 30%, var(--background));
+  border-radius: 10px;
+  background: var(--admin-tint);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.upload input {
+  max-width: 100%;
+  font-size: 14px;
+  min-height: 44px;
+}
+.dialog {
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: 12px;
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.dialog :is(input, button) {
+  min-height: 44px;
+}
+.detailGrid {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0;
+}
+.detailGrid dt {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-bottom: 4px;
+}
+.detailGrid dd {
+  font-size: 15px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.message {
+  background: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.7;
+}
+@media (min-width: 600px) {
+  .page {
+    padding: 28px 24px 40px;
+  }
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1200px) {
+  .metrics {
+    grid-template-columns: repeat(var(--metric-columns, 3), minmax(0, 1fr));
+  }
+  .split {
+    grid-template-columns: minmax(0, 1.7fr) minmax(290px, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -23,7 +23,7 @@ function load(file, deps = {}, environment = {}) {
     URL,
     Date,
     Buffer,
-    process: { env: { SUPABASE_SERVICE_ROLE_KEY: "test-only", ...environment } }
+    process: { env: { SUPABASE_SERVICE_ROLE_KEY: "test-only", ...environment }, cwd: () => "/test/agrilpa" }
   })
   return module.exports
 }
@@ -82,7 +82,8 @@ let user = null,
   rpcPayload = null,
   rpcError = null,
   settingData = null,
-  lastChanges = null
+  lastChanges = null,
+  settingError = null
 const admin = {
   from(table) {
     const q = {
@@ -97,7 +98,7 @@ const admin = {
         return q
       },
       async maybeSingle() {
-        return { data: table === "users" ? { role } : settingData, error: null }
+        return { data: table === "users" ? { role } : settingData, error: table === "users" ? null : settingError }
       }
     }
     return q
@@ -132,7 +133,11 @@ const clients = {
   },
   "@/lib/supabase/admin": { createAdminClient: () => admin }
 }
-const server = load("lib/contact/server.ts", { ...next, ...clients })
+const localSettings = {
+  readLocalContactSettings() { throw new Error("Production must use Supabase") },
+  writeLocalContactSettings() { throw new Error("Production must use Supabase") }
+}
+const server = load("lib/contact/server.ts", { ...next, ...clients, "./local-settings": localSettings })
 const localMode = load("lib/contact/local-mode.ts")
 const api = load("app/api/contact/product/route.ts", {
   ...next,
@@ -146,6 +151,7 @@ const api = load("app/api/contact/product/route.ts", {
 })
 const modeApi = load("app/api/admin/contact-mode/route.ts", {
   ...next,
+  "@/lib/contact/local-settings": localSettings,
   "@/lib/contact/server": server
 })
 const request = (body, origin = "http://localhost:3000") =>
@@ -155,6 +161,38 @@ const request = (body, origin = "http://localhost:3000") =>
     body: JSON.stringify(body)
   })
 async function run() {
+  const disk = new Map()
+  const localDependencies = {
+    "node:path": path,
+    "node:crypto": { randomUUID },
+    "node:fs": {
+      readFileSync(file) { if (!disk.has(file)) throw Object.assign(new Error("Missing"), { code: "ENOENT" }); return disk.get(file) },
+      writeFileSync(file, value) { disk.set(file, value) },
+      renameSync(from, to) { disk.set(to, disk.get(from)); disk.delete(from) }
+    }
+  }
+  const development = { NODE_ENV: "development", AGRILPA_LOCAL_CONTACT_MODE: "admin_form" }
+  const writer = load("lib/contact/local-settings.ts", localDependencies, development)
+  const reader = load("lib/contact/local-settings.ts", localDependencies, development)
+  assert.equal(reader.readLocalContactSettings().mode, "admin_form")
+  const initialVersion = reader.readLocalContactSettings().updatedAt
+  const changed = writer.writeLocalContactSettings("chat", initialVersion)
+  assert.equal(reader.readLocalContactSettings().mode, "chat")
+  assert.equal(writer.writeLocalContactSettings("admin_form", initialVersion), null)
+  writer.writeLocalContactSettings("admin_form", changed.updatedAt)
+  assert.equal(load("lib/contact/local-settings.ts", localDependencies, development).readLocalContactSettings().mode, "admin_form")
+  user = { id: randomUUID() }; role = "admin"
+  const devServer = load("lib/contact/server.ts", { ...next, ...clients, "./local-settings": reader }, development)
+  const devAdmin = load("app/api/admin/contact-mode/route.ts", { ...next, "@/lib/contact/server": devServer, "@/lib/contact/local-settings": writer }, development)
+  const devPublic = load("app/api/contact/mode/route.ts", { ...next, "@/lib/contact/server": devServer, "@/lib/contact/local-mode": load("lib/contact/local-mode.ts", {}, development) }, development)
+  let localVersion = (await devAdmin.GET()).body.updatedAt
+  assert.equal((await devAdmin.PATCH(request({ mode: "chat", updatedAt: localVersion }))).status, 200)
+  assert.equal((await devPublic.GET(request({}))).body.mode, "chat")
+  localVersion = (await devAdmin.GET()).body.updatedAt
+  assert.equal((await devAdmin.PATCH(request({ mode: "admin_form", updatedAt: localVersion }))).status, 200)
+  assert.equal((await devPublic.GET(request({}))).body.mode, "admin_form")
+  assert.equal((await devAdmin.PATCH(request({ mode: "chat", updatedAt: localVersion }))).status, 409)
+  user = null; role = "user"
   for (const environment of [
     { NODE_ENV: "production", AGRILPA_LOCAL_CONTACT_MODE: "admin_form" },
     { NODE_ENV: "development" }
@@ -233,7 +271,7 @@ async function run() {
   )
   assert.equal(
     (await publicPreviewMode.GET(request({}))).body.mode,
-    "admin_form"
+    "chat"
   )
   user = { id: randomUUID() }
   result = await api.POST(request(payload))
@@ -260,6 +298,10 @@ async function run() {
   assert.equal((await modeApi.GET()).status, 403)
   role = "admin"
   assert.equal((await modeApi.GET()).body.ready, false)
+  settingError = { code: "PGRST205" }
+  assert.equal((await modeApi.GET()).body.ready, false)
+  assert.equal((await modeApi.PATCH(request({ mode: "admin_form", updatedAt: initialVersion }))).status, 503)
+  settingError = null
   settingData = { mode: "chat", updated_at: "2026-10-26T10:00:00Z" }
   assert.equal((await modeApi.GET()).body.ready, true)
   result = await modeApi.PATCH(

@@ -1,785 +1,871 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type FormEvent
+} from "react"
+import Link from "next/link"
+import { ArrowLeft, Check, MapPin, Package, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  CountryPicker,
+  PhoneCodePicker,
+  COUNTRIES
+} from "@/components/ui/country-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { PRODUCT_CATEGORIES } from "@/lib/constants"
-import { useToast } from "@/hooks/use-toast"
-import { CountryPicker, PhoneCodePicker } from "@/components/ui/country-picker"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+import { normalizeContactPhone } from "@/lib/contact/types"
 import {
-  Search,
-  PackageSearch,
-  ArrowLeft,
-  Send,
-  CalendarDays,
-  MapPin,
-  Package,
-  FileText,
-  CheckCircle2,
-  Loader2,
-  Users,
-  ShieldCheck,
-  Bell,
-  Clock,
-  MessageSquare,
-  Mail,
-  Phone,
-  ClipboardList,
-  Globe,
-  AlertCircle,
-} from "lucide-react"
-import Link from "next/link"
+  emptyPurchaseDraft,
+  PURCHASE_STEPS,
+  PURCHASE_UNITS,
+  purchaseToday,
+  validatePurchaseDraft,
+  type PurchaseDraft,
+  type PurchaseErrors
+} from "@/lib/purchase-requests/form"
+import s from "./solicitud-compra.module.css"
 
-const EXPIRY_DAYS = 90
+const originLabels: Record<string, string> = {
+  cualquiera: "Local o importado",
+  local: "Solo producto local",
+  importado: "Solo producto importado"
+}
+function deliveryDate(value: string) {
+  return value
+    ? new Date(`${value}T12:00:00Z`).toLocaleDateString("es-SV", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "America/El_Salvador"
+      })
+    : "Fecha por definir"
+}
+function Field({
+  id,
+  label,
+  error,
+  hint,
+  children
+}: {
+  id: string
+  label: string
+  error?: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={s.field}>
+      <label htmlFor={id}>
+        {label} <span aria-hidden="true">*</span>
+      </label>
+      {children}
+      {error ? (
+        <p id={`${id}-error`} className={s.fieldError} role="alert">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={`${id}-hint`} className={s.hint}>
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 export default function SolicitudCompraPage() {
-  const router = useRouter()
-  const supabase = createClient()
-  const { toast } = useToast()
+  const supabase = useMemo(() => createClient(), [])
+  const [draft, setDraft] = useState<PurchaseDraft>({ ...emptyPurchaseDraft })
+  const [step, setStep] = useState(0)
+  const [visited, setVisited] = useState(0)
+  const [errors, setErrors] = useState<PurchaseErrors>({})
+  const [account, setAccount] = useState<
+    "loading" | "guest" | "ready" | "error" | "limit"
+  >("loading")
+  const [accountMessage, setAccountMessage] = useState("")
+  const [profileEmail, setProfileEmail] = useState("")
+  const [profilePhone, setProfilePhone] = useState("")
+  const [phoneCode, setPhoneCode] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const [success, setSuccess] = useState(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const submittingRef = useRef(false)
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [limitReached, setLimitReached] = useState(false)
-  const [limitMessage, setLimitMessage] = useState("")
-
-  // Form fields
-  const [productName, setProductName] = useState("")
-  const [category, setCategory] = useState("")
-  const [quantity, setQuantity] = useState("")
-  const [unit, setUnit] = useState("kg")
-  const [desiredDate, setDesiredDate] = useState("")
-  const [country, setCountry] = useState("")
-  const [deliveryState, setDeliveryState] = useState("")
-  const [deliveryAddress, setDeliveryAddress] = useState("")
-  const [description, setDescription] = useState("")
-  const [budget, setBudget] = useState("")
-  // New fields
-  const [specs, setSpecs] = useState("")
-  const [sourceType, setSourceType] = useState("cualquiera")
-  const [contactMethod, setContactMethod] = useState("email")
-  const [contactValue, setContactValue] = useState("")
-  const [whatsappCode, setWhatsappCode] = useState("")
-  const [whatsappNumber, setWhatsappNumber] = useState("")
-
-  const [userEmail, setUserEmail] = useState("")
-  const [userPhone, setUserPhone] = useState("")
-
+  function change(key: keyof PurchaseDraft, value: string) {
+    setDraft((previous) => ({ ...previous, [key]: value }))
+    setErrors((previous) => ({ ...previous, [key]: undefined }))
+    setSubmitError("")
+  }
+  function splitPhone(value: string) {
+    const digits = value.replace(/\D/g, "")
+    const match = [...COUNTRIES]
+      .sort(
+        (a, b) =>
+          b.phoneCode.replace(/\D/g, "").length -
+          a.phoneCode.replace(/\D/g, "").length
+      )
+      .find((country) =>
+        digits.startsWith(country.phoneCode.replace(/\D/g, ""))
+      )
+    const prefix = match?.phoneCode || ""
+    return {
+      prefix,
+      number: prefix ? digits.slice(prefix.replace(/\D/g, "").length) : digits
+    }
+  }
+  async function loadAccount() {
+    setAccount("loading")
+    try {
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession()
+      if (error) throw error
+      if (!session) {
+        setAccount("guest")
+        return
+      }
+      const response = await fetch("/api/mis-solicitudes", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store"
+      })
+      if (response.status === 401) {
+        setAccount("guest")
+        return
+      }
+      if (!response.ok) throw new Error("account_unavailable")
+      const limits = await response.json()
+      if (typeof limits.can_create !== "boolean")
+        throw new Error("invalid_limits")
+      const { data: profile } = await supabase
+        .from("users")
+        .select("email, phone")
+        .eq("id", session.user.id)
+        .single()
+      const email = profile?.email || session.user.email || ""
+      const phone = profile?.phone || ""
+      setProfileEmail(email)
+      setProfilePhone(phone)
+      setDraft((previous) =>
+        previous.contactValue ? previous : { ...previous, contactValue: email }
+      )
+      const parsed = splitPhone(phone)
+      setPhoneCode((previous) => previous || parsed.prefix)
+      setPhoneNumber((previous) => previous || parsed.number)
+      if (!limits.can_create) {
+        setAccountMessage(
+          `Ya tienes ${limits.active_count} de ${limits.max_requests} solicitudes activas permitidas en tu plan. Revisa tus solicitudes antes de publicar otra.`
+        )
+        setAccount("limit")
+      } else setAccount("ready")
+    } catch {
+      setAccount("error")
+    }
+  }
   useEffect(() => {
-    checkAuth()
+    void loadAccount()
   }, [])
 
-  const checkAuth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      setIsAuthenticated(!!session)
-      setUserId(session?.user?.id || null)
-
-      if (session?.user) {
-        // Fetch user profile to pre-fill contact info
-        const { data: profile } = await supabase
-          .from("users")
-          .select("email, phone")
-          .eq("id", session.user.id)
-          .single()
-
-        const email = profile?.email || session.user.email || ""
-        const phone = profile?.phone || ""
-        setUserEmail(email)
-        setUserPhone(phone)
-        setContactValue(email) // default to email
-
-        // Parse phone into code + number (format: "+503 70000000")
-        if (phone) {
-          const match = phone.match(/^\+(\d+[\-]?\d*)\s+(.*)/)
-          if (match) {
-            setWhatsappCode(match[1])
-            setWhatsappNumber(match[2])
-          }
-        }
-
-        // Check request limit
-        try {
-          const limRes = await fetch("/api/mis-solicitudes", {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          })
-          if (limRes.ok) {
-            const limData = await limRes.json()
-            if (!limData.can_create) {
-              setLimitReached(true)
-              setLimitMessage(
-                limData.is_pro
-                  ? `Has alcanzado el límite de ${limData.max_requests} solicitudes activas. Edita o elimina una existente.`
-                  : "Ya tienes 1 solicitud activa. Actualiza a Pro para publicar hasta 5, o edita tu solicitud existente."
-              )
-            }
-          }
-        } catch (e) {
-          console.error("Limit check error:", e)
-        }
+  function focusStep(index: number) {
+    setStep(index)
+    requestAnimationFrame(() => {
+      heading.current?.focus()
+      heading.current?.scrollIntoView({ behavior: "instant", block: "start" })
+    })
+  }
+  function goTo(index: number) {
+    if (index <= step) {
+      setErrors({})
+      focusStep(index)
+      return
+    }
+    const all = validatePurchaseDraft(draft)
+    for (let current = 0; current < index; current++) {
+      const invalid = PURCHASE_STEPS[current].keys.find((key) => all[key])
+      if (invalid) {
+        setErrors(all)
+        setStep(current)
+        requestAnimationFrame(() => document.getElementById(invalid)?.focus())
+        return
       }
-    } catch (error) {
-      console.error("Auth check error:", error)
-    } finally {
-      setIsLoading(false)
+    }
+    setErrors({})
+    setVisited((previous) => Math.max(previous, index))
+    focusStep(index)
+  }
+  function chooseContact(method: string) {
+    change("contactMethod", method)
+    if (method === "email") change("contactValue", profileEmail)
+    else {
+      const parsed = splitPhone(profilePhone)
+      setPhoneCode(parsed.prefix)
+      setPhoneNumber(parsed.number)
+      change(
+        "contactValue",
+        `+${parsed.prefix.replace(/\D/g, "")}${parsed.number}`
+      )
     }
   }
-
-  // When contact method changes, pre-fill with registered data
-  const handleContactMethodChange = (method: string) => {
-    setContactMethod(method)
-    if (method === "email") {
-      setContactValue(userEmail)
-    } else if (method === "whatsapp") {
-      // Parse phone from profile
-      if (userPhone) {
-        const match = userPhone.match(/^\+(\d+[\-]?\d*)\s+(.*)/)
-        if (match) {
-          setWhatsappCode(match[1])
-          setWhatsappNumber(match[2])
-        }
-      }
-      setContactValue(`+${whatsappCode} ${whatsappNumber}`)
-    }
+  function phoneChange(code: string, number: string) {
+    setPhoneCode(code)
+    setPhoneNumber(number)
+    change("contactValue", `+${code.replace(/\D/g, "")}${number}`)
   }
-
-  const handleWhatsappPhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/[^0-9]/g, "")
-    setWhatsappNumber(val)
-    setContactValue(`+${whatsappCode} ${val}`)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!isAuthenticated || !userId) {
-      toast({
-        title: "Inicia sesión",
-        description: "Necesitas una cuenta para crear una solicitud de compra.",
-        variant: "destructive",
-      })
-      router.push("/auth")
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (submittingRef.current) return
+    if (step < 3) {
+      goTo(step + 1)
       return
     }
-
-    if (productName.length < 15 || productName.length > 50) {
-      toast({
-        title: "Nombre del producto inválido",
-        description: "El nombre del producto debe tener entre 15 y 50 caracteres.",
-        variant: "destructive",
-      })
+    const all = validatePurchaseDraft(draft)
+    if (Object.keys(all).length) {
+      setErrors(all)
+      const index = PURCHASE_STEPS.findIndex((item) =>
+        item.keys.some((key) => all[key])
+      )
+      focusStep(Math.max(index, 0))
       return
     }
-
-    if (contactMethod === "email" && !contactValue.trim()) {
-      toast({
-        title: "Medio de contacto requerido",
-        description: "Por favor indica tu correo electrónico.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (contactMethod === "whatsapp" && (!whatsappCode || !whatsappNumber.trim())) {
-      toast({
-        title: "Medio de contacto requerido",
-        description: "Por favor indica tu código de país y número de WhatsApp.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Build contactValue for whatsapp
-    if (contactMethod === "whatsapp") {
-      setContactValue(`+${whatsappCode} ${whatsappNumber}`)
-    }
-
-    setIsSubmitting(true)
-
+    if (account !== "ready") return
+    submittingRef.current = true
+    setSubmitting(true)
+    setSubmitError("")
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const formData = new FormData()
-      formData.append("productName", productName.trim())
-      formData.append("category", category)
-      formData.append("quantity", quantity.trim())
-      formData.append("unit", unit)
-      formData.append("desiredDate", desiredDate || "")
-      formData.append("country", country.trim())
-      formData.append("deliveryState", deliveryState.trim())
-      formData.append("deliveryAddress", deliveryAddress.trim())
-      formData.append("description", description.trim())
-      formData.append("budget", budget.trim())
-      formData.append("specs", specs.trim())
-      formData.append("sourceType", sourceType)
-      formData.append("contactMethod", contactMethod)
-      const finalContactValue = contactMethod === "whatsapp" 
-        ? `+${whatsappCode} ${whatsappNumber}` 
-        : contactValue.trim()
-      formData.append("contactValue", finalContactValue)
-
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession()
+      if (error || !session) {
+        setAccount("guest")
+        setSubmitError("Tu sesión terminó. Inicia sesión antes de publicar.")
+        return
+      }
+      const form = new FormData()
+      for (const [key, value] of Object.entries(draft))
+        form.append(
+          key,
+          key === "contactValue" && draft.contactMethod === "whatsapp"
+            ? normalizeContactPhone(value)
+            : value.trim()
+        )
       const response = await fetch("/api/solicitud-compra", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: form
       })
-
-      if (!response.ok) {
-        throw new Error("Error al crear la solicitud")
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        if (response.status === 401) setAccount("guest")
+        throw new Error(
+          result.error ||
+            "No pudimos publicar tu pedido. Tus datos siguen aquí para reintentar."
+        )
       }
-
-      setIsSuccess(true)
-      toast({
-        title: "¡Solicitud creada!",
-        description: "Tu solicitud ha sido enviada a nuestra red de proveedores. Vigencia: 90 días.",
-      })
-    } catch (error) {
-      console.error("Submit error:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo crear la solicitud. Intenta de nuevo.",
-        variant: "destructive",
-      })
+      setSuccess(true)
+      requestAnimationFrame(() => heading.current?.focus())
+    } catch (cause) {
+      setSubmitError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos publicar tu pedido. Intenta de nuevo."
+      )
     } finally {
-      setIsSubmitting(false)
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
-
-  if (isLoading) {
+  function props(key: keyof PurchaseDraft, hint = false) {
+    return {
+      id: key,
+      "aria-invalid": !!errors[key],
+      "aria-describedby": errors[key]
+        ? `${key}-error`
+        : hint
+          ? `${key}-hint`
+          : undefined
+    }
+  }
+  function textInput(
+    key: keyof PurchaseDraft,
+    placeholder: string,
+    maxLength: number,
+    type = "text"
+  ) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando...</p>
+      <Input
+        {...props(key)}
+        type={type}
+        value={draft[key]}
+        onChange={(event) => change(key, event.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        className={s.input}
+        required
+        data-no-auto-caps="true"
+      />
+    )
+  }
+  function select(
+    key: keyof PurchaseDraft,
+    placeholder: string,
+    options: Record<string, string>
+  ) {
+    return (
+      <Select value={draft[key]} onValueChange={(value) => change(key, value)}>
+        <SelectTrigger {...props(key)} className={s.input}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(options).map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+  function review(title: string, index: number, items: [string, string][]) {
+    return (
+      <section className={s.reviewSection}>
+        <div className={s.reviewHeading}>
+          <h3>{title}</h3>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => goTo(index)}
+            aria-label={`Editar ${title.toLowerCase()}`}
+            disabled={submitting}
+          >
+            Editar
+          </Button>
         </div>
-      </div>
+        <dl>
+          {items.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd title={value}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     )
   }
 
-  // Success state
-  if (isSuccess) {
+  if (success)
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-lg w-full text-center">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 animate-in zoom-in duration-500">
-            <CheckCircle2 className="w-10 h-10 text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground mb-3">
-            ¡Solicitud Enviada!
+      <main className={s.page}>
+        <section className={s.success}>
+          <Check size={34} aria-hidden="true" />
+          <h1 tabIndex={-1} ref={heading}>
+            Tu pedido ya está publicado
           </h1>
-          <p className="text-muted-foreground text-lg mb-2">
-            Tu solicitud de <strong className="text-foreground">{productName}</strong> ha sido registrada exitosamente.
+          <p>
+            La solicitud de <strong>{draft.productName}</strong> se guardó
+            correctamente. Tendrá una vigencia de 90 días desde su publicación.
           </p>
-          <p className="text-muted-foreground mb-4">
-            Notificaremos a nuestra red de proveedores verificados para que te envíen sus mejores cotizaciones directamente.
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 text-amber-600 text-sm font-semibold mb-8">
-            <Clock className="w-4 h-4" />
-            Tu solicitud estará activa por {EXPIRY_DAYS} días
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={() => {
-                setIsSuccess(false)
-                setProductName(""); setCategory(""); setQuantity(""); setUnit("kg")
-                setDesiredDate(""); setCountry(""); setDeliveryState(""); setDeliveryAddress("")
-                setDescription(""); setBudget("")
-                setSpecs(""); setSourceType("cualquiera")
-                setContactMethod("email"); setContactValue(userEmail)
-
-              }}
-              className="rounded-xl h-12 font-bold px-8"
-            >
-              Crear otra solicitud
+          <div className={s.successActions}>
+            <Button asChild className={s.primary}>
+              <Link href="/dashboard/mis-solicitudes">Ver mis solicitudes</Link>
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/productos")}
-              className="rounded-xl h-12 font-bold px-8"
-            >
-              Volver al catálogo
+            <Button asChild variant="outline" className={s.secondary}>
+              <Link href="/pedidos">Volver a pedidos</Link>
             </Button>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     )
-  }
-
-  // Limit reached state
-  if (limitReached && isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-lg w-full text-center">
-          <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-amber-500" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground mb-3">
-            Límite de solicitudes alcanzado
-          </h1>
-          <p className="text-muted-foreground mb-6">
-            {limitMessage}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={() => router.push("/dashboard/mis-solicitudes")}
-              className="rounded-xl h-12 font-bold px-8"
-            >
-              Ver mis solicitudes
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/pedidos")}
-              className="rounded-xl h-12 font-bold px-8"
-            >
-              Ver pedidos
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
-        {/* Back link */}
-        <Link
-          href="/productos"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al catálogo
+    <main className={s.page}>
+      <div className={s.container} data-purchase-step={step}>
+        <Link href="/pedidos" className={s.back}>
+          <ArrowLeft size={16} aria-hidden="true" />
+          Volver a pedidos
         </Link>
-
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <PackageSearch className="w-8 h-8 text-primary" />
+        <header className={s.header}>
+          <div>
+            <h1>Nueva solicitud de compra</h1>
+            <p>
+              Describe lo que necesitas y revisa tu pedido antes de publicarlo.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
-            ¿No encontraste el producto que buscabas?
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            No te preocupes. Cuéntanos qué necesitas, en qué cantidad y para cuándo.
-            Nosotros notificaremos a nuestra red de proveedores verificados para que te envíen
-            sus mejores cotizaciones directamente.
+          <span className={s.stepCount}>Paso {step + 1} de 4</span>
+        </header>
+        <nav aria-label="Pasos de la solicitud" className={s.steps}>
+          <ol>
+            {PURCHASE_STEPS.map((item, index) => (
+              <li key={item.title}>
+                <button
+                  type="button"
+                  aria-current={step === index ? "step" : undefined}
+                  disabled={index > visited || submitting}
+                  onClick={() => goTo(index)}
+                >
+                  <span className={s.stepNumber}>
+                    {index < step ? (
+                      <Check size={16} aria-hidden="true" />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.description}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        {account === "loading" && (
+          <p className={s.notice} role="status">
+            Estamos revisando tu cuenta y tus solicitudes activas.
           </p>
-        </div>
-
-        {/* Trust Indicators */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Red de Proveedores</p>
-              <p className="text-xs text-muted-foreground">Cientos de productores activos</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Proveedores Verificados</p>
-              <p className="text-xs text-muted-foreground">Calidad garantizada</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-              <Bell className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Notificaciones</p>
-              <p className="text-xs text-muted-foreground">Recibe cotizaciones directas</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Not authenticated warning */}
-        {!isAuthenticated && (
-          <Card className="p-6 mb-8 border-primary/30 bg-primary/5">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <Search className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground mb-1">Inicia sesión para continuar</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Necesitas una cuenta en Agrilpa para crear una solicitud de compra y recibir cotizaciones de proveedores.
-                </p>
-                <div className="flex gap-3">
-                  <Button onClick={() => router.push("/auth")} size="sm" className="rounded-lg font-semibold">
-                    Iniciar Sesión
-                  </Button>
-                  <Button onClick={() => router.push("/auth")} size="sm" variant="outline" className="rounded-lg font-semibold">
-                    Crear Cuenta
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
         )}
-
-        {/* Form */}
-        <Card className="p-6 sm:p-8 border border-border">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Crear Solicitud de Compra</h2>
-              <p className="text-sm text-muted-foreground">Completa los detalles de lo que necesitas</p>
-            </div>
+        {account === "guest" && (
+          <div className={s.notice}>
+            <p>
+              Puedes preparar y revisar tu pedido. Necesitas iniciar sesión para
+              publicarlo.
+            </p>
+            <Button asChild variant="outline" className={s.secondary}>
+              <Link href="/auth?redirectTo=%2Fsolicitud-compra">
+                Iniciar sesión
+              </Link>
+            </Button>
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Product Name */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                Nombre del Producto <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: Café arábica lavado, Aguacate Hass, Cacao fino de aroma..."
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                minLength={15}
-                maxLength={50}
-                className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1 text-right">
-                {productName.length}/50 caracteres (Mínimo 15)
+        )}
+        {account === "error" && (
+          <div className={s.notice} role="alert">
+            <p>
+              No pudimos comprobar tu cuenta. Puedes completar los datos
+              mientras reintentamos la consulta.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className={s.secondary}
+              onClick={() => void loadAccount()}
+            >
+              Volver a comprobar
+            </Button>
+          </div>
+        )}
+        {account === "limit" && (
+          <div className={s.notice} role="alert">
+            <p>{accountMessage}</p>
+            <Button asChild variant="outline" className={s.secondary}>
+              <Link href="/dashboard/mis-solicitudes">Ver mis solicitudes</Link>
+            </Button>
+          </div>
+        )}
+        <div className={s.workspace}>
+          <form onSubmit={submit} noValidate className={s.form}>
+            <div className={s.formHeading}>
+              <span>Paso {step + 1}</span>
+              <h2 ref={heading} tabIndex={-1}>
+                {
+                  [
+                    "¿Qué producto necesitas?",
+                    "¿Dónde lo necesitas?",
+                    "Define las condiciones",
+                    "Revisa tu solicitud"
+                  ][step]
+                }
+              </h2>
+              <p>
+                {
+                  [
+                    "Indica el producto, el volumen y las características que debe cumplir.",
+                    "Comparte el destino y la fecha para que los proveedores evalúen la entrega.",
+                    "Indica tu presupuesto y cómo pueden contactarte.",
+                    "Confirma los detalles. Puedes editar cualquier sección antes de publicar."
+                  ][step]
+                }
               </p>
             </div>
-
-            {/* Category and Quantity row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Categoría <span className="text-red-500">*</span>
-                </label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="w-full h-12 px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary shadow-none">
-                    <SelectValue placeholder="Selecciona una categoría" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="max-h-60 bg-white shadow-lg border border-gray-200 rounded-xl z-50">
-                    {PRODUCT_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Cantidad Requerida <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Ej: 5000"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="flex-1 px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all h-12"
-                    required
-                  />
-                  <div className="w-28 shrink-0">
-                    <Select value={unit} onValueChange={setUnit}>
-                      <SelectTrigger className="w-full h-12 px-3 py-3 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary shadow-none">
-                        <SelectValue placeholder="Unidad" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" className="bg-white shadow-lg border border-gray-200 rounded-xl z-50">
-                        <SelectItem value="kg">kg</SelectItem>
-                        <SelectItem value="ton">ton</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="quintales">qq</SelectItem>
-                        <SelectItem value="unidades">uds</SelectItem>
-                        <SelectItem value="contenedores">cont.</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Date row */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                <CalendarDays className="w-4 h-4 inline mr-1 -mt-0.5" />
-                Fecha deseada de entrega <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={desiredDate}
-                onChange={(e) => setDesiredDate(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                required
-              />
-            </div>
-
-            {/* Delivery Location */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-primary" />
-                Ubicación de entrega
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">
-                    País de destino <span className="text-red-500">*</span>
-                  </label>
-                  <CountryPicker
-                    value={country}
-                    onChange={(countryName) => setCountry(countryName)}
-                    placeholder="Selecciona el país de entrega"
-                  />
-                  {/* Since CountryPicker might not pass 'required' directly to a native input, we handle validation at submit or add required manually if possible */}
-                  <input type="hidden" value={country} required />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-2">
-                      Estado / Provincia <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Antioquia, Texas, San Salvador..."
-                      value={deliveryState}
-                      onChange={(e) => setDeliveryState(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-2">
-                      Dirección de entrega <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Bodega 5, Zona Industrial..."
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Budget and Source Type row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  <Package className="w-4 h-4 inline mr-1 -mt-0.5" />
-                  Presupuesto estimado (USD) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: $2,000 - $5,000 o A convenir"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  <Globe className="w-4 h-4 inline mr-1 -mt-0.5" />
-                  Origen del producto <span className="text-red-500">*</span>
-                </label>
-                <Select value={sourceType} onValueChange={setSourceType}>
-                  <SelectTrigger className="w-full h-12 px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary shadow-none">
-                    <SelectValue placeholder="Selecciona el origen" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="bg-white shadow-lg border border-gray-200 rounded-xl z-50">
-                    <SelectItem value="cualquiera">Cualquiera (Local o Importado)</SelectItem>
-                    <SelectItem value="local">Solo producto local</SelectItem>
-                    <SelectItem value="importado">Solo producto importado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                Descripción detallada <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                placeholder="Describe las especificaciones del producto que necesitas: calidad, certificaciones, empaque, condiciones de envío, etc."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
-                required
-              />
-            </div>
-
-            {/* Technical Specs */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                <ClipboardList className="w-4 h-4 inline mr-1 -mt-0.5" />
-                Especificaciones técnicas / Notas <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                placeholder={"Ej:\n• Humedad máxima al 12%\n• Grano limpio para consumo animal\n• Certificación orgánica requerida\n• Empaque en sacos de 50kg"}
-                value={specs}
-                onChange={(e) => setSpecs(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Agrega cualquier detalle técnico que ayude a los proveedores a entender exactamente lo que necesitas.
-              </p>
-            </div>
-
-
-            {/* Divider */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-1 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                ¿Cómo deseas ser contactado?
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Los proveedores te contactarán por el medio que elijas.
-              </p>
-
-              {/* Contact Method Selection */}
-              <div className="flex gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => handleContactMethodChange("email")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                    contactMethod === "email"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/30"
-                  }`}
+            <p className={s.requiredNote}>
+              {step < 3
+                ? "Los campos con * son obligatorios."
+                : "Tu solicitud tendrá una vigencia de 90 días."}
+            </p>
+            {step === 0 && (
+              <div className={s.fields}>
+                <Field
+                  id="productName"
+                  label="Nombre del producto"
+                  error={errors.productName}
+                  hint={`${draft.productName.trim().length}/50 caracteres. Mínimo 15.`}
                 >
-                  <Mail className="w-4 h-4" />
-                  Correo electrónico
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleContactMethodChange("whatsapp")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                    contactMethod === "whatsapp"
-                      ? "border-green-500 bg-green-500/10 text-green-600"
-                      : "border-border bg-background text-muted-foreground hover:border-green-500/30"
-                  }`}
-                >
-                  <Phone className="w-4 h-4" />
-                  WhatsApp
-                </button>
-              </div>
-
-              {/* Contact Value Input */}
-              {contactMethod === "email" ? (
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">
-                    Correo electrónico <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="tu@correo.com"
-                    value={contactValue}
-                    onChange={(e) => setContactValue(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                  <Input
+                    {...props("productName", true)}
+                    value={draft.productName}
+                    onChange={(event) =>
+                      change("productName", event.target.value)
+                    }
+                    placeholder="Producto, variedad y presentación"
+                    minLength={15}
+                    maxLength={50}
+                    className={s.input}
                     required
+                    data-no-auto-caps="true"
                   />
-                  {contactValue && contactValue === userEmail && (
-                    <p className="text-xs text-primary mt-1 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Datos de tu registro
-                    </p>
+                </Field>
+                <Field id="category" label="Categoría" error={errors.category}>
+                  {select(
+                    "category",
+                    "Selecciona una categoría",
+                    Object.fromEntries(
+                      PRODUCT_CATEGORIES.map((value) => [value, value])
+                    )
                   )}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">
-                    Número de WhatsApp <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-3">
-                    <PhoneCodePicker
-                      value={whatsappCode}
-                      onChange={(phoneCode) => {
-                        setWhatsappCode(phoneCode)
-                        setContactValue(`+${phoneCode} ${whatsappNumber}`)
+                </Field>
+                <div className={s.twoColumns}>
+                  <Field
+                    id="quantity"
+                    label="Cantidad solicitada"
+                    error={errors.quantity}
+                  >
+                    <Input
+                      {...props("quantity")}
+                      value={draft.quantity}
+                      onChange={(event) => {
+                        const value = event.target.value.replace(/[^0-9.]/g, "")
+                        if (/^\d*\.?\d*$/.test(value)) change("quantity", value)
                       }}
-                      className="w-36 shrink-0"
+                      inputMode="decimal"
+                      placeholder="Cantidad"
+                      maxLength={20}
+                      className={s.input}
+                      required
                     />
-                    <div className="flex-1">
-                      <input
-                        type="text"
+                  </Field>
+                  <Field id="unit" label="Unidad de medida" error={errors.unit}>
+                    {select("unit", "Unidad", PURCHASE_UNITS)}
+                  </Field>
+                </div>
+                <Field
+                  id="description"
+                  label="Descripción del pedido"
+                  error={errors.description}
+                >
+                  <Textarea
+                    {...props("description")}
+                    value={draft.description}
+                    onChange={(event) =>
+                      change("description", event.target.value)
+                    }
+                    placeholder="Explica el uso, la calidad o la presentación que buscas."
+                    maxLength={3000}
+                    rows={4}
+                    className={s.textarea}
+                    required
+                    data-no-auto-caps="true"
+                  />
+                </Field>
+                <Field
+                  id="specs"
+                  label="Especificaciones técnicas"
+                  error={errors.specs}
+                hint="Indica calidad, empaque o certificaciones. Si no aplica, indícalo."
+                >
+                  <Textarea
+                    {...props("specs", true)}
+                    value={draft.specs}
+                    onChange={(event) => change("specs", event.target.value)}
+                    placeholder="Requisitos que el producto debe cumplir"
+                    maxLength={2000}
+                    rows={3}
+                    className={s.textarea}
+                    required
+                    data-no-auto-caps="true"
+                  />
+                </Field>
+              </div>
+            )}
+            {step === 1 && (
+              <div className={s.fields}>
+                <Field
+                  id="country"
+                  label="País de destino"
+                  error={errors.country}
+                >
+                  <CountryPicker
+                    id="country"
+                    value={draft.country}
+                    onChange={(value) => change("country", value)}
+                    error={!!errors.country}
+                    describedBy={errors.country ? "country-error" : undefined}
+                  />
+                </Field>
+                <Field
+                  id="deliveryState"
+                  label="Estado o provincia"
+                  error={errors.deliveryState}
+                >
+                  {textInput(
+                    "deliveryState",
+                    "Estado, departamento o provincia",
+                    100
+                  )}
+                </Field>
+                <Field
+                  id="deliveryAddress"
+                  label="Dirección de entrega"
+                  error={errors.deliveryAddress}
+                >
+                  {textInput(
+                    "deliveryAddress",
+                    "Dirección o punto de entrega",
+                    300
+                  )}
+                </Field>
+                <Field
+                  id="desiredDate"
+                  label="Fecha deseada de entrega"
+                  error={errors.desiredDate}
+                >
+                  <Input
+                    {...props("desiredDate")}
+                    type="date"
+                    min={purchaseToday()}
+                    value={draft.desiredDate}
+                    onChange={(event) =>
+                      change("desiredDate", event.target.value)
+                    }
+                    className={s.input}
+                    required
+                  />
+                </Field>
+              </div>
+            )}
+            {step === 2 && (
+              <div className={s.fields}>
+                <Field
+                  id="budget"
+                  label="Presupuesto estimado en USD"
+                  error={errors.budget}
+                  hint="Puedes indicar un monto, un rango o escribir A convenir."
+                >
+                  <Input
+                    {...props("budget", true)}
+                    value={draft.budget}
+                    onChange={(event) => change("budget", event.target.value)}
+                    placeholder="Monto, rango o A convenir"
+                    maxLength={120}
+                    className={s.input}
+                    required
+                    data-no-auto-caps="true"
+                  />
+                </Field>
+                <Field
+                  id="sourceType"
+                  label="Origen del producto"
+                  error={errors.sourceType}
+                >
+                  {select("sourceType", "Selecciona el origen", originLabels)}
+                </Field>
+                <Field
+                  id="contactMethod"
+                  label="Medio de contacto"
+                  error={errors.contactMethod}
+                >
+                  <Select
+                    value={draft.contactMethod}
+                    onValueChange={chooseContact}
+                  >
+                    <SelectTrigger
+                      {...props("contactMethod")}
+                      className={s.input}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Correo electrónico</SelectItem>
+                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {draft.contactMethod === "email" ? (
+                  <Field
+                    id="contactValue"
+                    label="Correo electrónico"
+                    error={errors.contactValue}
+                  >
+                    {textInput(
+                      "contactValue",
+                      "nombre@empresa.com",
+                      254,
+                      "email"
+                    )}
+                  </Field>
+                ) : (
+                  <Field
+                    id="contactValue"
+                    label="Número de WhatsApp"
+                    error={errors.contactValue}
+                    hint="Solo números, con el prefijo de tu país."
+                  >
+                    <div className={s.phone}>
+                      <PhoneCodePicker
+                        value={phoneCode}
+                        onChange={(code) => phoneChange(code, phoneNumber)}
+                        label="Prefijo de WhatsApp"
+                      />
+                      <Input
+                        {...props("contactValue", true)}
+                        type="tel"
                         inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="70000000"
-                        value={whatsappNumber}
-                        onChange={handleWhatsappPhoneInput}
-                        className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                        value={phoneNumber}
+                        onChange={(event) =>
+                          phoneChange(
+                            phoneCode,
+                            event.target.value.replace(/\D/g, "")
+                          )
+                        }
+                        placeholder="Número de teléfono"
+                        maxLength={15}
+                        className={s.input}
                         required
                       />
                     </div>
-                  </div>
-                  {whatsappCode && whatsappNumber && `+${whatsappCode} ${whatsappNumber}` === userPhone && (
-                    <p className="text-xs text-primary mt-1 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Datos de tu registro
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Expiry Notice */}
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-              <Clock className="w-5 h-5 text-amber-500 shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                Esta solicitud tendrá una vigencia de <strong className="text-foreground">{EXPIRY_DAYS} días</strong> desde su publicación. Después será archivada automáticamente.
-              </p>
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={isSubmitting || !isAuthenticated}
-              className="w-full h-14 text-base font-bold rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Enviando solicitud...
-                </>
-              ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  Crear Solicitud de Compra
-                </>
-              )}
-            </Button>
-
-            {!isAuthenticated && (
-              <p className="text-center text-sm text-muted-foreground">
-                Debes <button onClick={() => router.push("/auth")} type="button" className="text-primary font-semibold hover:underline">iniciar sesión</button> para enviar tu solicitud.
-              </p>
+                  </Field>
+                )}
+              </div>
             )}
+            {step === 3 && (
+              <div className={s.review}>
+                {review("Producto", 0, [
+                  ["Nombre", draft.productName],
+                  ["Categoría", draft.category],
+                  [
+                    "Cantidad",
+                    `${draft.quantity} ${PURCHASE_UNITS[draft.unit as keyof typeof PURCHASE_UNITS]}`
+                  ],
+                  ["Descripción", draft.description],
+                  ["Especificaciones", draft.specs]
+                ])}
+                {review("Entrega", 1, [
+                  ["País", draft.country],
+                  ["Estado o provincia", draft.deliveryState],
+                  ["Dirección", draft.deliveryAddress],
+                  ["Fecha deseada", deliveryDate(draft.desiredDate)]
+                ])}
+                {review("Condiciones", 2, [
+                  ["Presupuesto (USD)", draft.budget],
+                  ["Origen", originLabels[draft.sourceType]],
+                  [
+                    draft.contactMethod === "email"
+                      ? "Correo electrónico"
+                      : "WhatsApp",
+                    draft.contactValue
+                  ]
+                ])}
+              </div>
+            )}
+            {submitError && (
+              <div className={s.submitError} role="alert">
+                {submitError}
+              </div>
+            )}
+            <div className={s.actions}>
+              <Button
+                type="button"
+                variant="outline"
+                className={s.secondary}
+                onClick={() => goTo(step - 1)}
+                disabled={step === 0 || submitting}
+              >
+                Anterior
+              </Button>
+              {step < 3 ? (
+                <Button
+                  type="submit"
+                  className={s.primary}
+                  disabled={submitting}
+                >
+                  Continuar
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className={s.primary}
+                  disabled={submitting || account !== "ready"}
+                >
+                  {submitting ? "Publicando…" : "Publicar pedido"}
+                </Button>
+              )}
+            </div>
           </form>
-        </Card>
+          <aside className={s.preview} aria-label="Vista previa del pedido">
+            <div className={s.previewHeading}>
+              <h2>Vista previa</h2>
+              <span>Se actualiza al escribir</span>
+            </div>
+            <div className={s.previewBody}>
+              <div className={s.previewIcon}>
+                <Package size={30} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <span className={s.previewCategory}>
+                {draft.category || "Categoría por definir"}
+              </span>
+              <h3>{draft.productName || "Nombre del producto"}</h3>
+              <p className={s.previewSpecs}>
+                {draft.specs ||
+                  draft.description ||
+                  "Las características de tu pedido aparecerán aquí."}
+              </p>
+              <p className={s.previewDestination}>
+                <MapPin size={16} aria-hidden="true" />
+                {[draft.country, draft.deliveryState]
+                  .filter(Boolean)
+                  .join(", ") || "Destino por definir"}
+              </p>
+              <p className={s.previewDestination}>
+                <CalendarDays size={16} aria-hidden="true" />
+                {deliveryDate(draft.desiredDate)}
+              </p>
+              <div className={s.previewQuantity}>
+                <span>Cantidad solicitada</span>
+                <strong>
+                  {draft.quantity || "Por definir"}
+                  {draft.quantity && (
+                    <small>
+                      {" "}
+                      {
+                        PURCHASE_UNITS[
+                          draft.unit as keyof typeof PURCHASE_UNITS
+                        ]
+                      }
+                    </small>
+                  )}
+                </strong>
+              </div>
+            </div>
+            <p className={s.previewNote}>
+              Así se presentará tu pedido en el listado. Revisa todos los
+              detalles en el último paso.
+            </p>
+          </aside>
+        </div>
       </div>
-    </div>
+    </main>
   )
 }
