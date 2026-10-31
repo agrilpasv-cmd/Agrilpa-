@@ -147,7 +147,12 @@ export default function AdminPublicationsPage() {
           {
             label: "Publicaciones consultadas",
             value: loaded ? products.length : null,
-            hint: "Registros de este listado"
+            hint: "Registros de este listado",
+            active: category === "all" && !query,
+            onClick: () => {
+              setCategory("all")
+              setQuery("")
+            }
           },
           {
             label: "Vendedores",

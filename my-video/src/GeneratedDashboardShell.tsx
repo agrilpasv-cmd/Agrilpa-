@@ -3,9 +3,9 @@ import React from 'react';
 import {Link,Image} from './PageAdapters';
 import {Badge} from '@/components/ui/badge';
 import {Menu,X,LogOut,Settings,FileText,MessageSquare,Home,ClipboardList,Truck,Plus,LayoutDashboard,ShoppingCart,ListOrdered,Receipt,ShoppingBag} from 'lucide-react';
-export function GeneratedDashboardShell({children}: {children:React.ReactNode}) {
+export function GeneratedDashboardShell({children, activeHref, cotizacionesCount = 0}: {children:React.ReactNode; activeHref?: string; cotizacionesCount?: number}) {
   const isProfileIncomplete=false,isLoggingOut=false,isSidebarOpen=false,unreadCount=0;
-  const counts={perfil:0,publicaciones:0,cotizaciones:0,ventas:0,compras:0,logistica:0,transacciones:0};
+  const counts={perfil:0,publicaciones:0,cotizaciones:cotizacionesCount,ventas:0,compras:0,logistica:0,transacciones:0};
   const setIsSidebarOpen=(_b:boolean)=>{},handleLogout=()=>{};
   const menuItems=[
         { href: "/", label: "Inicio", icon: Home, notifications: 0 },
@@ -32,12 +32,6 @@ export function GeneratedDashboardShell({children}: {children:React.ReactNode}) 
         },
         { href: "/dashboard/ventas", label: "Mis Ventas", icon: ShoppingBag, notifications: counts.ventas },
         { href: "/dashboard/compras", label: "Mis Compras", icon: ShoppingCart, notifications: counts.compras },
-        {
-            href: "/dashboard/logistica",
-            label: "Logística",
-            icon: Truck,
-            notifications: counts.logistica,
-        },
         {
             href: "/dashboard/transacciones",
             label: "Transacciones",
@@ -114,11 +108,16 @@ export function GeneratedDashboardShell({children}: {children:React.ReactNode}) 
                             <nav className="space-y-2">
                                 {menuItems.map((item) => {
                                     const Icon = item.icon
+                                    const isActive = activeHref === item.href
                                     return (
                                         <Link
                                             key={item.href}
                                             href={item.href}
-                                            className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted transition-colors hover:text-primary group"
+                                            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors group ${
+                                                isActive
+                                                    ? "bg-muted text-primary font-semibold"
+                                                    : "text-foreground hover:bg-muted hover:text-primary"
+                                            }`}
                                             onClick={() => setIsSidebarOpen(false)}
                                         >
                                             <div className="flex items-center gap-3">

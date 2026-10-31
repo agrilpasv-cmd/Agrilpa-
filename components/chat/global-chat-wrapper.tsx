@@ -15,6 +15,7 @@ export function GlobalChatWrapper() {
     isOpen,
     setIsOpen,
     currentUserId,
+    isAdmin,
     unreadCount,
     pendingNotification,
     clearPendingNotification,
@@ -27,8 +28,8 @@ export function GlobalChatWrapper() {
   const pathname = usePathname()
   const router = useRouter()
 
-  // STRICT REQUIREMENT: Do not show on the full messages page (/dashboard/mensajes) or auth pages (/auth)
-  if (pathname?.startsWith('/dashboard/mensajes') || pathname?.startsWith('/dashboard/soporte') || pathname?.startsWith('/auth')) {
+  // STRICT REQUIREMENT: Do not show on the full messages page (/dashboard/mensajes), admin panel (/admin), or auth pages (/auth)
+  if (pathname?.startsWith('/dashboard/mensajes') || pathname?.startsWith('/dashboard/soporte') || pathname?.startsWith('/admin') || pathname?.startsWith('/auth')) {
     return null
   }
 
@@ -37,8 +38,8 @@ export function GlobalChatWrapper() {
     if (pendingNotification) {
       openChatForNotification(pendingNotification)
     } else if (activeChat && !activeChat.isSupport) {
-      // If there is an active regular product chat, open it
-      if (pathname?.startsWith('/producto/')) requestProductContact(activeChat)
+      // If there is an active regular product or pedido chat, open it via contact mode check
+      if (pathname?.startsWith('/producto/') || pathname?.startsWith('/pedidos/')) requestProductContact(activeChat)
       else setIsOpen(true)
     } else {
       // Find the latest regular product conversation
@@ -196,20 +197,22 @@ export function GlobalChatWrapper() {
             </div>
           )}
 
-          {/* Quick Help / Support Pill */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              openSupportChat()
-            }}
-            className={`pointer-events-auto flex items-center gap-2 bg-white hover:bg-emerald-50/40 text-foreground px-3.5 py-1.5 rounded-full shadow-md border border-primary text-xs font-semibold backdrop-blur-sm transition-all hover:scale-105 active:scale-95 group hover:shadow-lg ${
-              unreadCount > 0 ? 'mb-2.5' : 'mb-0'
-            }`}
-            title="Pedir ayuda o asistencia técnica a Soporte Agrilpa"
-          >
-            <Headphones className="w-3.5 h-3.5 text-primary group-hover:rotate-12 transition-transform" />
-            <span className="text-[11px] sm:text-xs font-medium">¿Ayuda o Soporte?</span>
-          </button>
+          {/* Quick Help / Support Pill - Hidden for admin users */}
+          {!isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                openSupportChat()
+              }}
+              className={`pointer-events-auto flex items-center gap-2 bg-white hover:bg-emerald-50/40 text-foreground px-3.5 py-1.5 rounded-full shadow-md border border-primary text-xs font-semibold backdrop-blur-sm transition-all hover:scale-105 active:scale-95 group hover:shadow-lg ${
+                unreadCount > 0 ? 'mb-2.5' : 'mb-0'
+              }`}
+              title="Pedir ayuda o asistencia técnica a Soporte Agrilpa"
+            >
+              <Headphones className="w-3.5 h-3.5 text-primary group-hover:rotate-12 transition-transform" />
+              <span className="text-[11px] sm:text-xs font-medium">¿Ayuda o Soporte?</span>
+            </button>
+          )}
 
           {/* Floating Trigger Button (Bottom-Right) - Only visible when another user sends a new unread message */}
           {unreadCount > 0 && (

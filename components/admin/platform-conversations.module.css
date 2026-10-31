@@ -172,11 +172,11 @@
   background: var(--card);
 }
 .row:hover {
-  background: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 3%, var(--card));
 }
 .row[aria-pressed="true"] {
   border-left-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 7%, var(--card));
+  background: color-mix(in srgb, var(--foreground) 5%, var(--card));
 }
 .row > img {
   width: 43px;

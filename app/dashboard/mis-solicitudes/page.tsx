@@ -1,18 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ProBadge } from "@/components/ui/pro-badge"
 import { createClient } from "@/lib/supabase/client"
 import { PRODUCT_CATEGORIES } from "@/lib/constants"
 import { CountryPicker, PhoneCodePicker } from "@/components/ui/country-picker"
 import { useToast } from "@/hooks/use-toast"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -21,25 +24,32 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+  AdminWorkspace,
+  AdminHeader,
+  AdminMetrics,
+  AdminSearch,
+  AdminSelect,
+  AdminNotice,
+  AdminEmpty,
+  Button,
+  Card,
+  CardContent,
+  adminStyles as s,
+  adminDate,
+} from "@/components/admin/workspace"
+import {
   Plus,
   Loader2,
-  Package,
-  MapPin,
-  Clock,
   Pencil,
   Trash2,
   X,
   Save,
-  ImagePlus,
   Smile,
-  AlertCircle,
-  Calendar,
-  Globe,
-  MessageSquare,
   Mail,
   Phone,
-  CheckCircle2,
+  RefreshCw,
 } from "lucide-react"
+import localStyles from "./solicitudes.module.css"
 
 interface PurchaseRequest {
   id: string
@@ -70,37 +80,48 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Especias y condimentos": "🌶️",
   "Aceites y grasas": "🫒",
   "Azúcar y endulzantes": "🍯",
-  "Lácteos": "🥛",
+  Lácteos: "🥛",
   "Carnes y mariscos": "🥩",
   "Semillas y frutos secos": "🥜",
   "Productos orgánicos": "🌿",
   "Insumos agrícolas": "🧪",
-  "Otro": "📦",
+  Otro: "📦",
 }
 
 const PRODUCT_EMOJIS: Record<string, string[]> = {
-  "Frutas": ["🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥝", "🍐", "🥥", "🍅", "🫒"],
-  "Vegetales": ["🥦", "🥬", "🥒", "🌽", "🫑", "🧅", "🧄", "🥕", "🥔", "🍆", "🌶️", "🫘", "🥜", "🫛"],
+  Frutas: ["🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥝", "🍐", "🥥", "🍅", "🫒"],
+  Vegetales: ["🥦", "🥬", "🥒", "🌽", "🫑", "🧅", "🧄", "🥕", "🥔", "🍆", "🌶️", "🫘", "🥜", "🫛"],
   "Granos y Cereales": ["🌾", "🌿", "🍚", "🌰", "☕", "🫘"],
   "Carnes y Mariscos": ["🥩", "🍗", "🥓", "🦐", "🦀", "🐟", "🦑", "🐄", "🐖", "🐔"],
   "Lácteos y Otros": ["🥛", "🧀", "🥚", "🍯", "🧈", "🫙"],
   "Especias y Aceites": ["🌶️", "🧂", "🫒", "🌻", "🥜"],
-  "General": ["📦", "🌱", "🏭", "🚛", "🧪", "🌍", "♻️", "🏷️"],
+  General: ["📦", "🌱", "🏭", "🚛", "🧪", "🌍", "♻️", "🏷️"],
 }
 
-export default function MisSolicitudesPage() {
-  const supabase = createClient()
-  const { toast } = useToast()
+const SOURCE_LABELS: Record<string, string> = {
+  cualquiera: "Cualquiera",
+  local: "Local",
+  importado: "Importado",
+}
 
+type StatusFilter = "all" | "active" | "expired"
+
+export default function MisSolicitudesPage() {
+  const supabase = useMemo(() => createClient(), [])
+  const { toast } = useToast()
 
   const [requests, setRequests] = useState<PurchaseRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
   const [isPro, setIsPro] = useState(false)
   const [maxRequests, setMaxRequests] = useState(1)
   const [activeCount, setActiveCount] = useState(0)
   const [canCreate, setCanCreate] = useState(false)
 
-  // Edit state
+  const [query, setQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [detail, setDetail] = useState<PurchaseRequest | null>(null)
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<any>({})
   const [editEmoji, setEditEmoji] = useState("")
@@ -109,47 +130,56 @@ export default function MisSolicitudesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [requestToDelete, setRequestToDelete] = useState<string | null>(null)
 
-  // WhatsApp edit state
   const [editWhatsappCode, setEditWhatsappCode] = useState("")
   const [editWhatsappNumber, setEditWhatsappNumber] = useState("")
 
-  useEffect(() => {
-    fetchRequests()
-  }, [])
+  const fetchRequests = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) setIsLoading(true)
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session) return
 
-  const fetchRequests = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+        const res = await fetch("/api/mis-solicitudes", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
 
-      const res = await fetch("/api/mis-solicitudes", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setRequests(data.requests || [])
-        setIsPro(data.is_pro)
-        setMaxRequests(data.max_requests)
-        setActiveCount(data.active_count)
-        setCanCreate(data.can_create)
+        if (res.ok) {
+          const data = await res.json()
+          setRequests(data.requests || [])
+          setIsPro(Boolean(data.is_pro))
+          setMaxRequests(data.max_requests ?? 1)
+          setActiveCount(data.active_count ?? 0)
+          setCanCreate(Boolean(data.can_create))
+          setLoaded(true)
+        }
+      } catch (error) {
+        console.error("Error fetching solicitudes:", error)
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error("Error fetching solicitudes:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+    [supabase],
+  )
+
+  useEffect(() => {
+    fetchRequests(true)
+  }, [fetchRequests])
 
   const getDaysRemaining = (expiresAt: string) => {
     const now = new Date()
     const expires = new Date(expiresAt)
-    return Math.max(0, Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    return Math.max(
+      0,
+      Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    )
   }
 
-  const isExpired = (req: PurchaseRequest) => {
+  const isExpired = useCallback((req: PurchaseRequest) => {
     return req.status !== "active" || new Date(req.expires_at) <= new Date()
-  }
+  }, [])
 
   const startEdit = (req: PurchaseRequest) => {
     setEditingId(req.id)
@@ -172,12 +202,14 @@ export default function MisSolicitudesPage() {
     setEditEmoji(req.image_url || "")
     setShowEditEmojiPicker(false)
 
-    // Parse whatsapp
     if (req.contact_method === "whatsapp" && req.contact_value) {
       const match = req.contact_value.match(/^\+(\d+[\-]?\d*)\s+(.*)/)
       if (match) {
         setEditWhatsappCode(match[1])
         setEditWhatsappNumber(match[2])
+      } else {
+        setEditWhatsappCode("")
+        setEditWhatsappNumber("")
       }
     } else {
       setEditWhatsappCode("")
@@ -197,7 +229,9 @@ export default function MisSolicitudesPage() {
     setIsSaving(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (!session) return
 
       const formData = new FormData()
@@ -216,11 +250,11 @@ export default function MisSolicitudesPage() {
       formData.append("sourceType", editData.sourceType)
       formData.append("contactMethod", editData.contactMethod)
 
-      const finalContactValue = editData.contactMethod === "whatsapp"
-        ? `+${editWhatsappCode} ${editWhatsappNumber}`
-        : editData.contactValue
+      const finalContactValue =
+        editData.contactMethod === "whatsapp"
+          ? `+${editWhatsappCode} ${editWhatsappNumber}`
+          : editData.contactValue
       formData.append("contactValue", finalContactValue)
-
       formData.append("emoji", editEmoji)
 
       const res = await fetch("/api/mis-solicitudes", {
@@ -230,22 +264,29 @@ export default function MisSolicitudesPage() {
       })
 
       if (res.ok) {
-        toast({ title: "Solicitud actualizada", description: "Los cambios se guardaron correctamente." })
+        toast({
+          title: "Solicitud actualizada",
+          description: "Los cambios se guardaron correctamente.",
+        })
         cancelEdit()
-        fetchRequests()
+        fetchRequests(false)
       } else {
         const data = await res.json()
-        toast({ title: "Error", description: data.error || "No se pudo actualizar", variant: "destructive" })
+        toast({
+          title: "Error",
+          description: data.error || "No se pudo actualizar",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      toast({ title: "Error", description: "Error de conexión", variant: "destructive" })
+      toast({
+        title: "Error",
+        description: "Error de conexión",
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const deleteRequest = (id: string) => {
-    setRequestToDelete(id)
   }
 
   const confirmDelete = async () => {
@@ -253,7 +294,9 @@ export default function MisSolicitudesPage() {
     setDeletingId(requestToDelete)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (!session) return
 
       const res = await fetch(`/api/mis-solicitudes?id=${requestToDelete}`, {
@@ -263,7 +306,9 @@ export default function MisSolicitudesPage() {
 
       if (res.ok) {
         toast({ title: "Solicitud eliminada" })
-        fetchRequests()
+        if (detail?.id === requestToDelete) setDetail(null)
+        if (editingId === requestToDelete) cancelEdit()
+        fetchRequests(false)
       }
     } catch (error) {
       toast({ title: "Error al eliminar", variant: "destructive" })
@@ -273,441 +318,717 @@ export default function MisSolicitudesPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  const activeListCount = useMemo(
+    () => requests.filter((req) => !isExpired(req)).length,
+    [requests, isExpired],
+  )
+  const expiredListCount = requests.length - activeListCount
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("es")
+    return requests.filter((req) => {
+      const expired = isExpired(req)
+      if (statusFilter === "active" && expired) return false
+      if (statusFilter === "expired" && !expired) return false
+      if (!q) return true
+      return [
+        req.product_name,
+        req.category,
+        req.country,
+        req.delivery_state,
+        req.description,
+      ].some((val) => val?.toLocaleLowerCase("es").includes(q))
+    })
+  }, [requests, statusFilter, query, isExpired])
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Solicitudes de Compra</h1>
-          <p className="text-muted-foreground">
-            Gestiona tus solicitudes de productos
-            {isPro && (
-              <ProBadge className="ml-2" />
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
-            {activeCount}/{maxRequests} activas
-          </span>
-          <Link href="/solicitud-compra">
+    <AdminWorkspace>
+      <AdminHeader
+        title="Solicitudes de compra"
+        description="Publica tus requerimientos de abastecimiento y gestiona las condiciones de entrega y contacto para tus proveedores."
+        actions={
+          <>
+            {isPro && <ProBadge />}
             <Button
-              disabled={!canCreate}
-              className="rounded-xl gap-2 font-semibold"
+              variant="outline"
+              onClick={() => fetchRequests(true)}
+              disabled={isLoading}
             >
-              <Plus className="w-4 h-4" />
-              Crear una solicitud de compra
+              <RefreshCw size={16} aria-hidden="true" />
+              Actualizar
             </Button>
-          </Link>
-        </div>
-      </div>
+            {canCreate ? (
+              <Button asChild>
+                <Link href="/solicitud-compra">
+                  <Plus size={16} aria-hidden="true" />
+                  Nueva solicitud
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled>
+                <Plus size={16} aria-hidden="true" />
+                Nueva solicitud
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {!canCreate && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Has alcanzado el límite de {maxRequests} solicitud{maxRequests > 1 ? "es" : ""} activa{maxRequests > 1 ? "s" : ""}.
-              {!isPro && " Actualiza a Pro para publicar hasta 5 solicitudes."}
-              {" "}Puedes editar o eliminar tus solicitudes existentes.
-            </p>
-          </CardContent>
-        </Card>
+      {loaded && !canCreate && (
+        <AdminNotice>
+          Has alcanzado el límite de {maxRequests}{" "}
+          {maxRequests === 1 ? "solicitud activa" : "solicitudes activas"} de tu
+          plan.
+          {!isPro &&
+            " Actualiza al Plan Pro para mantener hasta 5 solicitudes activas simultáneamente."}{" "}
+          Puedes editar o eliminar una solicitud existente.
+        </AdminNotice>
       )}
 
-      {requests.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-bold mb-2">No tienes solicitudes</h3>
-            <p className="text-muted-foreground mb-6">Crea tu primera solicitud para que los proveedores te contacten.</p>
-            <Link href="/solicitud-compra">
-              <Button className="rounded-xl gap-2 font-semibold">
-                <Plus className="w-4 h-4" />
-                Crear una solicitud de compra
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {requests.map((req) => {
-            const expired = isExpired(req)
-            const editing = editingId === req.id
-            const daysLeft = getDaysRemaining(req.expires_at)
+      <AdminMetrics
+        items={[
+          {
+            label: "Solicitudes registradas",
+            value: loaded ? requests.length : null,
+            hint: "Total en tu historial",
+            active: statusFilter === "all",
+            onClick: () => setStatusFilter("all"),
+          },
+          {
+            label: "Activas",
+            value: loaded ? activeListCount : null,
+            hint: "Visibles para proveedores",
+            active: statusFilter === "active",
+            onClick: () => setStatusFilter("active"),
+          },
+          {
+            label: "Expiradas",
+            value: loaded ? expiredListCount : null,
+            hint: "Con plazo finalizado",
+            active: statusFilter === "expired",
+            onClick: () => setStatusFilter("expired"),
+          },
+          {
+            label: "Cupo del plan",
+            value: loaded ? `${activeCount} / ${maxRequests}` : null,
+            hint: isPro
+              ? "Plan Pro (hasta 5 activas)"
+              : "Plan Estándar (1 solicitud activa)",
+          },
+        ]}
+      />
 
-            return (
-              <Card
-                key={req.id}
-                className={`overflow-hidden transition-all ${expired ? "opacity-60" : ""} ${editing ? "ring-2 ring-primary" : ""}`}
-              >
-                {editing ? (
-                  /* ========== EDIT MODE ========== */
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Pencil className="w-4 h-4 text-primary" />
-                        Editando Solicitud
-                      </h3>
-                      <Button variant="ghost" size="sm" onClick={cancelEdit}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+      {editingId && (
+        <section
+          className={localStyles.editPanel}
+          aria-label="Editar solicitud de compra"
+        >
+          <div className={localStyles.editHead}>
+            <div>
+              <h2>Editar solicitud de compra</h2>
+              <p>
+                Actualiza el producto, volumen, ubicación de entrega o datos de
+                contacto.
+              </p>
+            </div>
+            <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>
+              <X size={16} aria-hidden="true" />
+              Cerrar
+            </Button>
+          </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Producto *</label>
-                        <input
-                          type="text"
-                          value={editData.productName}
-                          onChange={(e) => setEditData({ ...editData, productName: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Categoría *</label>
-                        <select
-                          value={editData.category}
-                          onChange={(e) => setEditData({ ...editData, category: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        >
-                          <option value="">Selecciona</option>
-                          {PRODUCT_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+          <div className={localStyles.editBody}>
+            <div className={localStyles.grid2}>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-product-name">Producto *</label>
+                <input
+                  id="edit-product-name"
+                  type="text"
+                  className={localStyles.input}
+                  value={editData.productName || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, productName: e.target.value })
+                  }
+                />
+              </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-category">Categoría *</label>
+                <select
+                  id="edit-category"
+                  className={localStyles.select}
+                  value={editData.category || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, category: e.target.value })
+                  }
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {PRODUCT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Cantidad *</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            value={editData.quantity}
-                            onChange={(e) => setEditData({ ...editData, quantity: e.target.value })}
-                            className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                          />
-                          <select
-                            value={editData.unit}
-                            onChange={(e) => setEditData({ ...editData, unit: e.target.value })}
-                            className="w-20 px-2 py-2 rounded-lg border border-border bg-background text-sm"
-                          >
-                            <option value="kg">kg</option>
-                            <option value="ton">ton</option>
-                            <option value="lb">lb</option>
-                            <option value="quintales">qq</option>
-                            <option value="unidades">uds</option>
-                            <option value="contenedores">cont.</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Fecha deseada</label>
-                        <input
-                          type="date"
-                          value={editData.desiredDate}
-                          onChange={(e) => setEditData({ ...editData, desiredDate: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Origen</label>
-                        <select
-                          value={editData.sourceType}
-                          onChange={(e) => setEditData({ ...editData, sourceType: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        >
-                          <option value="cualquiera">Cualquiera</option>
-                          <option value="local">Local</option>
-                          <option value="importado">Importado</option>
-                        </select>
-                      </div>
-                    </div>
+            <div className={localStyles.grid3}>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-quantity">Cantidad *</label>
+                <div className={localStyles.inlineGroup}>
+                  <input
+                    id="edit-quantity"
+                    type="number"
+                    className={localStyles.input}
+                    value={editData.quantity || ""}
+                    onChange={(e) =>
+                      setEditData({ ...editData, quantity: e.target.value })
+                    }
+                  />
+                  <select
+                    aria-label="Unidad de medida"
+                    className={`${localStyles.select} ${localStyles.unitSelect}`}
+                    value={editData.unit || "kg"}
+                    onChange={(e) =>
+                      setEditData({ ...editData, unit: e.target.value })
+                    }
+                  >
+                    <option value="kg">kg</option>
+                    <option value="ton">ton</option>
+                    <option value="lb">lb</option>
+                    <option value="quintales">qq</option>
+                    <option value="unidades">uds</option>
+                    <option value="contenedores">cont.</option>
+                  </select>
+                </div>
+              </div>
 
-                    {/* Location */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">País destino</label>
-                        <CountryPicker
-                          value={editData.country}
-                          onChange={(v) => setEditData({ ...editData, country: v })}
-                          placeholder="Seleccionar"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Estado/Provincia</label>
-                        <input
-                          type="text"
-                          value={editData.deliveryState}
-                          onChange={(e) => setEditData({ ...editData, deliveryState: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Dirección</label>
-                        <input
-                          type="text"
-                          value={editData.deliveryAddress}
-                          onChange={(e) => setEditData({ ...editData, deliveryAddress: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                        />
-                      </div>
-                    </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-desired-date">Fecha deseada</label>
+                <input
+                  id="edit-desired-date"
+                  type="date"
+                  className={localStyles.input}
+                  value={editData.desiredDate || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, desiredDate: e.target.value })
+                  }
+                />
+              </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">Descripción</label>
-                      <textarea
-                        value={editData.description}
-                        onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                        rows={2}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm resize-none"
-                      />
-                    </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-source-type">Origen preferido</label>
+                <select
+                  id="edit-source-type"
+                  className={localStyles.select}
+                  value={editData.sourceType || "cualquiera"}
+                  onChange={(e) =>
+                    setEditData({ ...editData, sourceType: e.target.value })
+                  }
+                >
+                  <option value="cualquiera">Cualquiera</option>
+                  <option value="local">Local</option>
+                  <option value="importado">Importado</option>
+                </select>
+              </div>
+            </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">Especificaciones técnicas</label>
-                      <textarea
-                        value={editData.specs}
-                        onChange={(e) => setEditData({ ...editData, specs: e.target.value })}
-                        rows={2}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm resize-none"
-                        placeholder="Humedad al 12%, grano limpio..."
-                      />
-                    </div>
+            <div className={localStyles.grid3}>
+              <div className={localStyles.field}>
+                <label>País destino</label>
+                <CountryPicker
+                  value={editData.country || ""}
+                  onChange={(v) => setEditData({ ...editData, country: v })}
+                  placeholder="Seleccionar país"
+                />
+              </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-state">Estado / Provincia</label>
+                <input
+                  id="edit-state"
+                  type="text"
+                  className={localStyles.input}
+                  value={editData.deliveryState || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, deliveryState: e.target.value })
+                  }
+                />
+              </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-address">Dirección de entrega</label>
+                <input
+                  id="edit-address"
+                  type="text"
+                  className={localStyles.input}
+                  value={editData.deliveryAddress || ""}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      deliveryAddress: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Presupuesto (USD)</label>
-                        <input
-                          type="text"
-                          value={editData.budget}
-                          onChange={(e) => setEditData({ ...editData, budget: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                          placeholder="$2,000 - $5,000"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-1">Medio de contacto</label>
-                        <div className="flex gap-2 mb-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditData({ ...editData, contactMethod: "email" })}
-                            className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                              editData.contactMethod === "email"
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border text-muted-foreground"
-                            }`}
-                          >
-                            <Mail className="w-3 h-3" /> Email
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditData({ ...editData, contactMethod: "whatsapp" })}
-                            className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                              editData.contactMethod === "whatsapp"
-                                ? "border-green-500 bg-green-500/10 text-green-600"
-                                : "border-border text-muted-foreground"
-                            }`}
-                          >
-                            <Phone className="w-3 h-3" /> WhatsApp
-                          </button>
-                        </div>
-                        {editData.contactMethod === "email" ? (
-                          <input
-                            type="email"
-                            value={editData.contactValue}
-                            onChange={(e) => setEditData({ ...editData, contactValue: e.target.value })}
-                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                            placeholder="tu@correo.com"
-                          />
-                        ) : (
-                          <div className="flex gap-2">
-                            <PhoneCodePicker
-                              value={editWhatsappCode}
-                              onChange={setEditWhatsappCode}
-                              className="w-28 shrink-0"
-                            />
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={editWhatsappNumber}
-                              onChange={(e) => setEditWhatsappNumber(e.target.value.replace(/[^0-9]/g, ""))}
-                              className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
-                              placeholder="70000000"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            <div className={localStyles.grid2}>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-description">Descripción</label>
+                <textarea
+                  id="edit-description"
+                  className={localStyles.textarea}
+                  rows={3}
+                  value={editData.description || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, description: e.target.value })
+                  }
+                />
+              </div>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-specs">Especificaciones técnicas</label>
+                <textarea
+                  id="edit-specs"
+                  className={localStyles.textarea}
+                  rows={3}
+                  placeholder="Humedad al 12%, grano limpio..."
+                  value={editData.specs || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, specs: e.target.value })
+                  }
+                />
+              </div>
+            </div>
 
-                    {/* Emoji Picker */}
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">Ícono del producto</label>
-                      <div className="flex items-center gap-3">
-                        {editEmoji ? (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
-                              className="w-16 h-16 rounded-xl border-2 border-primary/30 bg-primary/5 flex items-center justify-center text-4xl hover:border-primary transition-all"
-                            >
-                              {editEmoji}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditEmoji("")}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-border hover:border-primary/50 bg-background text-sm"
-                          >
-                            <Smile className="w-4 h-4 text-muted-foreground" />
-                            Elegir ícono
-                          </button>
-                        )}
-                      </div>
-                      {showEditEmojiPicker && (
-                        <div className="mt-2 p-3 rounded-xl border border-border bg-background shadow-lg">
-                          {Object.entries(PRODUCT_EMOJIS).map(([group, emojis]) => (
-                            <div key={group} className="mb-2 last:mb-0">
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{group}</p>
-                              <div className="flex flex-wrap gap-1">
-                                {emojis.map((emoji, i) => (
-                                  <button
-                                    key={`${group}-${i}`}
-                                    type="button"
-                                    onClick={() => { setEditEmoji(emoji); setShowEditEmojiPicker(false) }}
-                                    className={`w-8 h-8 rounded flex items-center justify-center text-xl hover:bg-primary/10 transition-all ${
-                                      editEmoji === emoji ? "bg-primary/20 ring-1 ring-primary" : ""
-                                    }`}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+            <div className={localStyles.grid2}>
+              <div className={localStyles.field}>
+                <label htmlFor="edit-budget">Presupuesto estimado (USD)</label>
+                <input
+                  id="edit-budget"
+                  type="text"
+                  className={localStyles.input}
+                  placeholder="Ej. USD 2,000 - 5,000"
+                  value={editData.budget || ""}
+                  onChange={(e) =>
+                    setEditData({ ...editData, budget: e.target.value })
+                  }
+                />
+              </div>
 
-                    <div className="flex justify-end gap-3 pt-2">
-                      <Button variant="outline" onClick={cancelEdit} className="gap-1">
-                        <X className="w-4 h-4" /> Cancelar
-                      </Button>
-                      <Button onClick={saveEdit} disabled={isSaving} className="gap-1">
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {isSaving ? "Guardando..." : "Guardar Cambios"}
-                      </Button>
-                    </div>
-                  </CardContent>
+              <div className={localStyles.field}>
+                <label>Medio de contacto</label>
+                <div className={localStyles.contactToggle}>
+                  <button
+                    type="button"
+                    className={localStyles.methodBtn}
+                    aria-pressed={editData.contactMethod === "email"}
+                    onClick={() =>
+                      setEditData({ ...editData, contactMethod: "email" })
+                    }
+                  >
+                    <Mail size={15} aria-hidden="true" />
+                    Correo electrónico
+                  </button>
+                  <button
+                    type="button"
+                    className={localStyles.methodBtn}
+                    aria-pressed={editData.contactMethod === "whatsapp"}
+                    onClick={() =>
+                      setEditData({ ...editData, contactMethod: "whatsapp" })
+                    }
+                  >
+                    <Phone size={15} aria-hidden="true" />
+                    WhatsApp
+                  </button>
+                </div>
+
+                {editData.contactMethod === "email" ? (
+                  <input
+                    type="email"
+                    className={localStyles.input}
+                    placeholder="tu@correo.com"
+                    value={editData.contactValue || ""}
+                    onChange={(e) =>
+                      setEditData({ ...editData, contactValue: e.target.value })
+                    }
+                  />
                 ) : (
-                  /* ========== VIEW MODE ========== */
-                  <div className="flex flex-col sm:flex-row">
-                    {/* Emoji */}
-                    <div className="relative w-full sm:w-28 h-28 sm:h-auto bg-gradient-to-br from-muted to-muted/50 shrink-0 overflow-hidden flex items-center justify-center">
-                      <span className="text-5xl">
-                        {req.image_url || CATEGORY_ICONS[req.category] || "📦"}
-                      </span>
+                  <div className={localStyles.phoneRow}>
+                    <div className={localStyles.phoneCode}>
+                      <PhoneCodePicker
+                        value={editWhatsappCode}
+                        onChange={setEditWhatsappCode}
+                      />
                     </div>
-
-                    {/* Info */}
-                    <div className="flex-1 p-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge
-                          className={expired
-                            ? "bg-red-500/10 text-red-600 border-red-500/20"
-                            : "bg-green-500/10 text-green-600 border-green-500/20"
-                          }
-                        >
-                          {expired ? "Expirada" : "Activa"}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">{req.category}</Badge>
-                        {!expired && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {daysLeft}d restantes
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="font-bold text-foreground text-base">{req.product_name}</h3>
-
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
-                        <span className="flex items-center gap-1">
-                          <Package className="w-3 h-3" />
-                          {req.quantity} {req.unit}
-                        </span>
-                        {req.country && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {req.country}{req.delivery_state ? `, ${req.delivery_state}` : ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex sm:flex-col items-center justify-end gap-2 p-4 sm:border-l border-t sm:border-t-0 border-border">
-                      {!expired && (
-                        <Button variant="outline" size="sm" onClick={() => startEdit(req)} className="gap-1">
-                          <Pencil className="w-3 h-3" /> Editar
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteRequest(req.id)}
-                        disabled={deletingId === req.id}
-                        className="gap-1 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
-                      >
-                        {deletingId === req.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
-                        Eliminar
-                      </Button>
-                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={localStyles.input}
+                      placeholder="70000000"
+                      value={editWhatsappNumber}
+                      onChange={(e) =>
+                        setEditWhatsappNumber(
+                          e.target.value.replace(/[^0-9]/g, ""),
+                        )
+                      }
+                    />
                   </div>
                 )}
-              </Card>
-            )
-          })}
-        </div>
+              </div>
+            </div>
+
+            <div className={localStyles.field}>
+              <label>Ícono del producto</label>
+              <div className={localStyles.emojiRow}>
+                {editEmoji && (
+                  <button
+                    type="button"
+                    className={localStyles.emojiPreview}
+                    onClick={() =>
+                      setShowEditEmojiPicker(!showEditEmojiPicker)
+                    }
+                    title="Cambiar ícono"
+                  >
+                    {editEmoji}
+                  </button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+                >
+                  <Smile size={16} aria-hidden="true" />
+                  {editEmoji ? "Cambiar ícono" : "Elegir ícono"}
+                </Button>
+                {editEmoji && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditEmoji("")}
+                  >
+                    Quitar ícono
+                  </Button>
+                )}
+              </div>
+
+              {showEditEmojiPicker && (
+                <div className={localStyles.emojiDrawer}>
+                  {Object.entries(PRODUCT_EMOJIS).map(([group, emojis]) => (
+                    <div key={group}>
+                      <p className={localStyles.emojiGroupTitle}>{group}</p>
+                      <div className={localStyles.emojiGrid}>
+                        {emojis.map((emoji, i) => (
+                          <button
+                            key={`${group}-${i}`}
+                            type="button"
+                            className={localStyles.emojiOption}
+                            aria-pressed={editEmoji === emoji}
+                            onClick={() => {
+                              setEditEmoji(emoji)
+                              setShowEditEmojiPicker(false)
+                            }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className={localStyles.editFooter}>
+              <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={saveEdit} disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} aria-hidden="true" />
+                )}
+                {isSaving ? "Guardando…" : "Guardar cambios"}
+              </Button>
+            </div>
+          </div>
+        </section>
       )}
 
-      <AlertDialog open={!!requestToDelete} onOpenChange={(open) => !open && setRequestToDelete(null)}>
-        <AlertDialogContent>
+      <Card>
+        <CardContent>
+          <div className={s.toolbar}>
+            <AdminSearch
+              value={query}
+              onChange={setQuery}
+              label="Buscar por producto, categoría o destino"
+            />
+            <AdminSelect
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val as StatusFilter)}
+              label="Filtrar estado de solicitud"
+              options={[
+                { value: "all", label: "Todos los estados" },
+                { value: "active", label: "Activas" },
+                { value: "expired", label: "Expiradas" },
+              ]}
+            />
+          </div>
+          <p className={s.secondary}>
+            {shown.length}{" "}
+            {shown.length === 1 ? "solicitud" : "solicitudes"} en la lista
+            {query || statusFilter !== "all" ? " filtrada" : ""}.
+          </p>
+        </CardContent>
+
+        <div className={s.tableScroll}>
+          {isLoading && !loaded ? (
+            <AdminEmpty title="Cargando solicitudes…" />
+          ) : shown.length === 0 ? (
+            <AdminEmpty
+              title={
+                requests.length
+                  ? "No hay coincidencias"
+                  : "Todavía no tienes solicitudes de compra"
+              }
+              description={
+                requests.length
+                  ? "Prueba ajustando la búsqueda o el filtro de estado."
+                  : "Publica tu primera solicitud para que los proveedores de Agrilpa puedan contactarte."
+              }
+            />
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Volumen requerido</th>
+                  <th>Destino</th>
+                  <th>Presupuesto</th>
+                  <th>Contacto</th>
+                  <th>Vigencia</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((req) => {
+                  const expired = isExpired(req)
+                  const daysLeft = getDaysRemaining(req.expires_at)
+                  const destination = [req.delivery_state, req.country]
+                    .filter(Boolean)
+                    .join(", ")
+
+                  return (
+                    <tr key={req.id}>
+                      <td>
+                        <div className={localStyles.productCell}>
+                          <div
+                            className={localStyles.iconBox}
+                            aria-hidden="true"
+                          >
+                            {req.image_url ||
+                              CATEGORY_ICONS[req.category] ||
+                              "📦"}
+                          </div>
+                          <div>
+                            <span className={s.rowTitle}>
+                              {req.product_name}
+                            </span>
+                            <span className={s.rowMeta}>
+                              Creada el {adminDate(req.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{req.category || "-"}</td>
+                      <td>
+                        <span className={s.rowTitle}>
+                          {req.quantity} {req.unit}
+                        </span>
+                      </td>
+                      <td>{destination || "-"}</td>
+                      <td>{req.budget || "A convenir"}</td>
+                      <td>
+                        <span className={s.rowTitle}>
+                          {req.contact_method === "whatsapp"
+                            ? "WhatsApp"
+                            : "Correo"}
+                        </span>
+                        {req.contact_value && (
+                          <span className={s.rowMeta}>{req.contact_value}</span>
+                        )}
+                      </td>
+                      <td>
+                        {expired
+                          ? "Finalizada"
+                          : `${daysLeft} ${daysLeft === 1 ? "día restante" : "días restantes"}`}
+                      </td>
+                      <td>
+                        <span
+                          className={`${localStyles.statusBadge} ${
+                            expired
+                              ? localStyles.statusExpired
+                              : localStyles.statusActive
+                          }`}
+                        >
+                          {expired ? "Expirada" : "Activa"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className={s.actions}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setDetail(req)}
+                          >
+                            Ver detalle
+                          </Button>
+                          {!expired && (
+                            <Button
+                              variant="outline"
+                              onClick={() => startEdit(req)}
+                            >
+                              <Pencil size={15} aria-hidden="true" />
+                              Editar
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            disabled={deletingId === req.id}
+                            onClick={() => setRequestToDelete(req.id)}
+                          >
+                            <Trash2 size={15} aria-hidden="true" />
+                            Eliminar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
+
+      <Dialog
+        open={Boolean(detail)}
+        onOpenChange={(open) => !open && setDetail(null)}
+      >
+        <DialogContent className={s.dialog}>
+          <DialogHeader>
+            <DialogTitle>{detail?.product_name}</DialogTitle>
+            <DialogDescription>
+              {detail?.category || "Sin categoría"} · Publicada el{" "}
+              {detail?.created_at ? adminDate(detail.created_at, true) : "-"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detail && (
+            <>
+              <dl className={s.detailGrid}>
+                <div>
+                  <dt>Volumen requerido</dt>
+                  <dd>
+                    {detail.quantity} {detail.unit}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{isExpired(detail) ? "Expirada" : "Activa"}</dd>
+                </div>
+                <div>
+                  <dt>Presupuesto estimado</dt>
+                  <dd>{detail.budget || "A convenir"}</dd>
+                </div>
+                <div>
+                  <dt>Origen preferido</dt>
+                  <dd>
+                    {SOURCE_LABELS[detail.source_type] ||
+                      detail.source_type ||
+                      "Cualquiera"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Fecha deseada</dt>
+                  <dd>{detail.desired_date || "No especificada"}</dd>
+                </div>
+                <div>
+                  <dt>Vencimiento de publicación</dt>
+                  <dd>{adminDate(detail.expires_at)}</dd>
+                </div>
+                <div>
+                  <dt>País destino</dt>
+                  <dd>{detail.country || "-"}</dd>
+                </div>
+                <div>
+                  <dt>Estado / Provincia</dt>
+                  <dd>{detail.delivery_state || "-"}</dd>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <dt>Dirección de entrega</dt>
+                  <dd>{detail.delivery_address || "-"}</dd>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <dt>Medio de contacto</dt>
+                  <dd>
+                    {detail.contact_method === "whatsapp"
+                      ? "WhatsApp"
+                      : "Correo electrónico"}
+                    {detail.contact_value ? `: ${detail.contact_value}` : ""}
+                  </dd>
+                </div>
+              </dl>
+
+              {detail.description && (
+                <div>
+                  <p className={s.secondary} style={{ marginBottom: 6 }}>
+                    Descripción
+                  </p>
+                  <div className={s.message}>{detail.description}</div>
+                </div>
+              )}
+
+              {detail.specs && (
+                <div style={{ marginTop: 12 }}>
+                  <p className={s.secondary} style={{ marginBottom: 6 }}>
+                    Especificaciones técnicas
+                  </p>
+                  <div className={s.message}>{detail.specs}</div>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(requestToDelete)}
+        onOpenChange={(open) => !open && setRequestToDelete(null)}
+      >
+        <AlertDialogContent className={s.dialog}>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro de eliminar esta solicitud?</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar solicitud de compra</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Esto eliminará permanentemente tu solicitud de compra de nuestros servidores.
+              Esta acción no se puede deshacer. Se eliminará permanentemente tu
+              solicitud de compra.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white">
-              Eliminar
-            </AlertDialogAction>
+            <AlertDialogCancel asChild>
+              <Button variant="outline" disabled={Boolean(deletingId)}>
+                Cancelar
+              </Button>
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={Boolean(deletingId)}
+              onClick={confirmDelete}
+            >
+              {deletingId ? "Eliminando…" : "Eliminar"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminWorkspace>
   )
 }

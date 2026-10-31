@@ -8,7 +8,7 @@ import {
   type ReactNode
 } from "react"
 import Link from "next/link"
-import { Loader2, X } from "lucide-react"
+import { CheckCircle2, Loader2, Package, X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -96,7 +96,13 @@ export function ProductContactDialog({
           throw new Error("No pudimos comprobar el método de contacto.")
         if (controller.signal.aborted) return
         if (result.mode === "chat") {
-          if (currentUserId) onLegacy()
+          if (
+            currentUserId ||
+            (target.isPurchaseRequest &&
+              !target.vendorId &&
+              target.directContactHref)
+          )
+            onLegacy()
           else setPhase("auth")
         } else {
           setPhase("form")
@@ -258,6 +264,7 @@ export function ProductContactDialog({
         body: JSON.stringify({
           ...draft,
           productId: target.product.id,
+          isPurchaseRequest: !!target.isPurchaseRequest,
           submissionKey,
           website: new FormData(form.current!).get("website") || ""
         })
@@ -317,17 +324,25 @@ export function ProductContactDialog({
           </div>
           <DialogTitle className={s.title}>
             {receipt
-              ? "Solicitud recibida"
+              ? target.isPurchaseRequest
+                ? "Propuesta enviada"
+                : "Consulta enviada"
               : phase === "auth"
                 ? "Inicia sesión para conversar"
-                : "Consulta por este producto"}
+                : target.isPurchaseRequest
+                  ? "Abastecer este pedido"
+                  : "Consulta por este producto"}
           </DialogTitle>
           <DialogDescription className={s.description}>
             {receipt
-              ? "El equipo de Agrilpa ya puede revisar tu consulta."
+              ? "El equipo de Agrilpa recibió tus datos y coordinará el contacto comercial."
               : phase === "auth"
-                ? "Usa tu cuenta de Agrilpa para hablar directamente con el vendedor."
-                : "Déjanos tus datos para que el equipo de Agrilpa gestione tu consulta."}
+                ? target.isPurchaseRequest
+                  ? "Usa tu cuenta de Agrilpa para hablar directamente con el comprador."
+                  : "Usa tu cuenta de Agrilpa para hablar directamente con el vendedor."
+                : target.isPurchaseRequest
+                  ? "Déjanos tus datos y tu propuesta para que el equipo de Agrilpa coordine el contacto con el comprador."
+                  : "Déjanos tus datos para que el equipo de Agrilpa gestione tu consulta."}
           </DialogDescription>
           <button
             type="button"
@@ -336,7 +351,7 @@ export function ProductContactDialog({
             disabled={busy}
             onClick={onClose}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </header>
         {phase === "loading" ? (
@@ -347,24 +362,36 @@ export function ProductContactDialog({
         ) : phase === "auth" ? (
           <div className={s.success}>
             <p>
-              Podrás consultar por {target.product.title} y continuar la
-              conversación desde Mensajes B2B.
+              Podrás{" "}
+              {target.isPurchaseRequest
+                ? `ofrecer abastecimiento para ${target.product.title}`
+                : `consultar por ${target.product.title}`}{" "}
+              y continuar la conversación desde Mensajes B2B.
             </p>
-            <Link
-              href={`/auth?redirectTo=${encodeURIComponent(`/producto/${target.product.id}`)}`}
-              className={s.submit}
-              onClick={onClose}
-            >
-              Iniciar sesión
-            </Link>
-            <p style={{ marginTop: 18, marginBottom: 0 }}>
+            <div className={s.authActions}>
               <Link
-                href={`/auth?mode=register&redirectTo=${encodeURIComponent(`/producto/${target.product.id}`)}`}
+                href={`/auth?redirectTo=${encodeURIComponent(
+                  target.isPurchaseRequest
+                    ? `/pedidos/${target.product.id}`
+                    : `/producto/${target.product.id}`
+                )}`}
+                className={s.submit}
+                onClick={onClose}
+              >
+                Iniciar sesión
+              </Link>
+              <Link
+                href={`/auth?mode=register&redirectTo=${encodeURIComponent(
+                  target.isPurchaseRequest
+                    ? `/pedidos/${target.product.id}`
+                    : `/producto/${target.product.id}`
+                )}`}
+                className={s.secondaryAction}
                 onClick={onClose}
               >
                 Crear una cuenta
               </Link>
-            </p>
+            </div>
           </div>
         ) : phase === "error" ? (
           <div className={s.body}>
@@ -376,18 +403,80 @@ export function ProductContactDialog({
             </Button>
           </div>
         ) : receipt ? (
-          <div className={s.success} role="status">
-            <h3>Tu consulta sobre {target.product.title} está enviada.</h3>
-            <p>
-              El equipo de Agrilpa revisará los datos y podrá contactarte por
-              correo o WhatsApp.
-            </p>
-            <div className={s.reference}>
-              Referencia: SOL-{receipt.slice(0, 8).toUpperCase()}
+          <div className={s.receiptWrap} role="status">
+            <div className={s.receiptBody}>
+              <div className={s.receiptBanner}>
+                <span className={s.receiptIcon} aria-hidden="true">
+                  <CheckCircle2 size={18} />
+                </span>
+                <div>
+                  <strong>
+                    {target.isPurchaseRequest
+                      ? "Tu propuesta quedó registrada"
+                      : "Tu consulta quedó registrada"}
+                  </strong>
+                  <p>
+                    Revisaremos la información y te contactaremos por correo o
+                    WhatsApp para dar seguimiento.
+                  </p>
+                </div>
+              </div>
+
+              <div className={s.receiptCard}>
+                <div className={s.receiptProduct}>
+                  {target.product.image &&
+                  target.product.image !== "/placeholder.svg" ? (
+                    <img src={target.product.image} alt="" />
+                  ) : (
+                    <div className={s.receiptThumbIcon} aria-hidden="true">
+                      <Package size={20} strokeWidth={1.5} />
+                    </div>
+                  )}
+                  <div>
+                    <span>
+                      {target.isPurchaseRequest
+                        ? "Solicitud de compra"
+                        : "Producto de interés"}
+                    </span>
+                    <strong>{target.product.title}</strong>
+                    <small>{target.sellerName}</small>
+                  </div>
+                </div>
+
+                <dl className={s.receiptMeta}>
+                  <div>
+                    <dt>Referencia</dt>
+                    <dd className={s.referenceBadge}>
+                      SOL-{receipt.slice(0, 8).toUpperCase()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd className={s.statusPill}>
+                      <i aria-hidden="true" />
+                      En revisión
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Contacto</dt>
+                    <dd>{draft.fullName || "Registrado"}</dd>
+                  </div>
+                  <div>
+                    <dt>Canal de respuesta</dt>
+                    <dd>{draft.email || draft.phone || "WhatsApp / Correo"}</dd>
+                  </div>
+                </dl>
+              </div>
             </div>
-            <Button className={s.submit} onClick={onClose}>
-              Listo
-            </Button>
+
+            <footer className={s.receiptFooter}>
+              <span>
+                Folio: <strong>SOL-{receipt.slice(0, 8).toUpperCase()}</strong>
+              </span>
+              <Button className={s.submit} onClick={onClose}>
+                Entendido
+              </Button>
+            </footer>
           </div>
         ) : (
           <form ref={form} className={s.form} onSubmit={submit} noValidate>
@@ -395,7 +484,11 @@ export function ProductContactDialog({
               <div className={s.product}>
                 <img src={target.product.image || "/placeholder.svg"} alt="" />
                 <div>
-                  <span>Producto de interés</span>
+                  <span>
+                    {target.isPurchaseRequest
+                      ? "Solicitud de compra"
+                      : "Producto de interés"}
+                  </span>
                   <strong>{target.product.title}</strong>
                   <span>{target.sellerName}</span>
                 </div>
@@ -491,14 +584,20 @@ export function ProductContactDialog({
                 )}
                 {field(
                   "message",
-                  "¿Qué necesitas? (opcional)",
+                  target.isPurchaseRequest
+                    ? "¿Cómo puedes abastecerlo? (opcional)"
+                    : "¿Qué necesitas? (opcional)",
                   <Textarea
                     {...attributes("message")}
                     value={draft.message}
                     onChange={(e) => update("message", e.target.value)}
                     rows={3}
                     maxLength={1000}
-                    placeholder="Cantidad, destino o alguna duda sobre el producto."
+                    placeholder={
+                      target.isPurchaseRequest
+                        ? "Disponibilidad, volumen que puedes cubrir, origen o condiciones de entrega."
+                        : "Cantidad, destino o alguna duda sobre el producto."
+                    }
                   />,
                   true
                 )}
@@ -545,7 +644,11 @@ export function ProductContactDialog({
                 disabled={busy || modeChanged}
               >
                 {busy && <Loader2 size={17} className={s.spinner} />}{" "}
-                {busy ? "Enviando…" : "Enviar consulta"}
+                {busy
+                  ? "Enviando…"
+                  : target.isPurchaseRequest
+                    ? "Enviar propuesta"
+                    : "Enviar consulta"}
               </Button>
             </footer>
           </form>

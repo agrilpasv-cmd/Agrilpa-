@@ -583,6 +583,12 @@ export default function AdminContactClicksPage() {
                 const isSelected = selectedIds.includes(c.id)
                 const productLabel =
                   c.product_title || "Publicación no disponible"
+                const isPedido = productLabel.startsWith("Pedido:")
+                const itemHref = c.product_id
+                  ? isPedido
+                    ? `/pedidos/${c.product_id}`
+                    : `/producto/${c.product_id}`
+                  : null
                 return (
                   <article
                     key={c.id}
@@ -601,9 +607,9 @@ export default function AdminContactClicksPage() {
 
                       <div className={s.rowBody}>
                         <div className={s.rowTop}>
-                          {c.product_id ? (
+                          {itemHref ? (
                             <Link
-                              href={`/producto/${c.product_id}`}
+                              href={itemHref}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={s.productTitle}
@@ -675,9 +681,9 @@ export default function AdminContactClicksPage() {
                           <Check size={16} aria-hidden="true" />
                         </button>
                       )}
-                      {c.product_id && (
+                      {itemHref && (
                         <Link
-                          href={`/producto/${c.product_id}`}
+                          href={itemHref}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={s.iconAction}

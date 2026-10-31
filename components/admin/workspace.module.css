@@ -66,7 +66,7 @@
   gap: 14px;
   margin-bottom: 24px !important;
 }
-.metrics > div {
+.metrics > :is(div, button) {
   min-width: 0;
   min-height: 160px;
   padding: 20px 22px;
@@ -75,6 +75,25 @@
   border-radius: 12px;
   display: flex;
   flex-direction: column;
+  text-align: left;
+  width: 100%;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.metrics > button:hover:not([aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--muted) 55%, var(--card));
+}
+.metrics > [aria-pressed="true"],
+.metrics > [data-active="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.metrics > [aria-pressed="true"] :is(dt, dd, .metricHint),
+.metrics > [data-active="true"] :is(dt, dd, .metricHint) {
+  color: var(--primary-foreground);
 }
 .metrics dt {
   color: var(--admin-secondary);
@@ -230,9 +249,6 @@
   color: var(--foreground);
   overflow-wrap: anywhere;
 }
-.notice[data-error="true"] {
-  border-left: 3px solid var(--destructive);
-}
 .notice p + p {
   margin-top: 5px;
 }
@@ -283,6 +299,9 @@
 }
 .page tbody tr:hover {
   background: var(--admin-tint);
+}
+.page tbody tr:hover :is(.thumb, .status, .button[data-admin-variant="outline"], .button[data-admin-variant="secondary"], .button[data-admin-variant="ghost"]) {
+  background: var(--background);
 }
 .page tr[data-selected="true"] {
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
@@ -397,8 +416,8 @@
   font-size: 14px;
 }
 .tabs button[aria-pressed="true"] {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 .split {
   display: grid;

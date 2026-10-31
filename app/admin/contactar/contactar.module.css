@@ -1,9 +1,7 @@
 .page {
-  --contact-secondary: color-mix(
-    in srgb,
-    var(--muted-foreground) 84%,
-    var(--foreground)
-  );
+  --contact-secondary: color-mix(in srgb,
+      var(--muted-foreground) 84%,
+      var(--foreground));
   --contact-brand-ink: color-mix(in srgb, var(--primary) 58%, #183500);
   --contact-tint: color-mix(in srgb, var(--primary) 8%, var(--background));
   padding: 28px 24px 36px;
@@ -157,13 +155,20 @@
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.metric:hover {
+.metric:hover:not([aria-pressed="true"]) {
   background: color-mix(in srgb, var(--muted) 55%, var(--card));
 }
 
 .metric[aria-pressed="true"] {
   border-color: var(--primary);
-  background: var(--contact-tint);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.metric[aria-pressed="true"] dt,
+.metric[aria-pressed="true"] dd,
+.metric[aria-pressed="true"] span {
+  color: var(--primary-foreground);
 }
 
 .metric dt {
@@ -359,15 +364,15 @@
 }
 
 .row:hover {
-  background: color-mix(in srgb, var(--muted) 45%, var(--card));
+  background: color-mix(in srgb, var(--foreground) 3%, var(--card));
 }
 
 .row[data-unread="true"] {
-  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+  background: color-mix(in srgb, var(--foreground) 2.5%, var(--card));
 }
 
 .row[data-selected="true"] {
-  background: var(--contact-tint);
+  background: color-mix(in srgb, var(--foreground) 5%, var(--card));
 }
 
 .rowMain {
@@ -558,7 +563,7 @@
   gap: 16px;
 }
 
-.barList li > div:first-child {
+.barList li>div:first-child {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -585,7 +590,7 @@
   overflow: hidden;
 }
 
-.barTrack > div {
+.barTrack>div {
   height: 100%;
   background: var(--primary);
   border-radius: 3px;
@@ -653,6 +658,7 @@
   .mainColumns {
     grid-template-columns: 1fr;
   }
+
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -662,18 +668,23 @@
   .page {
     padding: 22px 16px 32px;
   }
+
   .metrics {
     grid-template-columns: 1fr;
   }
+
   .row {
     flex-direction: column;
   }
+
   .rowActions {
     align-self: flex-end;
   }
+
   .participants {
     grid-template-columns: 1fr;
   }
+
   .search {
     min-width: 0;
     max-width: none;
@@ -682,6 +693,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .page *,
   .spinner {
     animation: none !important;

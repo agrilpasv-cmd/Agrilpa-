@@ -84,7 +84,7 @@ function RequestPhoto({ src }: { src: string | null }) {
           onError={() => setFailed(true)}
         />
       ) : (
-        <Package size={32} strokeWidth={1.4} aria-hidden="true" />
+        <Package size={24} strokeWidth={1.4} aria-hidden="true" />
       )}
     </div>
   )
@@ -170,7 +170,7 @@ export default function PedidosPage() {
           </div>
           <Button asChild className={s.primary}>
             <Link href="/solicitud-compra">
-              <Plus size={18} aria-hidden="true" />
+              <Plus size={16} aria-hidden="true" />
               Publicar un pedido
             </Link>
           </Button>
@@ -255,7 +255,7 @@ export default function PedidosPage() {
             aria-busy={loading}
           >
             <div className={s.search}>
-              <Search size={20} aria-hidden="true" />
+              <Search size={17} aria-hidden="true" />
               <label className="sr-only" htmlFor="request-search">
                 Buscar pedidos
               </label>

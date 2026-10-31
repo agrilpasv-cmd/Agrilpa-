@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { RegistrationVideo, ProductPublishingVideo, CatalogSearchVideo } from "@/components/registration-video"
+import { RegistrationVideo, ProductPublishingVideo, CatalogSearchVideo, CompareAndNegotiateVideo } from "@/components/registration-video"
 import { Search, FileText, MessageSquare, CheckCircle, TrendingUp, Shield, ArrowRight } from 'lucide-react'
 
 export default function ComoFunciona() {
@@ -143,8 +143,8 @@ export default function ComoFunciona() {
               <div className="order-1 lg:order-2">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
                   <Image
-                    src="/farmer-checking-quotations-mobile-tablet.jpg"
-                    alt="Recibir cotizaciones"
+                    src="/cotizaciones-code-poster.jpg"
+                    alt="Panel de cotizaciones de Agrilpa mostrando ofertas recibidas de compradores"
                     fill
                     className="object-cover"
                   />
@@ -157,8 +157,8 @@ export default function ComoFunciona() {
               <div className="order-1">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
                   <Image
-                    src="/farmer-delivery-truck-agricultural-products.jpg"
-                    alt="Vender y entregar"
+                    src="/vende-entrega-code-poster.jpg"
+                    alt="Panel de ventas de Agrilpa con seguimiento de pedidos y despacho confirmado"
                     fill
                     className="object-cover"
                   />
@@ -247,8 +247,8 @@ export default function ComoFunciona() {
               <div className="order-1">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
                   <Image
-                    src="/business-request-for-quotation.jpg"
-                    alt="Solicitar cotización"
+                    src="/solicita-cotizacion-code-poster.jpg"
+                    alt="Formulario de solicitud de cotización en Agrilpa con cantidad, destino y condiciones"
                     fill
                     className="object-cover"
                   />
@@ -313,13 +313,8 @@ export default function ComoFunciona() {
                 </ul>
               </div>
               <div className="order-1 lg:order-2">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
-                  <Image
-                    src="/business-comparison-and-negotiation.jpg"
-                    alt="Comparar ofertas"
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl bg-transparent">
+                  <CompareAndNegotiateVideo />
                 </div>
               </div>
             </div>
@@ -329,8 +324,8 @@ export default function ComoFunciona() {
               <div className="order-1">
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
                   <Image
-                    src="/secure-purchase-and-delivery-tracking.jpg"
-                    alt="Comprar y recibir"
+                    src="/compra-acuerda-code-poster.jpg"
+                    alt="Detalle de acuerdo confirmado y pedido creado en Agrilpa"
                     fill
                     className="object-cover"
                   />

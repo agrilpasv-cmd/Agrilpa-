@@ -607,29 +607,36 @@ export function buildProductContactAdminEmail(
     const safe = escapeNotificationHtml
     const inboxUrl = 'https://agrilpa.com/admin/mensajes?tab=solicitudes'
     const reference = `SOL-${contact.id.slice(0, 8).toUpperCase()}`
+    const isPurchaseRequest = Boolean(contact.product_image?.includes('#pedido='))
     const rows = [
-        ['Producto', contact.product_title],
-        ['Vendedor', contact.seller_name],
-        ['Persona interesada', contact.full_name],
+        [isPurchaseRequest ? 'Solicitud de compra' : 'Producto', contact.product_title],
+        [isPurchaseRequest ? 'Comprador' : 'Vendedor', contact.seller_name],
+        [isPurchaseRequest ? 'Proveedor interesado' : 'Persona interesada', contact.full_name],
         ['País', contact.country_name],
         ['Correo electrónico', contact.email],
         ['WhatsApp', contact.phone],
         ['Referencia', reference]
     ]
+    const introCopy = isPurchaseRequest
+        ? 'Recibimos una nueva propuesta de abastecimiento para una solicitud de compra en Agrilpa. Ya está disponible en <strong>Mensajes → Solicitudes de contacto</strong>.'
+        : 'Recibimos una nueva solicitud de contacto desde un producto de Agrilpa. Ya está disponible en <strong>Mensajes → Solicitudes de contacto</strong>.'
+    const footerCopy = isPurchaseRequest
+        ? 'Revisa la propuesta en el panel para coordinar el contacto entre el proveedor y el comprador.'
+        : 'Revisa la solicitud en el panel para coordinar el contacto con el vendedor.'
     const content = `
-        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${safe(contact.full_name)} envió una consulta sobre ${safe(contact.product_title)}.</div>
+        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${safe(contact.full_name)} envió una ${isPurchaseRequest ? 'propuesta' : 'consulta'} sobre ${safe(contact.product_title)}.</div>
         <p>Hola${recipientName.trim() ? ` <strong>${safe(recipientName.trim())}</strong>` : ''},</p>
-        <p>Recibimos una nueva solicitud de contacto desde un producto de Agrilpa. Ya está disponible en <strong>Mensajes → Solicitudes de contacto</strong>.</p>
+        <p>${introCopy}</p>
         <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;border-collapse:collapse;margin:24px 0;font-size:15px;">
             ${rows.map(([label, value]) => `<tr><td style="width:36%;padding:12px 10px 12px 0;border-bottom:1px solid ${THEME.border};color:#4b5563;vertical-align:top;">${label}</td><td style="padding:12px 0;border-bottom:1px solid ${THEME.border};color:${THEME.text};font-weight:600;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">${safe(value)}</td></tr>`).join('')}
         </table>
         ${contact.message ? `<h2 style="font-size:16px;color:${THEME.text};margin:24px 0 10px;">Mensaje de la persona</h2><p style="margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;">${safe(contact.message)}</p>` : ''}
-        <p style="font-size:14px;margin:24px 0 0;">Revisa la solicitud en el panel para coordinar el contacto con el vendedor.</p>
+        <p style="font-size:14px;margin:24px 0 0;">${footerCopy}</p>
     `
     return {
-        subject: `Nueva solicitud de contacto: ${contact.product_title.replace(/[\r\n]+/g, ' ').slice(0, 120)}`,
+        subject: `${isPurchaseRequest ? 'Nueva propuesta de pedido' : 'Nueva solicitud de contacto'}: ${contact.product_title.replace(/[\r\n]+/g, ' ').slice(0, 120)}`,
         html: getMinimalistTemplate(
-            'Nueva solicitud de contacto',
+            isPurchaseRequest ? 'Nueva propuesta para solicitud de compra' : 'Nueva solicitud de contacto',
             content,
             { text: 'Revisar solicitudes', url: inboxUrl },
             {
@@ -637,7 +644,7 @@ export function buildProductContactAdminEmail(
                 year: new Date(contact.created_at).getUTCFullYear()
             }
         ),
-        text: `Hola${recipientName.trim() ? ` ${recipientName.trim()}` : ''},\n\nRecibimos una nueva solicitud de contacto desde un producto de Agrilpa.\n\n${rows.map(([label, value]) => `${label}: ${value}`).join('\n')}\n${contact.message ? `\nMensaje de la persona:\n${contact.message}\n` : ''}\nRevisar solicitudes:\n${inboxUrl}\n\nAgrilpa`
+        text: `Hola${recipientName.trim() ? ` ${recipientName.trim()}` : ''},\n\n${isPurchaseRequest ? 'Recibimos una nueva propuesta para una solicitud de compra en Agrilpa.' : 'Recibimos una nueva solicitud de contacto desde un producto de Agrilpa.'}\n\n${rows.map(([label, value]) => `${label}: ${value}`).join('\n')}\n${contact.message ? `\nMensaje de la persona:\n${contact.message}\n` : ''}\nRevisar solicitudes:\n${inboxUrl}\n\nAgrilpa`
     }
 }
 

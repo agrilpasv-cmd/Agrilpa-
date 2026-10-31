@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { dashboardToday, isDashboardDate, readDashboardFilters, shiftDashboardDate } from "@/lib/dashboard/period"
-import { dashboardReport } from "@/lib/dashboard/report"
 import { DayPicker } from "react-day-picker"
 import { es } from "date-fns/locale"
 import styles from "@/app/dashboard/components/user-dashboard.module.css"
@@ -33,8 +32,8 @@ function compare(value: number | null, previous: number | null) {
   const change = (value - previous) / previous * 100
   return `${change > 0 ? "+" : ""}${number(change)}% respecto al período anterior`
 }
-function Sparkline({ values }: { values: number[] }) {
-  return <div className={styles.sparkline} aria-hidden="true"><ResponsiveContainer width="100%" height="100%"><AreaChart data={values.map(value => ({ value }))}><Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={1.5} fill="color-mix(in srgb,var(--primary) 8%,var(--background))" isAnimationActive={false} /></AreaChart></ResponsiveContainer></div>
+function Sparkline({ values, active = false }: { values: number[]; active?: boolean }) {
+  return <div className={styles.sparkline} aria-hidden="true"><ResponsiveContainer width="100%" height="100%"><AreaChart data={values.map(value => ({ value }))}><Area type="monotone" dataKey="value" stroke={active ? "var(--primary-foreground)" : "var(--primary)"} strokeWidth={1.5} fill={active ? "color-mix(in srgb,var(--primary-foreground) 18%,transparent)" : "color-mix(in srgb,var(--primary) 8%,var(--background))"} isAnimationActive={false} /></AreaChart></ResponsiveContainer></div>
 }
 function Skeleton() {
   return <div className={styles.dashboard} role="status" aria-label="Cargando dashboard"><div className={styles.skeletonTitle} /><div className={styles.kpis}>{[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.kpi}`} />)}</div><div className={styles.columns}><div className={`${styles.skeleton} ${styles.skeletonChart}`} /><div className={`${styles.skeleton} ${styles.skeletonChart}`} /></div><span className="sr-only">Cargando tus métricas…</span></div>
@@ -44,9 +43,12 @@ function Skeleton() {
 export function DashboardContent({ data, days, endDate = "", onDaysChange, onEndDateChange, onRefresh, loading = false, error = "" }: { data: DashboardOverview; days: DashboardDays; endDate?: string; onDaysChange: (days: DashboardDays) => void; onEndDateChange?: (endDate: string) => void; onRefresh: () => void; loading?: boolean; error?: string }) {
   const [role, setRole] = useState<DashboardRole>(data.defaultRole)
   const [seriesId, setSeriesId] = useState("quotes")
+  const [activeKpi, setActiveKpi] = useState("quotes")
   const [currencyChoice, setCurrencyChoice] = useState("USD")
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [dateDraft, setDateDraft] = useState("")
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState("")
   const gradientId = `activity-${useId().replace(/:/g, "")}`
   useEffect(() => {
     try { const stored = localStorage.getItem(`agrilpa-dashboard-mode:${data.userId}`); setRole(stored === "seller" || stored === "buyer" ? stored : data.defaultRole) } catch { setRole(data.defaultRole) }
@@ -69,22 +71,43 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
   const displayEnd = data.period.historical ? new Date(new Date(data.period.end).getTime() - 1).toISOString() : data.period.end
   const changeEndDate = (value: string) => { onEndDateChange?.(value >= today ? "" : value); setDatePickerOpen(false) }
   const matchesSelection = data.period.days === days && data.period.endDate === selectedEnd
-  const exportReport = () => {
-    const url = URL.createObjectURL(new Blob([dashboardReport(data, role)], { type: "text/csv;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url; link.download = `agrilpa-${role === "seller" ? "ventas" : "compras"}-${data.period.days}dias-${data.period.endDate}.csv`
-    document.body.appendChild(link); link.click(); link.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const exportReport = async () => {
+    if (exporting || loading || !matchesSelection || error) return
+    setExporting(true); setExportError("")
+    try {
+      const { dashboardExcelReport } = await import("@/lib/dashboard/report-workbook")
+      // Resolve the same primary color used by the dashboard, including OKLCH.
+      const context = document.createElement("canvas").getContext("2d")
+      let accent = "8BC646"
+      if (context) {
+        context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()
+        context.fillRect(0, 0, 1, 1)
+        accent = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).map(v => v.toString(16).padStart(2, "0")).join("")
+      }
+      const bytes = dashboardExcelReport(data, role, accent)
+      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }))
+      const link = document.createElement("a")
+      link.href = url; link.download = `agrilpa-${role === "seller" ? "ventas" : "compras"}-${data.period.days}dias-${data.period.endDate}.xlsx`
+      document.body.appendChild(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setExportError("No pudimos crear el informe Excel. Vuelve a intentarlo.")
+    } finally { setExporting(false) }
+  }
+  const selectMetric = (id: string) => {
+    setActiveKpi(id)
+    if (view.series.some(item => item.id === id)) setSeriesId(id)
   }
   const metricCard = (metric: DashboardMetric) => {
     const money = metric.id === "amount", value = money ? monetaryValue : metric.value, previous = money ? monetaryPrevious : metric.previous
     const delta = money && (view.money.unknownCurrent || view.money.unknownPrevious) ? null : money && previous === 0 && value !== null && value > 0 ? `+${formatMoney(value)} respecto al período anterior` : compare(value, previous)
-    return <article key={metric.id} className={styles.kpi}>
-      <div className={styles.metricHeading}><h2>{metric.label}</h2>{money && currencies.length > 1 && <DashboardSelect label="Moneda de los importes" value={currency} onValueChange={setCurrencyChoice} options={currencies.map(code => ({ value: code, label: code }))} className={styles.currencySelect} />}</div>
+    const active = activeKpi === metric.id
+    return <article key={metric.id} className={styles.kpi} role="button" tabIndex={0} aria-pressed={active} onClick={() => selectMetric(metric.id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectMetric(metric.id) } }}>
+      <div className={styles.metricHeading}><h2>{metric.label}</h2>{money && currencies.length > 1 && <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><DashboardSelect label="Moneda de los importes" value={currency} onValueChange={setCurrencyChoice} options={currencies.map(code => ({ value: code, label: code }))} className={styles.currencySelect} /></div>}</div>
       <div className={`${styles.metricValue} ${money ? styles.moneyValue : ""}`}>{value === null ? "Sin datos" : money ? formatMoney(value) : number(value)}</div>
       <p className={styles.metricDetail}>{money && currency ? `${currency} · ${metric.detail}` : metric.detail}</p>
       {money && view.money.unknownCurrent > 0 && <p className={styles.moneyNote}>{view.money.unknownCurrent} pedido(s) sin importe o moneda registrados</p>}
-      <div className={styles.metricBottom}><span className={styles.comparison}>{delta || (metric.id === "visits" ? "Total histórico" : money ? "Importes registrados" : "")}</span>{metric.history && <Sparkline values={metric.history} />}</div>
+      <div className={styles.metricBottom}><span className={styles.comparison}>{delta || (metric.id === "visits" ? "Total histórico" : money ? "Importes registrados" : "")}</span>{metric.history && <Sparkline values={metric.history} active={active} />}</div>
     </article>
   }
   return <div className={styles.dashboard} aria-busy={loading}>
@@ -99,13 +122,15 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
     <div className={styles.historyToolbar}>
       <div className={styles.historyControls}>
         <button className={styles.refreshButton} disabled={loading || !onEndDateChange} aria-label="Consultar período anterior" onClick={() => changeEndDate(shiftDashboardDate(selectedEnd, -days))}><ArrowLeft size={18} /></button>
-        <Popover open={datePickerOpen} onOpenChange={open => { setDatePickerOpen(open); if (open) setDateDraft(selectedEnd) }}><PopoverTrigger asChild><button className={styles.dateRangeButton} disabled={loading || !onEndDateChange} aria-label="Elegir fecha final del período"><CalendarDays size={18} aria-hidden="true" />{date(data.period.start)} — {dateWithYear(displayEnd)}</button></PopoverTrigger><PopoverContent align="start" className="w-[336px] max-w-[calc(100vw-32px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-xl p-2"><p className="mb-2 px-2 text-sm font-medium">Fecha final del período</p><DayPicker mode="single" locale={es} defaultMonth={new Date(`${selectedEnd}T12:00:00`)} selected={dateDraft ? new Date(`${dateDraft}T12:00:00`) : undefined} onSelect={value => { if (value) setDateDraft(`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`) }} toDate={new Date(`${today}T12:00:00`)} disabled={{ after: new Date(`${today}T12:00:00`) }} labels={{ labelPrevious: () => "Mes anterior", labelNext: () => "Mes siguiente", labelDay: value => new Intl.DateTimeFormat("es", { day:"numeric",month:"long",year:"numeric" }).format(value) }} classNames={{ months:"flex flex-col", month:"space-y-2", caption:"flex items-center justify-between relative h-11", caption_label:"absolute inset-x-11 text-center text-sm font-medium capitalize", nav:"flex w-full justify-between", nav_button:"flex h-11 w-11 items-center justify-center rounded-xl border hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30", table:"w-full border-collapse", head_cell:"h-9 w-11 text-xs font-normal text-muted-foreground", cell:"p-0 text-center", day:"h-11 w-11 rounded-xl text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary", day_selected:"bg-foreground text-background hover:bg-foreground/90", day_disabled:"opacity-30", day_today:"font-bold underline underline-offset-4" }} /><p className="mt-3 text-sm text-muted-foreground">Se consultan los {days} días que terminan en la fecha elegida, comparados con los {days} días anteriores.</p><button className={`${styles.blackButton} sticky bottom-0 mt-4 w-full`} disabled={!isDashboardDate(dateDraft) || dateDraft > today} onClick={() => changeEndDate(dateDraft)}>Aplicar fecha</button></PopoverContent></Popover>
+        <Popover open={datePickerOpen} onOpenChange={open => { setDatePickerOpen(open); if (open) setDateDraft(selectedEnd) }}><PopoverTrigger asChild><button className={styles.dateRangeButton} disabled={loading || !onEndDateChange} aria-label="Elegir fecha final del período"><CalendarDays size={18} aria-hidden="true" />{date(data.period.start)} · {dateWithYear(displayEnd)}</button></PopoverTrigger><PopoverContent align="start" className="w-[336px] max-w-[calc(100vw-32px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-xl p-2"><p className="mb-2 px-2 text-sm font-medium">Fecha final del período</p><DayPicker mode="single" locale={es} defaultMonth={new Date(`${selectedEnd}T12:00:00`)} selected={dateDraft ? new Date(`${dateDraft}T12:00:00`) : undefined} onSelect={value => { if (value) setDateDraft(`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`) }} toDate={new Date(`${today}T12:00:00`)} disabled={{ after: new Date(`${today}T12:00:00`) }} labels={{ labelPrevious: () => "Mes anterior", labelNext: () => "Mes siguiente", labelDay: value => new Intl.DateTimeFormat("es", { day:"numeric",month:"long",year:"numeric" }).format(value) }} classNames={{ months:"flex flex-col", month:"space-y-2", caption:"flex items-center justify-between relative h-11", caption_label:"absolute inset-x-11 text-center text-sm font-medium capitalize", nav:"flex w-full justify-between", nav_button:"flex h-11 w-11 items-center justify-center rounded-xl border hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30", table:"w-full border-collapse", head_cell:"h-9 w-11 text-xs font-normal text-muted-foreground", cell:"p-0 text-center", day:"h-11 w-11 rounded-xl text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary", day_selected:"bg-foreground text-background hover:bg-foreground/90", day_disabled:"opacity-30", day_today:"font-bold underline underline-offset-4" }} /><p className="mt-3 text-sm text-muted-foreground">Se consultan los {days} días que terminan en la fecha elegida, comparados con los {days} días anteriores.</p><button className={`${styles.blackButton} sticky bottom-0 mt-4 w-full`} disabled={!isDashboardDate(dateDraft) || dateDraft > today} onClick={() => changeEndDate(dateDraft)}>Aplicar fecha</button></PopoverContent></Popover>
         <button className={styles.refreshButton} disabled={loading || !onEndDateChange || !endDate} aria-label="Consultar período siguiente" onClick={() => changeEndDate(shiftDashboardDate(selectedEnd, days))}><ArrowRight size={18} /></button>
         {endDate && <button className={styles.outlineButton} disabled={loading} onClick={() => changeEndDate("")}>Volver a hoy</button>}
       </div>
-      <button className={styles.outlineButton} disabled={loading || !matchesSelection || !!error} onClick={exportReport}><Download size={16} aria-hidden="true" />Descargar informe</button>
+      <button className={styles.outlineButton} title="Descargar Excel con tablas y gráficos" disabled={exporting || loading || !matchesSelection || !!error} onClick={exportReport}><Download size={16} aria-hidden="true" />{exporting ? "Preparando Excel…" : "Descargar informe"}</button>
     </div>
-    <p className={styles.periodNote}>Comparación: {date(data.period.previousStart)} — {dateWithYear(data.period.historical ? new Date(new Date(data.period.previousEnd).getTime() - 1).toISOString() : data.period.previousEnd)}. Estados y visitas acumuladas: situación actual.</p>
+    {exporting && <p className={styles.updateStatus} role="status">Preparando tu informe con tablas y gráficos…</p>}
+    {exportError && <p className={styles.inlineError} role="alert">{exportError}</p>}
+    <p className={styles.periodNote}>Comparación: {date(data.period.previousStart)} · {dateWithYear(data.period.historical ? new Date(new Date(data.period.previousEnd).getTime() - 1).toISOString() : data.period.previousEnd)}. Estados y visitas acumuladas: situación actual.</p>
     {error && <div className={styles.inlineError} role="alert">{error} Se conserva la última consulta. <button onClick={onRefresh}>Reintentar</button></div>}
     {loading && <p className={styles.updateStatus} role="status">Actualizando métricas…</p>}
     {!matchesSelection && !loading && <p className={styles.updateStatus}>La consulta seleccionada no se completó; se muestran los datos de {data.period.days} días hasta {date(displayEnd)}.</p>}
@@ -115,7 +140,7 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
     <div className={styles.secondary}>{view.secondary.map(metric => <div key={metric.id}><span>{metric.label}</span><strong>{metric.id === "responseTime" ? duration(metric.value) : metric.value === null ? "Sin datos" : number(metric.value)}</strong><small>{metric.detail}</small></div>)}</div>
     <div className={styles.columns}>
       <section className={styles.panel} aria-labelledby="activity-heading">
-        <div className={styles.panelHeader}><div><h2 id="activity-heading">Actividad de tu negocio</h2><p>Compara con el período anterior de igual duración</p></div><DashboardSelect label="Métrica de la gráfica" value={series.id} onValueChange={setSeriesId} options={view.series.map(item => ({ value: item.id, label: item.label }))} /></div>
+        <div className={styles.panelHeader}><div><h2 id="activity-heading">Actividad de tu negocio</h2><p>Compara con el período anterior de igual duración</p></div><DashboardSelect label="Métrica de la gráfica" value={series.id} onValueChange={next => { setSeriesId(next); setActiveKpi(next) }} options={view.series.map(item => ({ value: item.id, label: item.label }))} /></div>
         <div className={styles.chartSummary}><strong>{number(currentTotal)}</strong><span>{series.label.toLowerCase()}</span><small>{compare(currentTotal, previousTotal)}</small></div>
         <div className={styles.legend}><span><i style={{ background: "var(--primary)" }} />Período actual</span><span><i style={{ background: "var(--muted-foreground)" }} />Período anterior</span></div>
         <div className={styles.activityChart} role="img" aria-label={`${series.label}: ${currentTotal} en el período actual; ${previousTotal} en el anterior. Consulta los valores diarios en la tabla.`}>
@@ -137,7 +162,7 @@ export function DashboardContent({ data, days, endDate = "", onDaysChange, onEnd
     </div>
     <div className={styles.bottomColumns}>
       <section className={styles.panel}><div className={styles.panelHeader}><div><h2>{view.rankingLabel}</h2><p>{view.rankingDetail}</p></div><TrendingUp size={18} className={styles.mutedIcon} aria-hidden="true" /></div><div className={styles.ranking}>{view.ranking.length ? view.ranking.map((item, index) => <Link key={item.id} href={item.href}><span className={styles.rankIndex}>{String(index + 1).padStart(2, "0")}</span><div><div className={styles.rankLabel}><span title={item.label}>{item.label}</span><strong>{number(item.value)}</strong></div><div className={styles.barTrack}><div style={{ width: `${item.value / rankingMax * 100}%` }} /></div></div></Link>) : <p className={styles.empty}>Aquí verás {role === "seller" ? "tus productos cuando publiques el primero" : "los proveedores cuando envíes solicitudes"}.</p>}</div></section>
-      <section className={styles.panel}><div className={styles.panelHeader}><div><h2>Conversaciones B2B</h2><p>Primera respuesta · conversaciones recibidas en el período</p></div><MessageSquare size={18} className={styles.mutedIcon} aria-hidden="true" /></div>{view.chat.available ? <><div className={styles.responseOverview}><div><strong>{duration(view.chat.medianMinutes)}</strong><span>Tiempo de respuesta · mediana</span></div><div><strong>{view.chat.response24h === null ? "—" : `${number(view.chat.response24h)}%`}</strong><span>Respondidas en 24 h</span></div></div><div className={styles.responseProgress} role="img" aria-label={view.chat.response24h === null ? "Sin muestra para medir respuestas en 24 horas" : `${number(view.chat.response24h)} por ciento de respuestas dentro de 24 horas`}><div style={{ width: `${view.chat.response24h || 0}%` }} /></div><p className={styles.caption}>{view.chat.sample24h ? `${view.chat.sample24h} conversaciones con al menos 24 h de seguimiento` : "La tasa aparece cuando hay conversaciones con 24 h de seguimiento"}</p><div className={styles.responseCounts}><span><strong>{view.chat.responded}</strong> con primera respuesta</span><span><strong>{view.chat.unanswered}</strong> sin primera respuesta</span></div></> : <p className={styles.empty}>No pudimos consultar las métricas del chat.</p>}<Link href="/dashboard/mensajes" className={styles.textLink}>Abrir mensajes<ArrowUpRight size={16} /></Link></section>
+      <section className={styles.panel}><div className={styles.panelHeader}><div><h2>Conversaciones B2B</h2><p>Primera respuesta · conversaciones recibidas en el período</p></div><MessageSquare size={18} className={styles.mutedIcon} aria-hidden="true" /></div>{view.chat.available ? <><div className={styles.responseOverview}><div><strong>{duration(view.chat.medianMinutes)}</strong><span>Tiempo de respuesta · mediana</span></div><div><strong>{view.chat.response24h === null ? "Sin datos" : `${number(view.chat.response24h)}%`}</strong><span>Respondidas en 24 h</span></div></div><div className={styles.responseProgress} role="img" aria-label={view.chat.response24h === null ? "Sin muestra para medir respuestas en 24 horas" : `${number(view.chat.response24h)} por ciento de respuestas dentro de 24 horas`}><div style={{ width: `${view.chat.response24h || 0}%` }} /></div><p className={styles.caption}>{view.chat.sample24h ? `${view.chat.sample24h} conversaciones con al menos 24 h de seguimiento` : "La tasa aparece cuando hay conversaciones con 24 h de seguimiento"}</p><div className={styles.responseCounts}><span><strong>{view.chat.responded}</strong> con primera respuesta</span><span><strong>{view.chat.unanswered}</strong> sin primera respuesta</span></div></> : <p className={styles.empty}>No pudimos consultar las métricas del chat.</p>}<Link href="/dashboard/mensajes" className={styles.textLink}>Abrir mensajes<ArrowUpRight size={16} /></Link></section>
       <section className={styles.panel}><div className={styles.panelHeader}><div><h2>Por atender</h2><p>Prioriza tus próximas acciones</p></div><span className={styles.countBadge}>{view.pendingCount}</span></div><div className={styles.actions}>{view.actions.length ? view.actions.map(action => <Link key={action.id} href={action.href}><div><strong>{action.title}</strong><span>{action.detail}</span></div><ArrowUpRight size={18} aria-hidden="true" /></Link>) : <div className={styles.empty}><strong>Todo al día</strong><p>No hay acciones pendientes registradas{view.chat.available ? "." : "; el chat está sin consultar."}</p></div>}</div>{view.pendingCount > 5 && <p className={styles.caption}>Mostrando las 5 acciones más antiguas. Consulta cada sección para ver todas.</p>}</section>
     </div>
     <section className={styles.panel}><div className={styles.panelHeader}><div><h2>Conversaciones recientes</h2><p>Continúa tus negociaciones dentro de Agrilpa</p></div><Link href="/dashboard/mensajes" className={styles.textLink}>Ver todas<ArrowRight size={16} /></Link></div><div className={styles.recent}>{view.conversations.length ? view.conversations.map(conversation => <div key={conversation.id} className={styles.conversation}><div className={styles.avatar} aria-hidden="true">{conversation.name.slice(0, 2).toUpperCase()}</div><div className={styles.conversationText}><strong>{conversation.name}</strong><span>{conversation.product} · {conversation.content}</span></div><div className={styles.conversationMeta}><time dateTime={conversation.time}>{timestamp(conversation.time)}</time>{conversation.pending && <span className={styles.pendingTag}>Por responder</span>}</div><Link href={conversation.href} aria-label={`${conversation.pending ? "Responder a" : "Ver conversación con"} ${conversation.name}`} className={styles.outlineButton}>{conversation.pending ? "Responder" : "Ver chat"}<ArrowUpRight size={16} /></Link></div>) : <p className={styles.empty}>{view.chat.available ? "Tus conversaciones comerciales aparecerán aquí cuando intercambies mensajes." : "Las conversaciones no están disponibles. Puedes consultar la sección Mensajes."}</p>}</div></section>

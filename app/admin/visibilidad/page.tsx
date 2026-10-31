@@ -2,495 +2,751 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
-import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
-import { Eye, EyeOff, Loader2, Search, Star, Save, ArrowUp, ArrowDown, AlertCircle } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  Star,
+  X,
+} from "lucide-react"
+import styles from "./visibilidad.module.css"
 
 interface UserProduct {
-    id: string
-    title: string
-    category: string
-    price: string
-    image: string
-    is_visible: boolean
-    user: {
-        full_name: string
-        company_name: string
-    }
+  id: string
+  title: string
+  category: string
+  price: string
+  image: string
+  is_visible: boolean
+  user: {
+    full_name: string
+    company_name: string
+  }
 }
 
+type ActiveTab = "user" | "featured"
+type StatusFilter = "all" | "visible" | "hidden"
+
 export default function VisibilityPage() {
-    const [userProducts, setUserProducts] = useState<UserProduct[]>([])
-    const [featuredIds, setFeaturedIds] = useState<string[]>([])
-    const [loading, setLoading] = useState(true)
-    const [updating, setUpdating] = useState<string | null>(null)
-    const [savingFeatured, setSavingFeatured] = useState(false)
-    const [searchQuery, setSearchQuery] = useState("")
-    const { toast } = useToast()
+  const [userProducts, setUserProducts] = useState<UserProduct[]>([])
+  const [featuredIds, setFeaturedIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [updating, setUpdating] = useState<string | null>(null)
+  const [savingFeatured, setSavingFeatured] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState<ActiveTab>("user")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const { toast } = useToast()
 
-    useEffect(() => {
-        fetchData()
-    }, [])
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-    const fetchData = async () => {
-        setLoading(true)
-        try {
-            // Fetch user products
-            const userRes = await fetch("/api/admin/products")
-            if (userRes.ok) {
-                const userData = await userRes.json()
-                setUserProducts(userData || [])
-            }
-
-            // Removed static product visibility fetch
-
-            // Fetch featured products configuration
-            const featuredRes = await fetch("/api/admin/visibility/featured-products")
-            if (featuredRes.ok) {
-                const featuredData = await featuredRes.json()
-                setFeaturedIds(featuredData.featuredProductIds || [])
-            }
-        } catch (error) {
-            console.error("Error fetching data:", error)
-            toast({
-                title: "Error",
-                description: "No se pudieron cargar los productos",
-                variant: "destructive",
-            })
-        } finally {
-            setLoading(false)
-        }
+  const fetchData = async (silent = false) => {
+    if (silent) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
     }
+    try {
+      const [userRes, featuredRes] = await Promise.all([
+        fetch("/api/admin/products"),
+        fetch("/api/admin/visibility/featured-products"),
+      ])
 
-    const toggleFeatured = (productId: string) => {
-        setFeaturedIds((prev) => {
-            if (prev.includes(productId)) {
-                return prev.filter((id) => id !== productId)
-            }
-            if (prev.length >= 4) {
-                toast({
-                    title: "Límite alcanzado",
-                    description: "Solo puedes destacar un máximo de 4 productos en la página de inicio.",
-                    variant: "destructive",
-                })
-                return prev
-            }
-            return [...prev, productId]
+      if (userRes.ok) {
+        const userData = await userRes.json()
+        setUserProducts(userData || [])
+      }
+
+      if (featuredRes.ok) {
+        const featuredData = await featuredRes.json()
+        setFeaturedIds(featuredData.featuredProductIds || [])
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los productos",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const toggleFeatured = (productId: string) => {
+    setFeaturedIds((prev) => {
+      if (prev.includes(productId)) {
+        return prev.filter((id) => id !== productId)
+      }
+      if (prev.length >= 4) {
+        toast({
+          title: "Límite alcanzado",
+          description: "Solo puedes destacar un máximo de 4 productos en la página de inicio.",
+          variant: "destructive",
         })
+        return prev
+      }
+      return [...prev, productId]
+    })
+  }
+
+  const moveFeatured = (index: number, direction: "up" | "down") => {
+    const nextIndex = direction === "up" ? index - 1 : index + 1
+    if (nextIndex < 0 || nextIndex >= featuredIds.length) return
+
+    const updated = [...featuredIds]
+    const temp = updated[index]
+    updated[index] = updated[nextIndex]
+    updated[nextIndex] = temp
+    setFeaturedIds(updated)
+  }
+
+  const saveFeaturedProducts = async () => {
+    setSavingFeatured(true)
+    try {
+      const res = await fetch("/api/admin/visibility/featured-products", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featuredProductIds: featuredIds }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast({
+          title: "Productos destacados guardados",
+          description: "Los productos destacados de la página de inicio se han actualizado correctamente.",
+        })
+      } else {
+        throw new Error(data.error || "Error al guardar")
+      }
+    } catch (error: any) {
+      console.error("Error saving featured products:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron guardar los productos destacados",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingFeatured(false)
     }
+  }
 
-    const moveFeatured = (index: number, direction: "up" | "down") => {
-        const nextIndex = direction === "up" ? index - 1 : index + 1
-        if (nextIndex < 0 || nextIndex >= featuredIds.length) return
+  const toggleUserProductVisibility = async (productId: string, currentVisibility: boolean) => {
+    setUpdating(productId)
+    try {
+      const payload = {
+        productId,
+        isVisible: !currentVisibility,
+      }
 
-        const updated = [...featuredIds]
-        const temp = updated[index]
-        updated[index] = updated[nextIndex]
-        updated[nextIndex] = temp
-        setFeaturedIds(updated)
-    }
+      const res = await fetch("/api/admin/visibility/user-products", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
 
-    const saveFeaturedProducts = async () => {
-        setSavingFeatured(true)
-        try {
-            const res = await fetch("/api/admin/visibility/featured-products", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ featuredProductIds: featuredIds }),
-            })
-            const data = await res.json()
-            if (res.ok) {
-                toast({
-                    title: "Productos destacados guardados",
-                    description: "Los productos destacados de la página de inicio se han actualizado correctamente y cargarán de inmediato.",
-                })
-            } else {
-                throw new Error(data.error || "Error al guardar")
-            }
-        } catch (error: any) {
-            console.error("Error saving featured products:", error)
-            toast({
-                title: "Error",
-                description: error.message || "No se pudieron guardar los productos destacados",
-                variant: "destructive",
-            })
-        } finally {
-            setSavingFeatured(false)
-        }
-    }
+      const data = await res.json()
 
-    const toggleUserProductVisibility = async (productId: string, currentVisibility: boolean) => {
-        setUpdating(productId)
-        console.log(`[DEBUG] Toggling user product ${productId} from ${currentVisibility} to ${!currentVisibility}`)
-
-        try {
-            const payload = {
-                productId,
-                isVisible: !currentVisibility,
-            }
-            console.log("[DEBUG] Sending payload:", payload)
-
-            const res = await fetch("/api/admin/visibility/user-products", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            })
-
-            console.log("[DEBUG] Response status:", res.status)
-            const data = await res.json()
-            console.log("[DEBUG] Response data:", data)
-
-            if (res.ok) {
-                setUserProducts((prev) =>
-                    prev.map((p) => (p.id === productId ? { ...p, is_visible: !currentVisibility } : p)),
-                )
-                toast({
-                    title: "Visibilidad actualizada",
-                    description: `Producto ${!currentVisibility ? "visible" : "oculto"} correctamente`,
-                })
-            } else {
-                throw new Error(data.error || "Failed to update")
-            }
-        } catch (error) {
-            console.error("[ERROR] Error updating visibility:", error)
-            toast({
-                title: "Error",
-                description: error instanceof Error ? error.message : "No se pudo actualizar la visibilidad. Verifica que hayas ejecutado el script SQL en Supabase.",
-                variant: "destructive",
-            })
-        } finally {
-            setUpdating(null)
-        }
-    }
-
-
-
-    const filteredUserProducts = userProducts.filter(
-        (p) =>
-            p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-
-    const userVisibleCount = userProducts.filter((p) => p.is_visible).length
-    const userHiddenCount = userProducts.length - userVisibleCount
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
+      if (res.ok) {
+        setUserProducts((prev) =>
+          prev.map((p) => (p.id === productId ? { ...p, is_visible: !currentVisibility } : p)),
         )
+        toast({
+          title: "Visibilidad actualizada",
+          description: `Producto ${!currentVisibility ? "visible" : "oculto"} correctamente`,
+        })
+      } else {
+        throw new Error(data.error || "No se pudo actualizar")
+      }
+    } catch (error) {
+      console.error("Error updating visibility:", error)
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar la visibilidad. Verifica la configuración en Supabase.",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(null)
     }
+  }
 
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+
+  const matchesSearch = (product: UserProduct) => {
+    if (!normalizedQuery) return true
+    const seller = `${product.user?.company_name || ""} ${product.user?.full_name || ""}`.toLowerCase()
     return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Control de Visibilidad</h1>
-                <p className="text-muted-foreground">Gestiona qué productos aparecen en el catálogo público</p>
-            </div>
-
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                    placeholder="Buscar productos..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                />
-            </div>
-
-            <Tabs defaultValue="user" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="user">
-                        Productos de Usuarios ({userProducts.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="featured">
-                        Destacados en Inicio ({featuredIds.length}/4)
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="featured" className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Selected featured products list and sorting (Left/Middle Column - takes 2/3 space on large screens) */}
-                        <div className="lg:col-span-2 space-y-4">
-                            <Card className="border-amber-500/20 bg-amber-500/[0.02]">
-                                <CardHeader className="pb-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
-                                                <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
-                                            </div>
-                                            <div>
-                                                <CardTitle>Productos Destacados en Inicio</CardTitle>
-                                                <CardDescription>
-                                                    Selecciona y ordena exactamente hasta 4 productos para mostrarlos en el Hero de la página de inicio.
-                                                </CardDescription>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            onClick={saveFeaturedProducts}
-                                            disabled={savingFeatured}
-                                            className="bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2 self-start sm:self-auto"
-                                        >
-                                            {savingFeatured ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <Save className="w-4 h-4" />
-                                            )}
-                                            {savingFeatured ? "Guardando..." : "Guardar Destacados"}
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    {featuredIds.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg border-muted p-4 text-center">
-                                            <AlertCircle className="w-8 h-8 text-muted-foreground mb-3" />
-                                            <h3 className="font-semibold text-base mb-1">Sin productos destacados</h3>
-                                            <p className="text-sm text-muted-foreground max-w-md">
-                                                No has seleccionado ningún producto destacado. La página de inicio mostrará los últimos productos subidos por defecto.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {featuredIds.map((id, index) => {
-                                                const product = userProducts.find((p) => p.id === id)
-                                                if (!product) return null
-                                                return (
-                                                    <div
-                                                        key={id}
-                                                        className="flex items-center justify-between p-4 bg-background border border-amber-500/25 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                                                    >
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            <div className="flex items-center justify-center font-bold text-amber-600 bg-amber-500/10 w-6 h-6 rounded-full text-xs shrink-0">
-                                                                {index + 1}
-                                                            </div>
-                                                            <div className="w-12 h-12 rounded bg-muted overflow-hidden flex-shrink-0 border border-amber-500/10">
-                                                                <img
-                                                                    src={`/api/products/${product.id}/thumb`}
-                                                                    alt={product.title}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h3 className="font-semibold truncate text-foreground text-sm sm:text-base">{product.title}</h3>
-                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                    <span>{product.category}</span>
-                                                                    <span>•</span>
-                                                                    <span className="font-medium text-amber-600">{product.price}</span>
-                                                                    <span>•</span>
-                                                                    <span className="truncate">
-                                                                        {product.user?.company_name || product.user?.full_name}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 sm:gap-2 ml-4 shrink-0">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => moveFeatured(index, "up")}
-                                                                disabled={index === 0}
-                                                            >
-                                                                <ArrowUp className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => moveFeatured(index, "down")}
-                                                                disabled={index === featuredIds.length - 1}
-                                                            >
-                                                                <ArrowDown className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                                onClick={() => toggleFeatured(id)}
-                                                            >
-                                                                Quitar
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Summary and Stats (Right Column) */}
-                        <div className="space-y-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">¿Por qué usar destacados manuales?</CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-sm text-muted-foreground space-y-3">
-                                    <p>
-                                        🚀 <strong>Carga ultra rápida:</strong> Al seleccionar manualmente los productos destacados, la página de inicio carga de forma <strong>inmediata</strong> (en milisegundos) en lugar de hacer consultas dinámicas pesadas.
-                                    </p>
-                                    <p>
-                                        🎯 <strong>Control total:</strong> Elige exactamente qué productos y en qué orden quieres promocionar ante los nuevos visitantes de Agrilpa.
-                                    </p>
-                                    <p>
-                                        💡 <strong>Requisitos:</strong> Solo se pueden destacar productos que tengan visibilidad activa. Si ocultas un producto en el catálogo, no se mostrará como destacado.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
-
-                    {/* Selector List of Active User Products */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Selecciona Productos del Catálogo</CardTitle>
-                            <CardDescription>
-                                Haz clic en la estrella ⭐ para añadir o quitar un producto del inicio. (Límite: 4 productos).
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {/* Filter only visible products for selecting as featured */}
-                            {userProducts.filter(p => p.is_visible).length === 0 ? (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    No hay productos visibles activos para destacar. Activa la visibilidad de algún producto en la primera pestaña.
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {userProducts
-                                        .filter(p => p.is_visible && (
-                                            p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            p.category.toLowerCase().includes(searchQuery.toLowerCase())
-                                        ))
-                                        .map((product) => {
-                                            const isFeatured = featuredIds.includes(product.id)
-                                            return (
-                                                <div
-                                                    key={product.id}
-                                                    className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
-                                                        isFeatured
-                                                            ? "border-amber-500 bg-amber-500/[0.02] shadow-sm"
-                                                            : "hover:bg-muted/50"
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                        <div className="w-12 h-12 rounded bg-muted overflow-hidden flex-shrink-0">
-                                                            <img
-                                                                src={`/api/products/${product.id}/thumb`}
-                                                                alt={product.title}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="font-medium truncate text-sm sm:text-base">{product.title}</h3>
-                                                            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                                                                <span>{product.category}</span>
-                                                                <span>•</span>
-                                                                <span className="font-medium text-amber-600">{product.price}</span>
-                                                                <span>•</span>
-                                                                <span className="truncate">
-                                                                    {product.user?.company_name || product.user?.full_name}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Button
-                                                        variant={isFeatured ? "default" : "outline"}
-                                                        size="sm"
-                                                        onClick={() => toggleFeatured(product.id)}
-                                                        className={`flex items-center gap-2 shrink-0 ml-4 ${
-                                                            isFeatured
-                                                                ? "bg-amber-500 hover:bg-amber-600 text-white"
-                                                                : "hover:border-amber-500 hover:text-amber-600"
-                                                        }`}
-                                                    >
-                                                        <Star className={`w-4 h-4 ${isFeatured ? "fill-white" : ""}`} />
-                                                        <span className="hidden sm:inline">{isFeatured ? "Destacado" : "Destacar"}</span>
-                                                    </Button>
-                                                </div>
-                                            )
-                                        })}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="user" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Productos de Usuarios</CardTitle>
-                            <CardDescription>
-                                Visibles: {userVisibleCount} | Ocultos: {userHiddenCount}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {filteredUserProducts.length === 0 ? (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    {searchQuery ? "No se encontraron productos" : "No hay productos de usuarios"}
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {filteredUserProducts.map((product) => (
-                                        <div
-                                            key={product.id}
-                                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                                        >
-                                            <div className="flex items-center gap-4 flex-1">
-                                                <div className="w-12 h-12 rounded bg-muted overflow-hidden flex-shrink-0">
-                                                    <img
-                                                        src={`/api/products/${product.id}/thumb`}
-                                                        alt={product.title}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-medium truncate">{product.title}</h3>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <span>{product.category}</span>
-                                                        <span>•</span>
-                                                        <span>{product.price}</span>
-                                                        <span>•</span>
-                                                        <span className="truncate">
-                                                            {product.user?.company_name || product.user?.full_name}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {product.is_visible ? (
-                                                        <Eye className="w-4 h-4 text-green-600" />
-                                                    ) : (
-                                                        <EyeOff className="w-4 h-4 text-red-600" />
-                                                    )}
-                                                    <span className="text-sm font-medium">
-                                                        {product.is_visible ? "Visible" : "Oculto"}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <Switch
-                                                checked={product.is_visible}
-                                                onCheckedChange={() =>
-                                                    toggleUserProductVisibility(product.id, product.is_visible)
-                                                }
-                                                disabled={updating === product.id}
-                                                className="ml-4"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-
-            </Tabs>
-        </div>
+      product.title.toLowerCase().includes(normalizedQuery) ||
+      product.category.toLowerCase().includes(normalizedQuery) ||
+      seller.includes(normalizedQuery)
     )
+  }
+
+  const filteredUserProducts = useMemo(() => {
+    return userProducts.filter((p) => {
+      if (statusFilter === "visible" && !p.is_visible) return false
+      if (statusFilter === "hidden" && p.is_visible) return false
+      return matchesSearch(p)
+    })
+  }, [userProducts, statusFilter, normalizedQuery])
+
+  const visibleCatalogProducts = useMemo(() => {
+    return userProducts.filter((p) => p.is_visible && matchesSearch(p))
+  }, [userProducts, normalizedQuery])
+
+  const userVisibleCount = useMemo(() => userProducts.filter((p) => p.is_visible).length, [userProducts])
+  const userHiddenCount = userProducts.length - userVisibleCount
+
+  const getSellerLabel = (product: UserProduct) => {
+    return product.user?.company_name || product.user?.full_name || "-"
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingState}>
+          <Loader2 className={styles.spin} size={28} />
+          <span>Cargando catálogo y visibilidad...</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <div>
+            <h1>Control de visibilidad</h1>
+            <p>
+              Administra qué publicaciones aparecen en el catálogo público y define los 4 productos destacados de la portada.
+            </p>
+          </div>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw size={15} className={refreshing ? styles.spin : undefined} />
+              Actualizar
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={saveFeaturedProducts}
+              disabled={savingFeatured}
+            >
+              {savingFeatured ? (
+                <Loader2 size={15} className={styles.spin} />
+              ) : (
+                <Save size={15} />
+              )}
+              {savingFeatured ? "Guardando..." : "Guardar destacados"}
+            </button>
+          </div>
+        </header>
+
+        <dl className={styles.metrics}>
+          <button
+            type="button"
+            className={styles.metric}
+            aria-pressed={activeTab === "user" && statusFilter === "all"}
+            onClick={() => {
+              setActiveTab("user")
+              setStatusFilter("all")
+            }}
+          >
+            <dt>Publicaciones en catálogo</dt>
+            <dd>{userProducts.length}</dd>
+            <span>Total de productos registrados por usuarios</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.metric}
+            aria-pressed={activeTab === "user" && statusFilter === "visible"}
+            onClick={() => {
+              setActiveTab("user")
+              setStatusFilter("visible")
+            }}
+          >
+            <dt>Visibles en catálogo</dt>
+            <dd>{userVisibleCount}</dd>
+            <span>Activos en búsquedas y listado público</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.metric}
+            aria-pressed={activeTab === "user" && statusFilter === "hidden"}
+            onClick={() => {
+              setActiveTab("user")
+              setStatusFilter("hidden")
+            }}
+          >
+            <dt>Ocultos del catálogo</dt>
+            <dd>{userHiddenCount}</dd>
+            <span>Pausados temporalmente de la vista pública</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.metric}
+            aria-pressed={activeTab === "featured"}
+            onClick={() => setActiveTab("featured")}
+          >
+            <dt>Destacados en inicio</dt>
+            <dd>{featuredIds.length} / 4</dd>
+            <span>Espacios manuales asignados en la portada</span>
+          </button>
+        </dl>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div className={styles.toolbar}>
+              <div className={styles.search}>
+                <Search size={16} />
+                <input
+                  type="search"
+                  placeholder="Buscar por producto, categoría o empresa..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className={styles.clearSearch}
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+
+              <div className={styles.toolbarRight}>
+                {activeTab === "user" ? (
+                  <>
+                    <div className={styles.filterGroup} role="group" aria-label="Filtrar por estado de visibilidad">
+                      <button
+                        type="button"
+                        className={styles.filterBtn}
+                        aria-pressed={statusFilter === "all"}
+                        onClick={() => setStatusFilter("all")}
+                      >
+                        Todos ({userProducts.length})
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.filterBtn}
+                        aria-pressed={statusFilter === "visible"}
+                        onClick={() => setStatusFilter("visible")}
+                      >
+                        Visibles ({userVisibleCount})
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.filterBtn}
+                        aria-pressed={statusFilter === "hidden"}
+                        onClick={() => setStatusFilter("hidden")}
+                      >
+                        Ocultos ({userHiddenCount})
+                      </button>
+                    </div>
+                    <span className={styles.resultCount}>
+                      {filteredUserProducts.length} de {userProducts.length} publicaciones
+                    </span>
+                  </>
+                ) : (
+                  <span className={styles.resultCount}>
+                    {visibleCatalogProducts.length} productos visibles disponibles
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.tabs} role="tablist" aria-label="Secciones de visibilidad">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "user"}
+                onClick={() => setActiveTab("user")}
+              >
+                Productos de usuarios
+                <span>{userProducts.length}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "featured"}
+                onClick={() => setActiveTab("featured")}
+              >
+                Destacados en inicio
+                <span>{featuredIds.length}/4</span>
+              </button>
+            </div>
+          </div>
+
+          {activeTab === "user" ? (
+            <div className={styles.tableWrap}>
+              {filteredUserProducts.length === 0 ? (
+                <div className={styles.empty}>
+                  <p>No se encontraron publicaciones</p>
+                  <span>
+                    {searchQuery || statusFilter !== "all"
+                      ? "Prueba ajustando la búsqueda o el filtro de estado."
+                      : "Todavía no hay productos registrados por usuarios."}
+                  </span>
+                </div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Categoría</th>
+                      <th>Precio</th>
+                      <th>Vendedor / Empresa</th>
+                      <th>Portada</th>
+                      <th>Estado</th>
+                      <th>Visibilidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUserProducts.map((product) => {
+                      const featuredRank = featuredIds.indexOf(product.id)
+                      const isUpdating = updating === product.id
+
+                      return (
+                        <tr key={product.id}>
+                          <td>
+                            <div className={styles.productCell}>
+                              <div className={styles.thumb}>
+                                <img
+                                  src={`/api/products/${product.id}/thumb`}
+                                  alt={product.title}
+                                  loading="lazy"
+                                />
+                              </div>
+                              <div className={styles.productMeta}>
+                                <Link
+                                  href={`/producto/${product.id}`}
+                                  target="_blank"
+                                  className={styles.productTitle}
+                                >
+                                  <span>{product.title}</span>
+                                  <ExternalLink size={13} />
+                                </Link>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={styles.categoryBadge}>{product.category}</span>
+                          </td>
+                          <td className={styles.priceCell}>{product.price}</td>
+                          <td className={styles.sellerCell} title={getSellerLabel(product)}>
+                            {getSellerLabel(product)}
+                          </td>
+                          <td>
+                            {featuredRank !== -1 ? (
+                              <span className={styles.rankBadge}>
+                                <Star size={12} />
+                                Destacado #{featuredRank + 1}
+                              </span>
+                            ) : (
+                              <span className={styles.mutedDash}>-</span>
+                            )}
+                          </td>
+                          <td>
+                            {product.is_visible ? (
+                              <span className={`${styles.statusBadge} ${styles.statusVisible}`}>
+                                <Eye size={13} />
+                                Visible
+                              </span>
+                            ) : (
+                              <span className={`${styles.statusBadge} ${styles.statusHidden}`}>
+                                <EyeOff size={13} />
+                                Oculto
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div className={styles.visibilityControl}>
+                              <Switch
+                                checked={product.is_visible}
+                                onCheckedChange={() =>
+                                  toggleUserProductVisibility(product.id, product.is_visible)
+                                }
+                                disabled={isUpdating}
+                                aria-label={`Cambiar visibilidad de ${product.title}`}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className={styles.featuredWorkspace}>
+                <div className={styles.subCard}>
+                  <div className={styles.subCardHead}>
+                    <div>
+                      <h2>Productos destacados en inicio ({featuredIds.length} de 4)</h2>
+                      <p>
+                        Ordena hasta 4 publicaciones visibles para mostrarlas en la portada principal.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      onClick={saveFeaturedProducts}
+                      disabled={savingFeatured}
+                    >
+                      {savingFeatured ? (
+                        <Loader2 size={15} className={styles.spin} />
+                      ) : (
+                        <Save size={15} />
+                      )}
+                      {savingFeatured ? "Guardando..." : "Guardar destacados"}
+                    </button>
+                  </div>
+
+                  {featuredIds.length === 0 ? (
+                    <div className={styles.empty}>
+                      <p>Sin productos destacados configurados</p>
+                      <span>
+                        No hay publicaciones fijadas manualmente. La portada mostrará las últimas publicaciones visibles por defecto.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className={styles.featuredList}>
+                      {featuredIds.map((id, index) => {
+                        const product = userProducts.find((p) => p.id === id)
+                        if (!product) return null
+
+                        return (
+                          <div key={id} className={styles.featuredRow}>
+                            <div className={styles.featuredMain}>
+                              <span className={styles.rankNumber}>{index + 1}</span>
+                              <div className={styles.thumb}>
+                                <img
+                                  src={`/api/products/${product.id}/thumb`}
+                                  alt={product.title}
+                                  loading="lazy"
+                                />
+                              </div>
+                              <div className={styles.featuredDetails}>
+                                <strong>{product.title}</strong>
+                                <div className={styles.featuredSub}>
+                                  <span>{product.category}</span>
+                                  <span>·</span>
+                                  <span>{product.price}</span>
+                                  <span>·</span>
+                                  <span>{getSellerLabel(product)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={styles.featuredActions}>
+                              <button
+                                type="button"
+                                className={styles.iconAction}
+                                onClick={() => moveFeatured(index, "up")}
+                                disabled={index === 0}
+                                aria-label={`Subir ${product.title}`}
+                                title="Subir posición"
+                              >
+                                <ArrowUp size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.iconAction}
+                                onClick={() => moveFeatured(index, "down")}
+                                disabled={index === featuredIds.length - 1}
+                                aria-label={`Bajar ${product.title}`}
+                                title="Bajar posición"
+                              >
+                                <ArrowDown size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.removeAction}
+                                onClick={() => toggleFeatured(id)}
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <aside className={styles.subCard}>
+                  <div className={styles.subCardHead}>
+                    <div>
+                      <h2>Funcionamiento de la portada</h2>
+                      <p>Criterios aplicados a los espacios destacados del inicio.</p>
+                    </div>
+                  </div>
+                  <div className={styles.guideBody}>
+                    <div className={styles.guideItem}>
+                      <strong>Carga directa</strong>
+                      <p>
+                        Al fijar manualmente hasta 4 publicaciones, la página principal consulta directamente la selección configurada.
+                      </p>
+                    </div>
+                    <div className={styles.guideItem}>
+                      <strong>Orden manual</strong>
+                      <p>
+                        Usa las flechas de posición para definir en qué orden aparecen las tarjetas dentro de la portada.
+                      </p>
+                    </div>
+                    <div className={styles.guideItem}>
+                      <strong>Requisito de visibilidad</strong>
+                      <p>
+                        Solo se muestran productos con visibilidad activa. Si ocultas una publicación en el catálogo, deja de mostrarse en el inicio.
+                      </p>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+
+              <div className={styles.catalogSectionHead}>
+                <div>
+                  <h2>Seleccionar productos visibles del catálogo</h2>
+                  <p>
+                    Elige hasta 4 publicaciones activas para incluirlas en la portada principal.
+                  </p>
+                </div>
+                <span className={styles.resultCount}>
+                  {featuredIds.length} de 4 seleccionados
+                </span>
+              </div>
+
+              <div className={styles.tableWrap}>
+                {visibleCatalogProducts.length === 0 ? (
+                  <div className={styles.empty}>
+                    <p>No hay productos visibles disponibles</p>
+                    <span>
+                      {searchQuery
+                        ? "Ningún producto visible coincide con la búsqueda actual."
+                        : "Activa la visibilidad de algún producto en la pestaña Productos de usuarios."}
+                    </span>
+                  </div>
+                ) : (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Precio</th>
+                        <th>Vendedor / Empresa</th>
+                        <th>Posición en inicio</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleCatalogProducts.map((product) => {
+                        const featuredRank = featuredIds.indexOf(product.id)
+                        const isFeatured = featuredRank !== -1
+
+                        return (
+                          <tr
+                            key={product.id}
+                            data-selected={isFeatured ? "true" : undefined}
+                          >
+                            <td>
+                              <div className={styles.productCell}>
+                                <div className={styles.thumb}>
+                                  <img
+                                    src={`/api/products/${product.id}/thumb`}
+                                    alt={product.title}
+                                    loading="lazy"
+                                  />
+                                </div>
+                                <div className={styles.productMeta}>
+                                  <Link
+                                    href={`/producto/${product.id}`}
+                                    target="_blank"
+                                    className={styles.productTitle}
+                                  >
+                                    <span>{product.title}</span>
+                                    <ExternalLink size={13} />
+                                  </Link>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={styles.categoryBadge}>{product.category}</span>
+                            </td>
+                            <td className={styles.priceCell}>{product.price}</td>
+                            <td className={styles.sellerCell} title={getSellerLabel(product)}>
+                              {getSellerLabel(product)}
+                            </td>
+                            <td>
+                              {isFeatured ? (
+                                <span className={styles.rankBadge}>
+                                  <Star size={12} />
+                                  Posición #{featuredRank + 1}
+                                </span>
+                              ) : (
+                                <span className={styles.mutedDash}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className={`${styles.rowAction} ${isFeatured ? styles.rowActionActive : ""}`}
+                                onClick={() => toggleFeatured(product.id)}
+                              >
+                                {isFeatured ? (
+                                  <>
+                                    <Check size={14} />
+                                    Destacado
+                                  </>
+                                ) : (
+                                  <>
+                                    <Star size={14} />
+                                    Destacar
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
 }

@@ -8,23 +8,9 @@ import React, {
   useCallback,
   useMemo,
 } from "react"
-import {
-  Search,
-  Send,
-  Paperclip,
-  Check,
-  CheckCheck,
-  RefreshCw,
-  Mail,
-  Phone,
-  FileText,
-  Download,
-  X,
-  ArrowLeft,
-  ChevronDown,
-  Copy,
-  Loader2,
-} from "lucide-react"
+import Link from "next/link"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -32,6 +18,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Search,
+  RefreshCw,
+  MoreHorizontal,
+  FileText,
+  Download,
+  Eye,
+  EyeOff,
+  Check,
+  CheckCheck,
+  Copy,
+  ArrowLeft,
+  ChevronDown,
+  Loader2,
+  Paperclip,
+  Send,
+  X,
+  MessageSquare,
+  ExternalLink,
+} from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { compressImage } from "@/lib/compress-image"
 import { downloadAttachment } from "@/lib/download"
@@ -62,8 +75,6 @@ interface SupportTicket {
   updatedAt: string
 }
 
-const integer = (value: number) => new Intl.NumberFormat("es-SV").format(value)
-
 const initials = (name: string) =>
   (name || "U")
     .trim()
@@ -76,6 +87,9 @@ const initials = (name: string) =>
 const ticketCode = (id: string) =>
   `CHAT-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`
 
+const userCode = (id: string) =>
+  `USR-${(id || "").replace(/-/g, "").slice(0, 8).toUpperCase()}`
+
 function dateLabel(
   value: string | undefined,
   mode: "day" | "time" | "short" = "short"
@@ -84,7 +98,7 @@ function dateLabel(
   return new Intl.DateTimeFormat("es-SV", {
     timeZone: "America/El_Salvador",
     ...(mode === "time"
-      ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }
+      ? { hour: "2-digit", minute: "2-digit" }
       : mode === "day"
         ? { day: "numeric", month: "long", year: "numeric" }
         : { day: "numeric", month: "short" }),
@@ -97,11 +111,27 @@ const STATUS_LABELS: Record<SupportTicket["status"], string> = {
   resolved: "Resuelto",
 }
 
-const PRESET_REPLIES = [
-  "Hola, gracias por comunicarte con soporte de Agrilpa. ¿En qué podemos apoyarte?",
-  "Recibimos tu solicitud y estamos revisando los detalles. En breve te responderemos.",
-  "Tu caso fue verificado. Por favor confirma si todo funciona correctamente.",
-  "Damos por resuelta tu consulta. Quedamos a tu disposición si necesitas algo más.",
+const QUICK_REPLIES = [
+  {
+    label: "Saludo y bienvenida",
+    text: "Hola, gracias por comunicarte con soporte de Agrilpa. ¿En qué podemos apoyarte?",
+  },
+  {
+    label: "Caso en revisión",
+    text: "Recibimos tu solicitud y estamos revisando los detalles. En breve te responderemos.",
+  },
+  {
+    label: "Solicitar más detalles",
+    text: "Para ayudarte mejor, ¿podrías compartirnos una captura o indicarnos los pasos que realizaste?",
+  },
+  {
+    label: "Caso verificado",
+    text: "Tu caso fue verificado por nuestro equipo. Por favor confirma si todo funciona correctamente.",
+  },
+  {
+    label: "Consulta resuelta",
+    text: "Damos por resuelta tu consulta. Quedamos a tu disposición si necesitas algo más.",
+  },
 ]
 
 export default function AdminSoportePage() {
@@ -121,6 +151,7 @@ export default function AdminSoportePage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
   const [isSending, setIsSending] = useState(false)
+  const [updatedAt, setUpdatedAt] = useState("")
   const [attachment, setAttachment] = useState<{
     url: string
     type: "image" | "pdf" | "docx" | "file"
@@ -131,6 +162,8 @@ export default function AdminSoportePage() {
 
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const replyInputRef = useRef<HTMLInputElement>(null)
+  const detailHeaderRef = useRef<HTMLDivElement>(null)
   const selectedTicketIdRef = useRef(selectedTicketId)
   const prevMsgCountRef = useRef<number>(0)
   const prevTicketIdRef = useRef<string | null>(null)
@@ -205,9 +238,10 @@ export default function AdminSoportePage() {
           }
         )
         if (!res.ok)
-          throw new Error("No pudimos actualizar las solicitudes de soporte.")
+          throw new Error("No pudimos actualizar las conversaciones de soporte.")
         const data = await res.json()
         setFetchError("")
+        setUpdatedAt(new Date().toISOString())
         if (data.tickets) {
           const updated = data.tickets.map((t: SupportTicket) => {
             if (
@@ -242,7 +276,7 @@ export default function AdminSoportePage() {
           setFetchError(
             err instanceof Error
               ? err.message
-              : "No se pudieron cargar los tickets de soporte."
+              : "No se pudieron cargar las conversaciones de soporte."
           )
         }
       } finally {
@@ -318,6 +352,9 @@ export default function AdminSoportePage() {
     setDetailsOpen(false)
     setActionError("")
     void markTicketAsRead(ticket.id, adminId)
+    requestAnimationFrame(() => {
+      if (detailHeaderRef.current) detailHeaderRef.current.scrollTop = 0
+    })
   }
 
   const handleToggleTicketSeen = async (ticket: SupportTicket) => {
@@ -350,7 +387,7 @@ export default function AdminSoportePage() {
       window.dispatchEvent(new Event("update-support-unread-count"))
       window.dispatchEvent(new Event("update-mensajes-unread-count"))
     } catch {
-      setActionError("No pudimos actualizar el estado de lectura del ticket.")
+      setActionError("No pudimos actualizar el estado de revisión.")
     }
   }
 
@@ -459,6 +496,7 @@ export default function AdminSoportePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "No se pudo enviar el mensaje")
 
+      setUpdatedAt(new Date().toISOString())
       if (data.message) {
         setTickets((prev) =>
           prev.map((t) =>
@@ -546,11 +584,31 @@ export default function AdminSoportePage() {
     try {
       await navigator.clipboard.writeText(value)
       setCopiedKey(key)
+      setActionError("")
       if (copyTimer.current) clearTimeout(copyTimer.current)
       copyTimer.current = setTimeout(() => setCopiedKey(null), 2000)
     } catch {
       setActionError("No se pudo copiar el dato automáticamente.")
     }
+  }
+
+  function copyButton(value: string, key: string, label: string) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={s.copy}
+        aria-label={label}
+        onClick={() => void handleCopy(value, key)}
+      >
+        {copiedKey === key ? (
+          <Check size={16} aria-hidden="true" />
+        ) : (
+          <Copy size={16} aria-hidden="true" />
+        )}
+      </Button>
+    )
   }
 
   const filteredTickets = useMemo(() => {
@@ -567,6 +625,7 @@ export default function AdminSoportePage() {
         code.includes(qClean) ||
         `#${code}`.includes(q) ||
         t.user.name.toLowerCase().includes(q) ||
+        t.user.fullName.toLowerCase().includes(q) ||
         t.user.email.toLowerCase().includes(q) ||
         t.user.companyName.toLowerCase().includes(q) ||
         t.messages.some((m) => m.content?.toLowerCase().includes(q))
@@ -589,691 +648,706 @@ export default function AdminSoportePage() {
   const unreadTotal = tickets.reduce((acc, t) => acc + (t.unreadCount || 0), 0)
 
   const formatSnippet = (msg: any) => {
-    if (!msg) return "Nueva consulta de soporte"
+    if (!msg) return "Sin mensajes"
     if (msg.attachment_url && !msg.content) {
       return msg.attachment_type === "image"
         ? "Imagen adjunta"
-        : "Documento adjunto"
+        : "Archivo adjunto"
     }
     return (
       msg.content
         ?.replace(/^📷\s*Foto adjunta$/i, "Imagen adjunta")
-        .replace(/^📎\s*Documento adjunto$/i, "Documento adjunto") ||
-      "Nueva consulta de soporte"
+        .replace(/^📎\s*Documento adjunto$/i, "Archivo adjunto") ||
+      "Sin mensajes"
     )
   }
 
   return (
-    <section className={s.page} aria-label="Centro de soporte de Agrilpa">
+    <div className={s.page}>
       <header className={s.header}>
-        <div>
+        <div className={s.headerIntro}>
           <h1>Soporte</h1>
           <p>
-            Atiende las consultas de ayuda y seguimiento técnico de los usuarios
-            en tiempo real.
+            Gestiona las consultas de ayuda y responde los tickets de soporte de
+            los usuarios.
           </p>
-        </div>
-        <div className={s.headerActions}>
-          <span className={s.summaryText}>
-            {integer(totalTickets)}{" "}
-            {totalTickets === 1 ? "conversación" : "conversaciones"} ·{" "}
-            {integer(unreadTotal)} sin revisar
-          </span>
-          <button
-            type="button"
-            className={s.secondaryButton}
-            onClick={() => void fetchTickets(false)}
-            disabled={isRefreshing || loading}
-          >
-            <RefreshCw
-              size={16}
-              className={isRefreshing || loading ? s.spinner : undefined}
-              aria-hidden="true"
-            />
-            Actualizar
-          </button>
         </div>
       </header>
 
-      {fetchError && (
-        <div className={s.notice} role="alert">
-          <span>{fetchError}</span>
-          <button
-            type="button"
-            className={s.secondaryButton}
-            onClick={() => void fetchTickets(false)}
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
-
-      {actionError && (
-        <div className={s.notice} role="alert">
-          <span>{actionError}</span>
-          <button
-            type="button"
-            className={s.secondaryButton}
-            onClick={() => setActionError("")}
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
-
-      <dl className={s.metrics} aria-label="Resumen de tickets de soporte">
-        <button
-          type="button"
-          className={s.metric}
-          aria-pressed={statusFilter === "all"}
-          onClick={() => setStatusFilter("all")}
-        >
-          <dt>Total de tickets</dt>
-          <dd>{integer(totalTickets)}</dd>
-          <span>{integer(unreadTotal)} pendientes de lectura</span>
-        </button>
-
-        <button
-          type="button"
-          className={s.metric}
-          aria-pressed={statusFilter === "open"}
-          onClick={() => setStatusFilter("open")}
-        >
-          <dt>Abiertos</dt>
-          <dd>{integer(openCount)}</dd>
-          <span>Solicitudes nuevas por atender</span>
-        </button>
-
-        <button
-          type="button"
-          className={s.metric}
-          aria-pressed={statusFilter === "in_progress"}
-          onClick={() => setStatusFilter("in_progress")}
-        >
-          <dt>En atención</dt>
-          <dd>{integer(inProgressCount)}</dd>
-          <span>Casos con seguimiento activo</span>
-        </button>
-
-        <button
-          type="button"
-          className={s.metric}
-          aria-pressed={statusFilter === "resolved"}
-          onClick={() => setStatusFilter("resolved")}
-        >
-          <dt>Resueltos</dt>
-          <dd>{integer(resolvedCount)}</dd>
-          <span>Consultas cerradas</span>
-        </button>
-      </dl>
-
-      <div className={s.workspace} data-mobile-open={mobileOpen}>
-        <aside className={s.list} aria-label="Listado de tickets de soporte">
-          <div className={s.listTools}>
-            <div className={s.search}>
-              <Search size={17} aria-hidden="true" />
-              <input
-                type="search"
-                aria-label="Buscar tickets por usuario, correo o código"
-                placeholder="Buscar usuario, correo o código"
-                data-no-auto-caps="true"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className={s.iconBtn}
-                  aria-label="Limpiar búsqueda"
-                  onClick={() => setSearchQuery("")}
-                >
-                  <X size={15} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-
-            <div
-              className={s.filters}
-              role="group"
-              aria-label="Filtrar tickets por estado"
-            >
-              {(
-                [
-                  { value: "all", label: "Todos", count: totalTickets },
-                  { value: "open", label: "Abiertos", count: openCount },
-                  {
-                    value: "in_progress",
-                    label: "En atención",
-                    count: inProgressCount,
-                  },
-                  {
-                    value: "resolved",
-                    label: "Resueltos",
-                    count: resolvedCount,
-                  },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  aria-pressed={statusFilter === item.value}
-                  onClick={() => setStatusFilter(item.value)}
-                >
-                  {item.label}
-                  <span>{integer(item.count)}</span>
-                </button>
-              ))}
-            </div>
+      <section className={s.panel} aria-label="Conversaciones de soporte">
+        <header className={s.heading}>
+          <div>
+            <h2>Conversaciones</h2>
+            <p>
+              {loading
+                ? "Cargando conversaciones…"
+                : fetchError && !tickets.length
+                  ? "No se pudo cargar la bandeja."
+                  : `${totalTickets} ${totalTickets === 1 ? "conversación" : "conversaciones"} · ${unreadTotal} sin revisar`}
+            </p>
           </div>
+        </header>
 
-          <div className={s.rows}>
-            {loading ? (
-              <div className={s.empty} role="status">
-                <Loader2 size={22} className={s.spinner} aria-hidden="true" />
-                <span>Cargando tickets de soporte…</span>
-              </div>
-            ) : filteredTickets.length === 0 ? (
-              <div className={s.empty}>
-                <h3>
-                  {searchQuery || statusFilter !== "all"
-                    ? "Sin coincidencias"
-                    : "Bandeja de soporte al día"}
-                </h3>
-                <p>
-                  {searchQuery || statusFilter !== "all"
-                    ? "Prueba otra búsqueda o cambia el filtro de estado."
-                    : "Las nuevas consultas de asistencia aparecerán en esta columna."}
-                </p>
-              </div>
-            ) : (
-              filteredTickets.map((ticket) => {
-                const isSelected = ticket.id === selectedTicketId
-                const lastMsg = ticket.lastMessage
-                const lastDate = lastMsg?.created_at || ticket.updatedAt
-                return (
-                  <button
-                    key={ticket.id}
-                    type="button"
-                    className={s.row}
-                    aria-pressed={isSelected}
-                    onClick={() => handleSelectTicket(ticket)}
-                  >
-                    <span className={s.avatar} aria-hidden="true">
-                      {initials(ticket.user.name)}
-                    </span>
-                    <div className={s.rowBody}>
-                      <div className={s.rowTop}>
-                        <strong>{ticket.user.name}</strong>
-                        <time dateTime={lastDate}>
-                          {dateLabel(lastDate, "time")}
-                        </time>
-                      </div>
-                      <p className={s.rowCompany}>
-                        {ticket.user.companyName} · {ticket.user.email}
-                      </p>
-                      <p className={s.snippet}>{formatSnippet(lastMsg)}</p>
-                      <div className={s.rowFoot}>
-                        <div className={s.rowBadges}>
-                          <span
-                            className={s.statusTag}
-                            data-status={ticket.status}
-                          >
-                            {STATUS_LABELS[ticket.status] || "Abierto"}
-                          </span>
-                          <span className={s.ticketCode}>
-                            #{ticketCode(ticket.id)}
-                          </span>
-                        </div>
-                        {ticket.unreadCount > 0 && (
-                          <span className={s.unreadIndicator}>
-                            <i aria-hidden="true" />
-                            {ticket.unreadCount} sin leer
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })
-            )}
+        {fetchError && (
+          <div role="alert" className={s.notice}>
+            {fetchError}
+            <Button variant="outline" onClick={() => void fetchTickets(false)}>
+              Reintentar
+            </Button>
           </div>
-        </aside>
+        )}
 
-        <div className={s.detail}>
-          {!activeTicket ? (
-            <div className={s.empty}>
-              <h3>Selecciona un ticket de soporte</h3>
-              <p>
-                Elige una conversación de la lista izquierda para consultar la
-                ficha del usuario y enviar una respuesta.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className={s.detailHeader}>
-                <div className={s.chatTop}>
-                  <div className={s.userIdentity}>
-                    <button
-                      type="button"
-                      className={s.back}
-                      aria-label="Volver al listado de tickets"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      <ArrowLeft size={18} aria-hidden="true" />
-                    </button>
-                    <span className={s.avatar} aria-hidden="true">
-                      {initials(activeTicket.user.name)}
-                    </span>
-                    <div className={s.userTitle}>
-                      <div className={s.userTitleRow}>
-                        <h2>{activeTicket.user.name}</h2>
-                        <span className={s.ticketCode}>
-                          #{ticketCode(activeTicket.id)}
-                        </span>
-                      </div>
-                      <p className={s.userSub}>
-                        {activeTicket.user.companyName} ·{" "}
-                        {activeTicket.user.email}
-                      </p>
-                    </div>
-                  </div>
+        {actionError && (
+          <p role="alert" className={s.notice}>
+            {actionError}
+          </p>
+        )}
 
-                  <div className={s.topControls}>
-                    <button
-                      type="button"
-                      className={s.secondaryButton}
-                      onClick={() => void handleToggleTicketSeen(activeTicket)}
-                    >
-                      {activeTicket.unreadCount === 0 ? (
-                        <>
-                          <CheckCheck size={15} aria-hidden="true" />
-                          <span>Revisado</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check size={15} aria-hidden="true" />
-                          <span>Marcar revisado</span>
-                        </>
-                      )}
-                    </button>
-
-                    <Select
-                      value={activeTicket.status}
-                      onValueChange={(val: any) => void handleStatusChange(val)}
-                    >
-                      <SelectTrigger
-                        className={s.statusSelect}
-                        aria-label="Estado del ticket de soporte"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">Abierto</SelectItem>
-                        <SelectItem value="in_progress">En atención</SelectItem>
-                        <SelectItem value="resolved">Resuelto</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <button
+        <div className={s.workspace} data-mobile-open={mobileOpen}>
+          <aside className={s.list} aria-label="Listado de tickets de soporte">
+            <div className={s.listTools}>
+              <div className={s.search}>
+                <Search size={18} aria-hidden="true" />
+                <Input
+                  type="search"
+                  aria-label="Buscar conversaciones"
+                  placeholder="Buscar conversaciones"
+                  data-no-auto-caps="true"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+                <Button
                   type="button"
-                  className={s.participantsSummary}
-                  aria-expanded={detailsOpen}
-                  aria-controls="support-user-details"
-                  onClick={() => setDetailsOpen((open) => !open)}
+                  variant="ghost"
+                  size="icon"
+                  className={s.refresh}
+                  disabled={isRefreshing}
+                  aria-label="Actualizar conversaciones"
+                  title="Actualizar conversaciones"
+                  onClick={() => void fetchTickets(false)}
                 >
-                  <div className={s.summaryItems}>
-                    <span>
-                      <Mail size={14} aria-hidden="true" />
-                      {activeTicket.user.email}
-                    </span>
-                    {activeTicket.user.phone &&
-                      activeTicket.user.phone !== "No especificado" && (
-                        <span>
-                          <Phone size={14} aria-hidden="true" />
-                          {activeTicket.user.phone}
-                        </span>
-                      )}
-                  </div>
-                  <span className={s.summaryToggle}>
-                    <span>
-                      {detailsOpen ? "Ocultar datos" : "Ver datos del usuario"}
-                    </span>
-                    <ChevronDown
-                      size={15}
-                      className={detailsOpen ? s.rotated : undefined}
-                      aria-hidden="true"
-                    />
-                  </span>
-                </button>
-
-                {detailsOpen && (
-                  <dl
-                    id="support-user-details"
-                    className={s.participantDetails}
-                  >
-                    <div>
-                      <dt>Nombre completo</dt>
-                      <dd>{activeTicket.user.fullName}</dd>
-                    </div>
-                    <div>
-                      <dt>Empresa</dt>
-                      <dd>{activeTicket.user.companyName}</dd>
-                    </div>
-                    <div>
-                      <dt>Correo electrónico</dt>
-                      <dd>
-                        <span>{activeTicket.user.email}</span>
-                        <button
-                          type="button"
-                          className={s.copyBtn}
-                          aria-label="Copiar correo electrónico"
-                          onClick={() =>
-                            void handleCopy(activeTicket.user.email, "email")
-                          }
-                        >
-                          {copiedKey === "email" ? (
-                            <Check size={15} aria-hidden="true" />
-                          ) : (
-                            <Copy size={15} aria-hidden="true" />
-                          )}
-                        </button>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Teléfono</dt>
-                      <dd>
-                        <span>{activeTicket.user.phone}</span>
-                        {activeTicket.user.phone &&
-                          activeTicket.user.phone !== "No especificado" && (
-                            <button
-                              type="button"
-                              className={s.copyBtn}
-                              aria-label="Copiar teléfono"
-                              onClick={() =>
-                                void handleCopy(
-                                  activeTicket.user.phone,
-                                  "phone"
-                                )
-                              }
-                            >
-                              {copiedKey === "phone" ? (
-                                <Check size={15} aria-hidden="true" />
-                              ) : (
-                                <Copy size={15} aria-hidden="true" />
-                              )}
-                            </button>
-                          )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Código de referencia</dt>
-                      <dd>
-                        <span>#{ticketCode(activeTicket.id)}</span>
-                        <button
-                          type="button"
-                          className={s.copyBtn}
-                          aria-label="Copiar código de referencia"
-                          onClick={() =>
-                            void handleCopy(
-                              `#${ticketCode(activeTicket.id)}`,
-                              "code"
-                            )
-                          }
-                        >
-                          {copiedKey === "code" ? (
-                            <Check size={15} aria-hidden="true" />
-                          ) : (
-                            <Copy size={15} aria-hidden="true" />
-                          )}
-                        </button>
-                      </dd>
-                    </div>
-                  </dl>
-                )}
+                  <RefreshCw
+                    size={16}
+                    className={isRefreshing ? s.spinner : undefined}
+                    aria-hidden="true"
+                  />
+                </Button>
               </div>
 
               <div
-                ref={chatScrollRef}
-                className={s.thread}
-                role="log"
-                aria-label="Mensajes del ticket de soporte"
+                className={s.filters}
+                role="group"
+                aria-label="Filtrar por estado"
               >
-                {activeTicket.messages.length === 0 ? (
-                  <div className={s.empty}>
-                    <h3>Sin mensajes en este ticket</h3>
-                    <p>
-                      Escribe una respuesta abajo para iniciar la atención con
-                      el usuario.
-                    </p>
+                {(
+                  [
+                    { value: "all", label: "Todos", count: totalTickets },
+                    { value: "open", label: "Abiertos", count: openCount },
+                    {
+                      value: "in_progress",
+                      label: "En atención",
+                      count: inProgressCount,
+                    },
+                    {
+                      value: "resolved",
+                      label: "Resueltos",
+                      count: resolvedCount,
+                    },
+                  ] as const
+                ).map((filter) => (
+                  <button
+                    type="button"
+                    key={filter.value}
+                    aria-pressed={statusFilter === filter.value}
+                    onClick={() => setStatusFilter(filter.value)}
+                  >
+                    {filter.label}
+                    <span>{filter.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={s.rows}>
+              {loading ? (
+                <div className={s.empty} role="status">
+                  <Loader2 className={s.spinner} size={22} />
+                  Cargando conversaciones…
+                </div>
+              ) : !filteredTickets.length ? (
+                <div className={s.empty}>
+                  <h3>
+                    {searchQuery || statusFilter !== "all"
+                      ? "No hay coincidencias"
+                      : "Todavía no hay conversaciones"}
+                  </h3>
+                  <p>
+                    {searchQuery || statusFilter !== "all"
+                      ? "Cambia la búsqueda o el filtro para ver otros tickets."
+                      : "Las consultas de soporte de los usuarios aparecerán aquí."}
+                  </p>
+                </div>
+              ) : (
+                filteredTickets.map((ticket) => {
+                  const lastMsg = ticket.lastMessage
+                  const lastDate = lastMsg?.created_at || ticket.updatedAt
+                  return (
+                    <button
+                      key={ticket.id}
+                      type="button"
+                      className={s.row}
+                      aria-pressed={selectedTicketId === ticket.id}
+                      onClick={() => handleSelectTicket(ticket)}
+                    >
+                      <span className={s.rowAvatar} aria-hidden="true">
+                        {initials(ticket.user.name)}
+                      </span>
+                      <div className={s.rowBody}>
+                        <div className={s.rowTop}>
+                          <strong>{ticket.user.name}</strong>
+                          <time dateTime={lastDate}>{dateLabel(lastDate)}</time>
+                        </div>
+                        <p className={s.rowSeller}>
+                          {ticket.user.companyName} · {ticket.user.email}
+                        </p>
+                        <p className={s.rowProduct}>
+                          #{ticketCode(ticket.id)} ·{" "}
+                          {STATUS_LABELS[ticket.status] || "Abierto"}
+                        </p>
+                        <p className={s.snippet}>{formatSnippet(lastMsg)}</p>
+                        <div className={s.rowFoot}>
+                          <span>
+                            {ticket.messages.length}{" "}
+                            {ticket.messages.length === 1
+                              ? "mensaje"
+                              : "mensajes"}
+                          </span>
+                          {ticket.unreadCount > 0 && (
+                            <span className={s.pending}>
+                              <i aria-hidden="true" />
+                              Sin revisar
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </aside>
+
+          <div className={s.detail}>
+            {!activeTicket ? (
+              <div className={s.empty}>
+                <h3>Selecciona una conversación</h3>
+                <p>
+                  Revisa los datos del usuario, el historial de soporte y envía
+                  una respuesta.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div ref={detailHeaderRef} className={s.detailHeader}>
+                  <div className={s.chatTop}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={s.back}
+                      aria-label="Volver a conversaciones"
+                      title="Volver a conversaciones"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <ArrowLeft size={18} />
+                    </Button>
+
+                    <div className={s.productIdentity}>
+                      <span className={s.headerBadgeAvatar} aria-hidden="true">
+                        {initials(activeTicket.user.name)}
+                      </span>
+                      <div>
+                        <h3 title={activeTicket.user.name}>
+                          {activeTicket.user.name}
+                        </h3>
+                        <span>
+                          #{ticketCode(activeTicket.id)} ·{" "}
+                          {STATUS_LABELS[activeTicket.status] || "Abierto"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={s.topControls}>
+                      <Select
+                        value={activeTicket.status}
+                        onValueChange={(val: any) => void handleStatusChange(val)}
+                      >
+                        <SelectTrigger
+                          className={s.statusSelect}
+                          aria-label="Estado del ticket de soporte"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Abierto</SelectItem>
+                          <SelectItem value="in_progress">
+                            En atención
+                          </SelectItem>
+                          <SelectItem value="resolved">Resuelto</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={s.more}
+                            aria-label="Acciones de la conversación"
+                            title="Acciones de la conversación"
+                          >
+                            <MoreHorizontal size={20} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className={s.actionsMenu}
+                          collisionPadding={12}
+                        >
+                          <DropdownMenuItem
+                            className={s.menuItem}
+                            onSelect={() =>
+                              void handleToggleTicketSeen(activeTicket)
+                            }
+                          >
+                            {activeTicket.unreadCount === 0 ? (
+                              <EyeOff size={16} />
+                            ) : (
+                              <Eye size={16} />
+                            )}{" "}
+                            {activeTicket.unreadCount === 0
+                              ? "Marcar sin revisar"
+                              : "Marcar revisada"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className={s.menuItem}
+                            onSelect={() =>
+                              void handleCopy(
+                                `#${ticketCode(activeTicket.id)}`,
+                                "conversation"
+                              )
+                            }
+                          >
+                            <Copy size={16} />
+                            Copiar código de conversación
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className={s.menuItem}
+                            disabled={isRefreshing}
+                            onSelect={() => void fetchTickets(false)}
+                          >
+                            <RefreshCw size={16} />
+                            Actualizar conversaciones
+                          </DropdownMenuItem>
+                          {activeTicket.user.id && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem asChild className={s.menuItem}>
+                                <Link
+                                  href={`/vendedor/${activeTicket.user.id}`}
+                                >
+                                  <ExternalLink size={16} />
+                                  Ver perfil del usuario
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                ) : (
-                  activeTicket.messages.map((msg: any, index: number) => {
-                    const isAdmin = msg.sender_id === adminId
-                    const day = dateLabel(msg.created_at, "day")
-                    const prevDay =
-                      index > 0
-                        ? dateLabel(
+
+                  <button
+                    type="button"
+                    className={s.participantsSummary}
+                    aria-label={detailsOpen ? "Ocultar datos" : "Ver datos"}
+                    aria-expanded={detailsOpen}
+                    aria-controls="support-participants"
+                    onClick={() => setDetailsOpen((open) => !open)}
+                  >
+                    <span className={s.participant}>
+                      <span className={s.avatar} aria-hidden="true">
+                        {initials(activeTicket.user.name)}
+                      </span>
+                      <span>
+                        <small>Usuario</small>
+                        <strong>{activeTicket.user.name}</strong>
+                      </span>
+                    </span>
+                    <span className={s.participant}>
+                      <span className={s.avatar} aria-hidden="true">
+                        SA
+                      </span>
+                      <span>
+                        <small>Contacto</small>
+                        <strong>{activeTicket.user.email}</strong>
+                      </span>
+                    </span>
+                    <span className={s.participantHint}>
+                      <span>{detailsOpen ? "Ocultar datos" : "Ver datos"}</span>
+                      <ChevronDown
+                        size={16}
+                        className={detailsOpen ? s.rotated : undefined}
+                      />
+                    </span>
+                  </button>
+
+                  {detailsOpen && (
+                    <div
+                      id="support-participants"
+                      className={s.participantDetails}
+                    >
+                      <section aria-label="Datos del usuario">
+                        <h4>Usuario</h4>
+                        <dl>
+                          <div>
+                            <dt>Nombre</dt>
+                            <dd>
+                              {activeTicket.user.fullName ||
+                                activeTicket.user.name}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Empresa</dt>
+                            <dd>
+                              {activeTicket.user.companyName || "No indicada"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Código</dt>
+                            <dd className={s.code}>
+                              {userCode(activeTicket.user.id)}
+                              {copyButton(
+                                userCode(activeTicket.user.id),
+                                "user-code",
+                                "Copiar código del usuario"
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                      </section>
+
+                      <section aria-label="Datos de contacto">
+                        <h4>Contacto</h4>
+                        <dl>
+                          <div>
+                            <dt>Correo</dt>
+                            <dd className={s.code}>
+                              <span>
+                                {activeTicket.user.email || "No indicado"}
+                              </span>
+                              {activeTicket.user.email &&
+                                copyButton(
+                                  activeTicket.user.email,
+                                  "email",
+                                  "Copiar correo electrónico"
+                                )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Teléfono</dt>
+                            <dd className={s.code}>
+                              <span>
+                                {activeTicket.user.phone || "No indicado"}
+                              </span>
+                              {activeTicket.user.phone &&
+                                activeTicket.user.phone !== "No especificado" &&
+                                copyButton(
+                                  activeTicket.user.phone,
+                                  "phone",
+                                  "Copiar teléfono"
+                                )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Estado del ticket</dt>
+                            <dd>
+                              {STATUS_LABELS[activeTicket.status] || "Abierto"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </section>
+
+                      <div className={s.conversationReference}>
+                        <span>Código de conversación</span>
+                        <span>#{ticketCode(activeTicket.id)}</span>
+                        {copyButton(
+                          `#${ticketCode(activeTicket.id)}`,
+                          "conversation",
+                          "Copiar código de conversación"
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  ref={chatScrollRef}
+                  className={s.thread}
+                  role="log"
+                  aria-live="off"
+                  aria-label="Mensajes de la conversación"
+                >
+                  {!activeTicket.messages.length ? (
+                    <div className={s.empty}>
+                      <h4>Aún no hay mensajes</h4>
+                      <p>Los mensajes de esta conversación aparecerán aquí.</p>
+                    </div>
+                  ) : (
+                    activeTicket.messages.map((message: any, index: number) => {
+                      const isAdmin = message.sender_id === adminId
+                      const sender = isAdmin
+                        ? "Soporte Agrilpa"
+                        : activeTicket.user.name
+                      const day = dateLabel(message.created_at, "day")
+                      const newDay =
+                        index === 0 ||
+                        day !==
+                          dateLabel(
                             activeTicket.messages[index - 1].created_at,
                             "day"
                           )
-                        : ""
-                    const showDay = index === 0 || day !== prevDay
-                    const showSender =
-                      showDay ||
-                      msg.sender_id !==
-                        activeTicket.messages[index - 1]?.sender_id
-                    const cleanContent = msg.content
-                      ?.replace(/^📷\s*Foto adjunta$/i, "")
-                      .replace(/^📎\s*Documento adjunto$/i, "")
-                      .trim()
+                      const showSender =
+                        newDay ||
+                        message.sender_id !==
+                          activeTicket.messages[index - 1]?.sender_id
+                      const cleanContent = message.content
+                        ?.replace(/^📷\s*Foto adjunta$/i, "")
+                        .replace(/^📎\s*Documento adjunto$/i, "")
+                        .trim()
 
-                    return (
-                      <Fragment key={msg.id}>
-                        {showDay && day && <div className={s.day}>{day}</div>}
-                        <div
-                          className={s.messageRow}
-                          data-side={isAdmin ? "admin" : "user"}
-                        >
-                          {showSender && (
-                            <span className={s.sender}>
-                              {isAdmin
-                                ? "Soporte Agrilpa"
-                                : activeTicket.user.name}
-                            </span>
-                          )}
-                          <div className={s.bubble}>
-                            {msg.attachment_url && (
-                              <div>
-                                {msg.attachment_type === "image" ? (
-                                  <div className={s.imageAttachment}>
-                                    <button
-                                      type="button"
-                                      aria-label="Ver imagen adjunta"
-                                      onClick={() =>
-                                        setPreviewImage(msg.attachment_url)
-                                      }
-                                    >
-                                      <img
-                                        src={msg.attachment_url}
-                                        alt="Adjunto enviado en soporte"
-                                        loading="lazy"
-                                      />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={s.fileAction}
-                                      onClick={() =>
-                                        downloadAttachment(
-                                          msg.attachment_url,
-                                          "adjunto-soporte.jpg"
-                                        )
-                                      }
-                                    >
-                                      <Download size={13} aria-hidden="true" />
-                                      Descargar imagen
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className={s.documentAttachment}>
-                                    <span className="flex items-center gap-2 min-w-0">
-                                      <FileText size={16} aria-hidden="true" />
-                                      <span className="truncate">
-                                        Documento adjunto
-                                      </span>
+                      return (
+                        <Fragment key={message.id}>
+                          {newDay && day && <div className={s.day}>{day}</div>}
+                          <div
+                            className={s.messageRow}
+                            data-side={isAdmin ? "seller" : "buyer"}
+                          >
+                            {showSender && (
+                              <span className={s.sender}>{sender}</span>
+                            )}
+                            <div className={s.bubble}>
+                              {message.attachment_url &&
+                                (message.attachment_type === "image" ? (
+                                  <button
+                                    type="button"
+                                    className={s.imageAttachment}
+                                    aria-label="Ampliar imagen adjunta"
+                                    onClick={() =>
+                                      setPreviewImage(message.attachment_url)
+                                    }
+                                  >
+                                    <img
+                                      src={message.attachment_url}
+                                      alt="Imagen adjunta"
+                                    />
+                                    <span>
+                                      <Eye size={15} />
+                                      Ver imagen
                                     </span>
-                                    <button
+                                  </button>
+                                ) : (
+                                  <div className={s.document}>
+                                    <FileText size={20} aria-hidden="true" />
+                                    <span>
+                                      {message.attachment_type === "pdf"
+                                        ? "Documento PDF"
+                                        : message.attachment_type === "docx"
+                                          ? "Documento Word"
+                                          : "Archivo adjunto"}
+                                    </span>
+                                    <Button
                                       type="button"
+                                      variant="ghost"
                                       className={s.fileAction}
                                       onClick={() =>
-                                        downloadAttachment(
-                                          msg.attachment_url,
+                                        void downloadAttachment(
+                                          message.attachment_url,
                                           "documento-soporte"
                                         )
                                       }
                                     >
-                                      <Download size={13} aria-hidden="true" />
+                                      <Download size={16} />
                                       Descargar
-                                    </button>
+                                    </Button>
                                   </div>
-                                )}
-                              </div>
-                            )}
+                                ))}
 
-                            {cleanContent && (
-                              <p className={s.messageText}>{cleanContent}</p>
-                            )}
+                              {cleanContent && (
+                                <p className={s.messageText}>{cleanContent}</p>
+                              )}
 
-                            <div className={s.messageMeta}>
-                              <time dateTime={msg.created_at}>
-                                {dateLabel(msg.created_at, "time") || "Ahora"}
-                              </time>
-                              {isAdmin && (
+                              <div className={s.messageMeta}>
+                                <time dateTime={message.created_at}>
+                                  {dateLabel(message.created_at, "time")}
+                                </time>
                                 <span>
-                                  {msg.read_at ? (
+                                  {message.read_at ? (
                                     <>
-                                      <CheckCheck
-                                        size={13}
-                                        aria-hidden="true"
-                                      />
+                                      <CheckCheck size={15} />
                                       Leído
                                     </>
                                   ) : (
                                     <>
-                                      <Check size={13} aria-hidden="true" />
+                                      <Check size={15} />
                                       Enviado
                                     </>
                                   )}
                                 </span>
-                              )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </Fragment>
-                    )
-                  })
-                )}
-              </div>
-
-              <div className={s.composer}>
-                <div className={s.quickBar}>
-                  <span className={s.quickLabel}>Respuestas rápidas:</span>
-                  {PRESET_REPLIES.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => void handleSendReply(preset)}
-                      disabled={isSending}
-                      className={s.quickChip}
-                      title={preset}
-                    >
-                      {preset}
-                    </button>
-                  ))}
+                        </Fragment>
+                      )
+                    })
+                  )}
                 </div>
 
-                {attachment && (
-                  <div className={s.attachmentBar}>
-                    <div className={s.attachmentInfo}>
-                      {attachment.type === "image" ? (
-                        <img src={attachment.url} alt="Vista previa" />
-                      ) : (
-                        <FileText size={20} aria-hidden="true" />
-                      )}
-                      <div>
-                        <strong>{attachment.name}</strong>
-                        <span>{attachment.size} · Listo para enviar</span>
+                <div className={s.composer}>
+                  {attachment && (
+                    <div className={s.attachmentBar}>
+                      <div className={s.attachmentInfo}>
+                        {attachment.type === "image" ? (
+                          <img src={attachment.url} alt="Vista previa" />
+                        ) : (
+                          <FileText size={20} aria-hidden="true" />
+                        )}
+                        <div>
+                          <strong>{attachment.name}</strong>
+                          <span>{attachment.size} · Listo para enviar</span>
+                        </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAttachment(null)}
+                        aria-label="Quitar archivo adjunto"
+                      >
+                        <X size={16} />
+                      </Button>
                     </div>
+                  )}
+
+                  <div className={s.inputRow}>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf,.doc,.docx"
+                      className="hidden"
+                      aria-label="Seleccionar archivo adjunto"
+                    />
+
                     <button
                       type="button"
-                      className={s.iconBtn}
-                      aria-label="Quitar archivo adjunto"
-                      onClick={() => setAttachment(null)}
+                      className={s.attachBtn}
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Adjuntar archivo"
+                      title="Adjuntar archivo (máximo 10 MB)"
                     >
-                      <X size={16} aria-hidden="true" />
+                      <Paperclip size={16} />
+                    </button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className={s.quickMenuBtn}>
+                          <MessageSquare size={15} />
+                          <span>Respuestas rápidas</span>
+                          <ChevronDown size={14} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className={s.actionsMenu}
+                      >
+                        {QUICK_REPLIES.map((reply) => (
+                          <DropdownMenuItem
+                            key={reply.label}
+                            className={s.menuItem}
+                            onSelect={() => {
+                              setReplyText(reply.text)
+                              requestAnimationFrame(() =>
+                                replyInputRef.current?.focus()
+                              )
+                            }}
+                          >
+                            {reply.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <input
+                      ref={replyInputRef}
+                      type="text"
+                      className={s.replyInput}
+                      placeholder="Escribe una respuesta como Soporte Agrilpa…"
+                      aria-label="Escribir respuesta de soporte"
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          void handleSendReply()
+                        }
+                      }}
+                      disabled={isSending}
+                    />
+
+                    <button
+                      type="button"
+                      className={s.sendBtn}
+                      onClick={() => void handleSendReply()}
+                      disabled={isSending || (!replyText.trim() && !attachment)}
+                    >
+                      <Send size={15} />
+                      <span>Responder</span>
                     </button>
                   </div>
-                )}
 
-                <div className={s.inputRow}>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*,.pdf,.doc,.docx"
-                    className="hidden"
-                    aria-label="Seleccionar archivo adjunto"
-                  />
-
-                  <button
-                    type="button"
-                    className={s.attachButton}
-                    onClick={() => fileInputRef.current?.click()}
-                    aria-label="Adjuntar imagen o documento"
-                    title="Adjuntar imagen o documento (máximo 10 MB)"
-                  >
-                    <Paperclip size={17} aria-hidden="true" />
-                  </button>
-
-                  <input
-                    type="text"
-                    className={s.replyInput}
-                    placeholder="Escribe una respuesta como Soporte Agrilpa…"
-                    aria-label="Escribir respuesta de soporte"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        void handleSendReply()
-                      }
-                    }}
-                    disabled={isSending}
-                  />
-
-                  <button
-                    type="button"
-                    className={s.primaryButton}
-                    onClick={() => void handleSendReply()}
-                    disabled={isSending || (!replyText.trim() && !attachment)}
-                  >
-                    <Send size={15} aria-hidden="true" />
-                    <span>Responder</span>
-                  </button>
+                  <footer className={s.footer}>
+                    <span className={s.footerState} role="status">
+                      {activeTicket.unreadCount === 0 ? (
+                        <Check size={14} />
+                      ) : (
+                        <EyeOff size={14} />
+                      )}{" "}
+                      {activeTicket.unreadCount === 0
+                        ? "Revisada"
+                        : "Sin revisar"}
+                      <span aria-hidden="true">·</span>
+                      {STATUS_LABELS[activeTicket.status] || "Abierto"}
+                    </span>
+                    {updatedAt && (
+                      <span>
+                        Actualizado a las {dateLabel(updatedAt, "time")}
+                      </span>
+                    )}
+                  </footer>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      <MediaLightbox
-        imageUrl={previewImage}
-        onClose={() => setPreviewImage(null)}
-        title="Adjunto de soporte"
-      />
-    </section>
+        <MediaLightbox
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+          title="Imagen adjunta"
+        />
+      </section>
+    </div>
   )
 }

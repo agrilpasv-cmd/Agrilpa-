@@ -324,10 +324,13 @@ export function AdminDashboardContent({
       )}
       <div className={styles.metrics}>
         {data.metrics.map((metric) => (
-          <article
+          <button
+            type="button"
             className={styles.metric}
             key={metric.id}
             data-metric={metric.id}
+            aria-pressed={selected === metric.id}
+            onClick={() => setSelected(metric.id)}
           >
             <h2>{labels[metric.id].title}</h2>
             <p
@@ -365,7 +368,11 @@ export function AdminDashboardContent({
                     >
                       <Line
                         dataKey="value"
-                        stroke="var(--primary)"
+                        stroke={
+                          selected === metric.id
+                            ? "var(--primary-foreground)"
+                            : "var(--primary)"
+                        }
                         strokeWidth={1.5}
                         dot={false}
                         isAnimationActive={false}
@@ -375,7 +382,7 @@ export function AdminDashboardContent({
                 </div>
               )}
             </div>
-          </article>
+          </button>
         ))}
       </div>
       <div className={styles.mainColumns}>

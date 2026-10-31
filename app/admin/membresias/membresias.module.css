@@ -145,13 +145,20 @@ button.metric {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-button.metric:hover {
+button.metric:hover:not([aria-pressed="true"]) {
   background: color-mix(in srgb, var(--muted) 55%, var(--card));
 }
 
 button.metric[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--foreground) 55%, var(--background));
-  background: color-mix(in srgb, var(--foreground) 4%, var(--background));
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+button.metric[aria-pressed="true"] dt,
+button.metric[aria-pressed="true"] dd,
+button.metric[aria-pressed="true"] span {
+  color: var(--primary-foreground);
 }
 
 .metric dt {
@@ -582,9 +589,9 @@ button.metric[aria-pressed="true"] {
 
 .selectedCard {
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--member-tint);
+  background: var(--muted);
 }
 
 .selectedCard strong {

@@ -42,6 +42,7 @@ export default function BajasPage() {
     [busy, setBusy] = useState(false)
   const [query, setQuery] = useState(""),
     [reason, setReason] = useState("all"),
+    [daysFilter, setDaysFilter] = useState<"all" | 7 | 30>("all"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set()),
@@ -84,15 +85,22 @@ export default function BajasPage() {
   const reasons = [
     ...new Set(reports.map((item) => item.reason).filter(Boolean))
   ].sort()
-  const shown = reports.filter(
-    (item) =>
+  const shown = reports.filter((item) => {
+    if (daysFilter !== "all") {
+      const elapsed = Date.now() - Date.parse(item.deleted_at)
+      if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed >= daysFilter * 86400000) {
+        return false
+      }
+    }
+    return (
       (reason === "all" || item.reason === reason) &&
       [item.user_email, item.reason, item.custom_reason].some((value) =>
         value
           ?.toLocaleLowerCase("es")
           .includes(query.trim().toLocaleLowerCase("es"))
       )
-  )
+    )
+  })
   const counts = new Map<string, number>()
   reports.forEach((item) => {
     if (item.reason) counts.set(item.reason, (counts.get(item.reason) || 0) + 1)
@@ -167,17 +175,23 @@ export default function BajasPage() {
           {
             label: "Bajas registradas",
             value: loaded ? reports.length : null,
-            hint: "Reportes de este listado"
+            hint: "Reportes de este listado",
+            active: daysFilter === "all",
+            onClick: () => setDaysFilter("all")
           },
           {
             label: "Últimos 7 días",
             value: loaded ? recent(7) : null,
-            hint: "Según la fecha de eliminación"
+            hint: "Según la fecha de eliminación",
+            active: daysFilter === 7,
+            onClick: () => setDaysFilter(7)
           },
           {
             label: "Últimos 30 días",
             value: loaded ? recent(30) : null,
-            hint: "Según la fecha de eliminación"
+            hint: "Según la fecha de eliminación",
+            active: daysFilter === 30,
+            onClick: () => setDaysFilter(30)
           }
         ]}
       />

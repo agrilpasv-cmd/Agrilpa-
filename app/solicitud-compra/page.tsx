@@ -821,7 +821,7 @@ export default function SolicitudCompraPage() {
             </div>
             <div className={s.previewBody}>
               <div className={s.previewIcon}>
-                <Package size={30} strokeWidth={1.5} aria-hidden="true" />
+                <Package size={22} strokeWidth={1.5} aria-hidden="true" />
               </div>
               <span className={s.previewCategory}>
                 {draft.category || "Categoría por definir"}

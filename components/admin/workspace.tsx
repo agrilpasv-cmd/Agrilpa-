@@ -52,26 +52,48 @@ export function AdminHeader({
 export function AdminMetrics({
   items
 }: {
-  items: { label: string; value: number | string | null; hint: string }[]
+  items: {
+    label: string
+    value: number | string | null
+    hint: string
+    active?: boolean
+    onClick?: () => void
+  }[]
 }) {
   return (
     <dl
       className={s.metrics}
       style={{ "--metric-columns": items.length } as CSSProperties}
     >
-      {items.map((item) => (
-        <div key={item.label}>
-          <dt>{item.label}</dt>
-          <dd data-unavailable={item.value === null}>
-            {item.value === null
-              ? "No disponible"
-              : typeof item.value === "number"
-                ? new Intl.NumberFormat("es-SV").format(item.value)
-                : item.value}
-          </dd>
-          <dd className={s.metricHint}>{item.hint}</dd>
-        </div>
-      ))}
+      {items.map((item) => {
+        const content = (
+          <>
+            <dt>{item.label}</dt>
+            <dd data-unavailable={item.value === null}>
+              {item.value === null
+                ? "No disponible"
+                : typeof item.value === "number"
+                  ? new Intl.NumberFormat("es-SV").format(item.value)
+                  : item.value}
+            </dd>
+            <dd className={s.metricHint}>{item.hint}</dd>
+          </>
+        )
+        return item.onClick ? (
+          <button
+            type="button"
+            key={item.label}
+            aria-pressed={Boolean(item.active)}
+            onClick={item.onClick}
+          >
+            {content}
+          </button>
+        ) : (
+          <div key={item.label} data-active={Boolean(item.active)}>
+            {content}
+          </div>
+        )
+      })}
     </dl>
   )
 }

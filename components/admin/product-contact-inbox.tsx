@@ -394,29 +394,44 @@ export function ProductContactInbox({
                     Escribir correo
                   </a>
                 </div>
-                <div className={s.product}>
-                  <img
-                    src={selected.product_image || "/placeholder.svg"}
-                    alt=""
-                  />
-                  <div>
-                    <span>Producto de interés</span>
-                    <strong>{selected.product_title}</strong>
-                    <span>{selected.seller_name}</span>
-                    <div>
-                      {selected.product_id ? (
-                        <Link
-                          href={`/producto/${selected.product_id}`}
-                          target="_blank"
-                        >
-                          Ver publicación <ArrowUpRight size={14} />
-                        </Link>
-                      ) : (
-                        <span>La publicación ya no está disponible.</span>
-                      )}
+                {(() => {
+                  const pedidoId =
+                    selected.product_image?.match(
+                      /#pedido=([0-9a-f-]{36})/i
+                    )?.[1] || null
+                  const imageSrc =
+                    (selected.product_image || "/placeholder.svg").split("#")[0] ||
+                    "/placeholder.svg"
+                  const targetHref = pedidoId
+                    ? `/pedidos/${pedidoId}`
+                    : selected.product_id
+                      ? `/producto/${selected.product_id}`
+                      : null
+                  return (
+                    <div className={s.product}>
+                      <img src={imageSrc} alt="" />
+                      <div>
+                        <span>
+                          {pedidoId
+                            ? "Solicitud de compra"
+                            : "Producto de interés"}
+                        </span>
+                        <strong>{selected.product_title}</strong>
+                        <span>{selected.seller_name}</span>
+                        <div>
+                          {targetHref ? (
+                            <Link href={targetHref} target="_blank">
+                              {pedidoId ? "Ver solicitud" : "Ver publicación"}{" "}
+                              <ArrowUpRight size={14} />
+                            </Link>
+                          ) : (
+                            <span>La publicación ya no está disponible.</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  )
+                })()}
                 <div className={s.message}>
                   <h3>Mensaje de la persona</h3>
                   <p>{selected.message || "No añadió un mensaje adicional."}</p>

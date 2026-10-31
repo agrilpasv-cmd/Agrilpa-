@@ -9,8 +9,34 @@ export { styles as commerceStyles }
 export function CommercePage({ title, description, action, children }: { title: string; description: string; action?: ReactNode; children: ReactNode }) {
   return <section className={styles.page} aria-label={title}><header className={styles.header}><div><h1>{title}</h1><p>{description}</p></div>{action && <div className={styles.headerAction}>{action}</div>}</header>{children}</section>
 }
-export function Metrics({ items }: { items: { label: string; value: number | string; hint?: string }[] }) {
-  return <dl className={styles.metrics}>{items.map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd>{item.hint && <span>{item.hint}</span>}</div>)}</dl>
+export function Metrics({ items }: { items: { label: string; value: number | string; hint?: string; active?: boolean; onClick?: () => void }[] }) {
+  return (
+    <dl className={styles.metrics}>
+      {items.map((item) => {
+        const body = (
+          <>
+            <dt>{item.label}</dt>
+            <dd>{item.value}</dd>
+            {item.hint && <span>{item.hint}</span>}
+          </>
+        )
+        return item.onClick ? (
+          <button
+            key={item.label}
+            type="button"
+            aria-pressed={Boolean(item.active)}
+            onClick={item.onClick}
+          >
+            {body}
+          </button>
+        ) : (
+          <div key={item.label} data-active={Boolean(item.active)}>
+            {body}
+          </div>
+        )
+      })}
+    </dl>
+  )
 }
 export function SearchField({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
   return <div className={styles.search}><Search size={18} aria-hidden="true" /><input type="search" data-no-auto-caps="true" aria-label={placeholder} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} />{value && <button type="button" aria-label="Borrar búsqueda" onClick={() => onChange("")}><X size={16} aria-hidden="true" /></button>}</div>

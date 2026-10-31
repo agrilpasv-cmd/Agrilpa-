@@ -204,35 +204,42 @@ export default function AdminQuotationsPage() {
           </Button>
         }
       />
-      {error && <AdminNotice error>{error}</AdminNotice>}
       {notice && <AdminNotice>{notice}</AdminNotice>}
       <AdminMetrics
         items={[
           {
             label: "Cotizaciones consultadas",
             value: loaded ? quotations.length : null,
-            hint: "Registros de este listado"
+            hint: "Registros de este listado",
+            active: status === "all",
+            onClick: () => setStatus("all")
           },
           {
             label: "Pendientes",
             value: loaded
               ? quotations.filter((item) => item.status === "pending").length
               : null,
-            hint: "Con estado pendiente"
+            hint: "Con estado pendiente",
+            active: status === "pending",
+            onClick: () => setStatus("pending")
           },
           {
             label: "Aceptadas",
             value: loaded
               ? quotations.filter((item) => item.status === "accepted").length
               : null,
-            hint: "Con estado aceptado"
+            hint: "Con estado aceptado",
+            active: status === "accepted",
+            onClick: () => setStatus("accepted")
           },
           {
             label: "Rechazadas",
             value: loaded
               ? quotations.filter((item) => item.status === "rejected").length
               : null,
-            hint: "Con estado rechazado"
+            hint: "Con estado rechazado",
+            active: status === "rejected",
+            onClick: () => setStatus("rejected")
           }
         ]}
       />

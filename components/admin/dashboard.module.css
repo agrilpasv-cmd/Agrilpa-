@@ -111,6 +111,25 @@
   padding: 21px;
   min-width: 0;
   min-height: 195px;
+  background: var(--card);
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.metric:hover:not([aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--muted) 55%, var(--card));
+}
+.metric[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.metric[aria-pressed="true"] :is(h2, .metricValue, .metricHint, .newCount, .comparison) {
+  color: var(--primary-foreground);
 }
 .metric h2 {
   font-size: 16px;

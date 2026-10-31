@@ -144,19 +144,28 @@ export default function ActividadAdminPage() {
           {
             label: "Eventos consultados",
             value: loaded ? base.length : null,
-            hint: "Registros de la consulta actual"
+            hint: "Registros de la consulta actual",
+            active: view === "events" && !user,
+            onClick: () => {
+              setUser(null)
+              setView("events")
+            }
           },
           {
             label: "Usuarios con actividad",
             value: loaded
               ? new Set(base.map((item) => item.user_id).filter(Boolean)).size
               : null,
-            hint: "Cuentas identificadas en esta lista"
+            hint: "Cuentas identificadas en esta lista",
+            active: view === "users",
+            onClick: () => setView("users")
           },
           {
             label: "Eventos de visitantes",
             value: loaded ? base.filter((item) => !item.user_id).length : null,
-            hint: "Eventos sin usuario registrado, no personas únicas"
+            hint: "Eventos sin usuario registrado, no personas únicas",
+            active: user?.id === "guest",
+            onClick: () => chooseUser("guest", "Visitantes")
           }
         ]}
       />

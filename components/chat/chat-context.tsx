@@ -12,6 +12,8 @@ export interface ActiveChat {
   product: ConversationProduct;
   vendorId: string;
   isSupport?: boolean;
+  isPurchaseRequest?: boolean;
+  directContactHref?: string | null;
 }
 
 export interface PendingMessageNotification {
@@ -33,6 +35,7 @@ interface ChatContextType {
   isOpen: boolean;
   onlineUsers: Set<string>;
   currentUserId: string | null;
+  isAdmin: boolean;
   unreadCount: number;
   b2bUnreadCount: number;
   supportUnreadCount: number;
@@ -56,6 +59,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [contactTarget, setContactTarget] = useState<ActiveChat | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [pendingNotification, setPendingNotification] = useState<PendingMessageNotification | null>(null)
@@ -157,6 +161,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         const uid = user?.id || null
         setCurrentUserId(uid)
+        if (uid) {
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', uid)
+            .maybeSingle()
+          if (isMounted) {
+            setIsAdmin(userProfile?.role === 'admin' || user?.email === 'agrilpasv@gmail.com')
+          }
+        } else {
+          setIsAdmin(false)
+        }
 
         // 2. Setup channel for global presence
         const channelName = 'agrilpa-global-presence'
@@ -173,7 +189,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           try {
             const state = presenceChannel.presenceState()
             const onlineSet = new Set<string>()
-            
+
             Object.entries(state).forEach(([key, presences]) => {
               if (key && !key.startsWith('anon-') && key !== 'undefined') {
                 onlineSet.add(key)
@@ -217,6 +233,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           const newUid = session?.user?.id || null
           if (newUid !== uid && isMounted) {
             setCurrentUserId(newUid)
+            if (newUid) {
+              const { data: userProfile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', newUid)
+                .maybeSingle()
+              if (isMounted) {
+                setIsAdmin(userProfile?.role === 'admin' || session?.user?.email === 'agrilpasv@gmail.com')
+              }
+            } else {
+              setIsAdmin(false)
+            }
             conversationMapRef.current.clear()
             setConversations([])
             setActiveChat(null)
@@ -228,7 +256,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   user_id: newUid,
                   online_at: new Date().toISOString(),
                 })
-              } catch (e) {}
+              } catch (e) { }
             }
           }
         })
@@ -236,20 +264,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Re-track periodically to ensure presence doesn't drop
         const presenceInterval = setInterval(async () => {
           if (!isMounted || !presenceChannel) return
-          
+
           // Check if connection is actually joined
           if (presenceChannel.state !== 'joined') return
-          
+
           const { data: { session } } = await supabase.auth.getSession()
           const activeUid = session?.user?.id
-          
+
           if (activeUid) {
             try {
               await presenceChannel.track({
                 user_id: activeUid,
                 online_at: new Date().toISOString(),
               })
-            } catch (e) {}
+            } catch (e) { }
           }
         }, 30000)
 
@@ -273,7 +301,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           import('@/lib/supabase/client').then(({ createClient }) => {
             createClient().removeChannel(presenceChannel)
           })
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }, [])
@@ -298,10 +326,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     const sendHeartbeat = async () => {
       try {
-        const inMessagesPage = 
+        const inMessagesPage =
           (typeof window !== 'undefined' && (window.location.pathname.startsWith('/dashboard/mensajes') || window.location.pathname.startsWith('/dashboard/soporte'))) ||
           isOpenRef.current
-        
+
         await fetch('/api/chat/presence/heartbeat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -378,7 +406,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   convList.forEach((c) => conversationMapRef.current.set(c.id, c))
                   conv = conversationMapRef.current.get(newMsg.conversation_id)
                 }
-              } catch (e) {}
+              } catch (e) { }
             }
 
             // STRICT PARTICIPATION CHECK:
@@ -460,7 +488,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setContactTarget(chat)
   }, [])
   const openLegacyProductChat = useCallback(() => {
-    if (contactTarget) openChat(contactTarget)
+    if (contactTarget) {
+      if (
+        contactTarget.isPurchaseRequest &&
+        !contactTarget.vendorId &&
+        contactTarget.directContactHref
+      ) {
+        if (contactTarget.directContactHref.startsWith("http")) {
+          window.open(contactTarget.directContactHref, "_blank", "noopener,noreferrer")
+        } else {
+          window.location.href = contactTarget.directContactHref
+        }
+      } else {
+        openChat(contactTarget)
+      }
+    }
     setContactTarget(null)
   }, [contactTarget, openChat])
 
@@ -506,7 +548,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json()
         if (data.adminId) adminId = data.adminId
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const supportChat: ActiveChat = {
       sellerName: "Soporte Agrilpa",
@@ -535,6 +577,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         isOpen,
         onlineUsers,
         currentUserId,
+        isAdmin,
         unreadCount,
         b2bUnreadCount: conversations.reduce((n, c) => n + (isSupportConversation(c) ? 0 : Number(c.unread_count) || 0), 0),
         supportUnreadCount: conversations.reduce((n, c) => n + (isSupportConversation(c) ? Number(c.unread_count) || 0 : 0), 0),

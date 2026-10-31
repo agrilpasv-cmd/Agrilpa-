@@ -40,7 +40,7 @@ export function CompanyView({profile, products}: {profile: PublicCompanyProfile;
   function contact(product: CompanyProduct) {
     if (isOwner) return
     setContactOpen(false)
-    openChat({
+    requestProductContact({
       sellerName: name,
       vendorId: profile!.id,
       sellerOnline: isUserOnline(profile!.id),
@@ -94,7 +94,7 @@ export function CompanyView({profile, products}: {profile: PublicCompanyProfile;
               </div>
               <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end lg:pt-7">
                 <Button variant="outline" onClick={shareProfile} className="h-11 gap-2 rounded-xl">{shareStatus === "Enlace copiado" ? <Check aria-hidden="true" className="size-4" /> : <Share2 aria-hidden="true" className="size-4" />} Compartir</Button>
-                {isOwner ? <Button asChild className="h-11 rounded-xl"><Link href="/dashboard/perfil">Editar mi perfil <ArrowRight aria-hidden="true" className="size-4" /></Link></Button> : products.length > 0 && <Button onClick={() => setContactOpen(true)} className={`${action} gap-2`}><MessageSquare aria-hidden="true" className="size-4" />Contactar empresa</Button>}
+                {isOwner ? <Button asChild className="h-11 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90"><Link href="/dashboard/perfil">Editar mi perfil <ArrowRight aria-hidden="true" className="size-4" /></Link></Button> : products.length > 0 && <Button onClick={() => setContactOpen(true)} className={`${action} gap-2`}><MessageSquare aria-hidden="true" className="size-4" />Contactar empresa</Button>}
                 <p role="status" className={`basis-full text-sm ${muted}`}>{shareStatus}</p>
               </div>
             </div>

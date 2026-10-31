@@ -200,21 +200,27 @@ export default function ContactanosPage() {
           {
             label: "Mensajes recibidos",
             value: loaded ? submissions.length : null,
-            hint: "Registros de este listado"
+            hint: "Registros de este listado",
+            active: filter === "all",
+            onClick: () => setFilter("all")
           },
           {
             label: "Sin leer",
             value: loaded
               ? submissions.filter((item) => !item.is_read).length
               : null,
-            hint: "Pendientes de revisión"
+            hint: "Pendientes de revisión",
+            active: filter === "unread",
+            onClick: () => setFilter("unread")
           },
           {
             label: "De usuarios registrados",
             value: loaded
               ? submissions.filter((item) => item.is_registered).length
               : null,
-            hint: "Personas con cuenta en Agrilpa"
+            hint: "Personas con cuenta en Agrilpa",
+            active: filter === "registered",
+            onClick: () => setFilter("registered")
           }
         ]}
       />
