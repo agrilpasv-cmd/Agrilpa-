@@ -32,7 +32,7 @@ export default function SourcingPage() {
             Conecta con los Mejores Proveedores
           </h1>
           <p className="text-xl text-primary-foreground/90 max-w-2xl">
-            Acceso directo a productores agrícolas destacados de Latinoamérica con compromiso de calidad y precios competitivos
+            Del campo a tu negocio: te conectamos con productores agrícolas verificados de Latinoamérica con calidad garantizada y precios competitivos
           </p>
         </div>
       </section>
@@ -61,12 +61,12 @@ export default function SourcingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
               {
-                title: 'Red de Proveedores Directos',
+                title: 'Red de Proveedores Verificados',
                 description: 'Conecta con proveedores profesionales con amplia experiencia en el sector y altos estándares de calidad.',
               },
               {
                 title: 'Precios Competitivos',
-                description: 'Negociamos directamente con productores eliminando intermediarios para obtener los mejores precios del mercado',
+                description: 'Gestionamos el abastecimiento desde los productores de origen para obtener los mejores precios del mercado.',
               },
               {
                 title: 'Asesoría Especializada',
@@ -89,9 +89,6 @@ export default function SourcingPage() {
             ))}
           </div>
         </section>
-
-        {/* Productos Section */}
-        
 
         {/* Proceso Section */}
         <section className="mb-16 bg-primary/5 rounded-lg p-8">

@@ -29,7 +29,7 @@ export default function SobreNosotros() {
             Sobre Nosotros
           </h1>
           <p className="mx-auto max-w-2xl text-xl md:text-2xl text-balance text-foreground">
-            Conectando productores agrícolas con compradores a través de tecnología innovadora
+            Conectando productores agrícolas con compradores mayoristas a través de tecnología y gestión integral
           </p>
         </div>
       </section>
@@ -48,9 +48,9 @@ export default function SobreNosotros() {
               </h2>
               <div className="space-y-4 text-lg leading-relaxed text-muted-foreground">
                 <p>
-                  Agrilpa es una plataforma digital innovadora que revoluciona la forma en que se comercializan
-                  productos agrícolas en América Latina. Conectamos directamente a productores con compradores
-                  mayoristas, eliminando intermediarios innecesarios y creando valor para ambas partes.
+                  Agrilpa es una plataforma digital innovadora que impulsa la forma en que se comercializan
+                  productos agrícolas en América Latina. Conectamos a productores con compradores
+                  mayoristas verificados; del campo a tu negocio, nosotros gestionamos todo creando valor para ambas partes.
                 </p>
                 <p>
                   Nuestra tecnología permite transacciones transparentes, eficientes y seguras, facilitando el acceso a

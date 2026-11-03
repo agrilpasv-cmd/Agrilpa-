@@ -174,7 +174,7 @@ export function Navbar() {
     { href: "/pedidos", label: "Pedidos" },
   ]
 
-  const contactLink = { href: "/contacto", label: "Contáctenos" }
+  const contactLink = { href: "/contacto", label: "Contáctanos" }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-white dark:bg-background">

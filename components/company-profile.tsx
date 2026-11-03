@@ -221,7 +221,7 @@ export function CompanyProfile() {
             {documents.length > 0 && (
               <section id="documentos" aria-labelledby="documents-title" className="scroll-mt-28">
                 <SectionHeading id="documents-title" eyebrow="Información compartida">Documentos y exportaciones</SectionHeading>
-                <p className={`mt-3 text-sm leading-6 ${muted}`}>Material publicado por la empresa. Consulta su vigencia y alcance directamente con el proveedor.</p>
+                <p className={`mt-3 text-sm leading-6 ${muted}`}>Material publicado por la empresa. Consulta su vigencia y alcance con la gestión de Agrilpa.</p>
                 {certificates.length > 0 && <div className="mt-5 grid gap-3 sm:grid-cols-2">{certificates.map((item, index) => (
                   <a key={`${item.url}-${index}`} href={publicWebUrl(item.url)!} target="_blank" rel="noopener noreferrer" className={`flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary ${focus}`}>
                     <span className={`grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 ${green}`}><FileText aria-hidden="true" className="size-5" /></span>
@@ -252,7 +252,7 @@ export function CompanyProfile() {
             <section className="rounded-2xl border border-primary/20 bg-primary/5 p-6">
               <div className={`mb-4 grid size-11 place-items-center rounded-xl bg-card ${green}`}><MessageSquare aria-hidden="true" className="size-5" /></div>
               <h2 className="text-lg font-semibold tracking-tight">{isOwner ? "Tu empresa, al alcance del mercado" : "La próxima oportunidad empieza con una conversación"}</h2>
-              <p className={`mt-3 text-sm leading-6 ${muted}`}>{isOwner ? "Este es el perfil que ven los compradores. Mantén tu presentación y catálogo actualizados." : "Pregunta por disponibilidad, volúmenes y condiciones comerciales directamente al proveedor."}</p>
+              <p className={`mt-3 text-sm leading-6 ${muted}`}>{isOwner ? "Este es el perfil que ven los compradores. Mantén tu presentación y catálogo actualizados." : "Pregunta por disponibilidad, volúmenes y condiciones comerciales; nosotros gestionamos el enlace con el proveedor."}</p>
               {isOwner ? <Button asChild variant="outline" className="mt-5 h-11 w-full rounded-xl"><Link href="/dashboard/perfil">Gestionar mi perfil</Link></Button> : products.length > 0 ? <Button onClick={() => setContactOpen(true)} className={`${action} mt-5 w-full`}>Contactar empresa <ArrowRight aria-hidden="true" className="size-4" /></Button> : <Button asChild variant="outline" className="mt-5 h-11 w-full rounded-xl"><Link href="/productos">Explorar otros productos</Link></Button>}
             </section>
           </aside>

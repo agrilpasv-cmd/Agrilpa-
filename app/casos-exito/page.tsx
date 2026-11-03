@@ -18,11 +18,11 @@ export default function CasosExito() {
       destination: "España",
       product: "Café Premium",
       description:
-        "Una pequeña exportadora de café salvadoreño logró triplicar sus ventas en 6 meses al conectar con compradores mayoristas en España a través de Agrilpa. La plataforma les permitió eliminar intermediarios y negociar directamente precios más competitivos.",
+        "Una pequeña exportadora de café salvadoreño logró triplicar sus ventas en 6 meses al conectar con compradores mayoristas en España a través de Agrilpa. La plataforma gestionó el enlace comercial logrando precios mucho más competitivos.",
       results: [
         "Aumento de ventas del 300% en 6 meses",
-        "Conexión directa con 15+ compradores en España",
-        "Reducción de costos de intermediación del 40%",
+        "Conexión con 15+ compradores mayoristas en España",
+        "Optimización de márgenes comerciales del 40%",
         "Certificación y trazabilidad completa del producto",
       ],
       image: "/coffee-plantation-salvador.jpg",
@@ -35,7 +35,7 @@ export default function CasosExito() {
       destination: "Estados Unidos",
       product: "Caña de Azúcar",
       description:
-        "Una cooperativa de productores de caña de azúcar en Honduras logró acceso a mercados norteamericanos gracias a Agrilpa. Pasaron de vender localmente a exportar directamente a procesadoras de alimentos en Estados Unidos.",
+        "Una cooperativa de productores de caña de azúcar en Honduras logró acceso a mercados norteamericanos gracias a Agrilpa. Pasaron de vender localmente a exportar a procesadoras de alimentos en Estados Unidos con nuestra gestión.",
       results: [
         "Expansión a nuevo mercado internacional",
         "Aumento de volumen exportado en 250%",

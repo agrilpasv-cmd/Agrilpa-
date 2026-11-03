@@ -715,7 +715,7 @@ export default function AdminContactClicksPage() {
           <article className={s.sidePanel}>
             <div className={s.sideHeader}>
               <h2>Publicaciones con más interés</h2>
-              <p>Productos que acumulan más clics de contacto directo.</p>
+              <p>Productos que acumulan más solicitudes de contacto.</p>
             </div>
             {topProducts.length > 0 ? (
               <ul className={s.barList}>

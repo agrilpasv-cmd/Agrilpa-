@@ -20,7 +20,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Agrilpa - Plataforma Digital de Comercio Agrícola",
   description:
-    "Conecta vendedores agrícolas con compradores mayoristas y empresas industriales en todo el mundo. Elimina intermediarios y accede a mercados globales.",
+    "Conecta vendedores agrícolas con compradores mayoristas en todo el mundo. Del campo a tu negocio, nosotros gestionamos todo.",
   icons: {
     icon: "/favicon.png?v=2",
     apple: "/favicon.png?v=2",

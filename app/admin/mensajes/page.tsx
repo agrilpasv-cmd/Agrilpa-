@@ -119,7 +119,7 @@ export default function AdminMensajesPage() {
             <p id="contact-mode-help">
               {settings?.mode === "admin_form"
                 ? "Las consultas de productos y propuestas de pedidos se reciben en Solicitudes de contacto."
-                : "Al contactar un producto o pedido se abre el contacto directo entre usuarios."}
+                : "Al contactar un producto o pedido se habilita la conversación entre usuarios."}
             </p>
           </div>
           <div className={s.modeControl}>

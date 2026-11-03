@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Users, Globe, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion, Variants, AnimatePresence } from "framer-motion"
@@ -142,7 +142,7 @@ export function Hero() {
 
           {/* Description */}
           <motion.p variants={itemVariants} className="text-base sm:text-lg text-white leading-relaxed max-w-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-            La plataforma B2B agrícola global que conecta directamente a productores y compradores internacionales, simplificando la cadena de suministro para negociar con total transparencia y sin intermediarios.
+            La plataforma B2B agrícola global que conecta a productores y compradores mayoristas internacionales. Del campo a tu negocio, nosotros gestionamos todo el proceso con total transparencia.
           </motion.p>
 
           {/* Buttons */}
@@ -246,5 +246,3 @@ export function Hero() {
     </section>
   )
 }
-
-

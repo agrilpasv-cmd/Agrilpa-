@@ -123,8 +123,8 @@ export function CompareAndNegotiateVideo() {
   return <ProcessVideo
     src="/compara-negocia-agrilpa-codigo-v2.mp4"
     poster="/compara-negocia-code-poster.jpg?v=2"
-    label="Demostración de cómo comparar ofertas y negociar directamente en Agrilpa frente a portales tradicionales"
+    label="Demostración de cómo comparar ofertas y negociar con vendedores verificados en Agrilpa frente a portales tradicionales"
     descriptionId="compare-negotiate-video-description"
-    description="Demostración comparativa de 20 segundos: primero muestra el problema de buscar proveedores en portales externos (un foro de clasificados antiguos, un directorio estático de exportadores y un portal de corretaje con comisiones de intermediación). Luego muestra cómo en Agrilpa el comprador revisa sus cotizaciones recibidas, abre el detalle de cotización y negocia en chat directo con Finca El Roble cerrando a $6.00 USD por kilogramo."
+    description="Demostración comparativa de 20 segundos: primero muestra el problema de buscar proveedores en portales externos (un foro de clasificados antiguos, un directorio estático de exportadores y un portal de corretaje tradicional). Luego muestra cómo en Agrilpa el comprador revisa sus cotizaciones recibidas, abre el detalle de cotización y acuerda condiciones con Finca El Roble cerrando a $6.00 USD por kilogramo."
   />
 }

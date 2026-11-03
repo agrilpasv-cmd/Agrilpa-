@@ -494,7 +494,7 @@ export default function NuevaPublicacionPage() {
                              ) : (
                                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm text-muted-foreground flex items-center gap-2">
                                  <div className="w-5 h-5 rounded-full border border-muted-foreground/30 flex items-center justify-center text-[10px]">ℹ</div>
-                                 El precio se acordará directamente con el comprador.
+                                 El precio se acordará según la cotización y volumen solicitado.
                                </div>
                              )}
                            </div>

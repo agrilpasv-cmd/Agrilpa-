@@ -25,17 +25,17 @@ export default function Compradores() {
   const benefits = [
     {
       icon: Search,
-      title: "Acceso directo a productores",
-      description: "Conecta directamente con agricultores y productores sin intermediarios.",
+      title: "Del campo a tu negocio",
+      description: "Te conectamos con agricultores y productores verificados; nosotros gestionamos todo el proceso.",
     },
     {
       icon: TrendingDown,
       title: "Mejores precios",
-      description: "Obtén precios competitivos al eliminar la cadena de intermediarios.",
+      description: "Obtén precios competitivos abasteciendo tu empresa desde el origen con nuestra gestión.",
     },
     {
       icon: ShieldCheck,
-      title: "Proveedores directos",
+      title: "Vendedores verificados",
       description: "Nuestros vendedores son profesionales del sector que garantizan calidad y confiabilidad.",
     },
     {
@@ -45,8 +45,8 @@ export default function Compradores() {
     },
     {
       icon: MessageSquare,
-      title: "Negociación directa",
-      description: "Comunícate directamente con vendedores para acordar términos y condiciones.",
+      title: "Conexión comercial",
+      description: "Coordinamos el enlace con vendedores verificados para acordar términos y condiciones seguros.",
     },
     {
       icon: Clock,
@@ -72,13 +72,13 @@ export default function Compradores() {
     {
       number: "03",
       title: "Compara y negocia",
-      description: "Recibe múltiples ofertas, compara precios y negocia directamente con los vendedores.",
+      description: "Recibe múltiples ofertas, compara precios y acuerda condiciones con vendedores verificados.",
       icon: Handshake,
     },
     {
       number: "04",
       title: "Compra con confianza",
-      description: "Realiza pagos seguros y coordina la logística con soporte completo de principio a fin.",
+      description: "Realiza acuerdos seguros y coordina la logística con soporte completo de principio a fin.",
       icon: CheckCircle2,
     },
   ]
@@ -97,7 +97,7 @@ export default function Compradores() {
     {
       icon: ShieldCheck,
       title: "Transacciones seguras",
-      description: "Sistema de pagos protegido con perfiles de vendedores profesionales y garantía de calidad.",
+      description: "Operaciones respaldadas con perfiles de vendedores verificados y garantía de calidad.",
     },
   ]
 
@@ -110,11 +110,10 @@ export default function Compradores() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 text-balance">
-                Encuentra los mejores productos agrícolas directamente
+                Encuentra los mejores productos agrícolas para tu negocio
               </h1>
               <p className="text-xl text-muted-foreground mb-8 text-pretty">
-                Conecta con productores registrados, obtén mejores precios y asegura la calidad de tus compras con
-                Agrilpa.
+                Conecta con productores verificados, obtén mejores precios y asegura la calidad de tus compras. Del campo a tu negocio, nosotros gestionamos todo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/productos">
@@ -231,8 +230,7 @@ export default function Compradores() {
                 ¿Listo para optimizar tus compras?
               </h2>
               <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Únete a Agrilpa hoy y comienza a acceder a productos agrícolas de calidad directamente de los
-                productores.
+                Únete a Agrilpa hoy y accede a productos agrícolas de calidad de productores verificados con nuestra gestión integral.
               </p>
               <Link href="/auth">
                 <Button size="lg" className="bg-primary hover:bg-primary/90">

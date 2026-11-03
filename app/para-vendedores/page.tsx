@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { DollarSign, Globe, TrendingUp, Users, Shield, Zap, Package, BarChart, Clock, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect } from "react"
-// import NavbarWrapper from "@/components/navbar-wrapper" // Removed import for NavbarWrapper
 
 export default function ParaVendedores() {
   useEffect(() => {
@@ -16,27 +15,27 @@ export default function ParaVendedores() {
     {
       icon: DollarSign,
       title: "Mejores precios",
-      description: "Elimina intermediarios y accede a precios justos directamente de compradores mayoristas.",
+      description: "Conecta con compradores mayoristas verificados y accede a condiciones justas con nuestra gestión comercial.",
     },
     {
       icon: Globe,
       title: "Mercados globales",
-      description: "Expande tu negocio a más de 50 países sin necesidad de importadores.",
+      description: "Expande tu negocio a más de 50 países con el acompañamiento del equipo de Agrilpa.",
     },
     {
       icon: TrendingUp,
       title: "Crecimiento escalable",
-      description: "Crece a tu ritmo con acceso a compradores de múltiples sectores.",
+      description: "Crece a tu ritmo con acceso a compradores mayoristas de múltiples sectores.",
     },
     {
       icon: Users,
-      title: "Red de compradores",
+      title: "Red de compradores verificados",
       description: "Accede a una base de compradores activos buscando productos continuamente.",
     },
     {
       icon: Zap,
-      title: "Proceso rápido",
-      description: "Publica tus productos en minutos y comienza a recibir solicitudes de inmediato.",
+      title: "Del campo a su negocio",
+      description: "Carga tu inventario en minutos y nosotros gestionamos todo el enlace comercial con los compradores.",
     },
   ]
 
@@ -49,20 +48,20 @@ export default function ParaVendedores() {
     },
     {
       number: "02",
-      title: "Publica tus productos",
+      title: "Administra tu inventario",
       description: "Agrega tus productos con fotos, descripciones y precios. Es rápido y sencillo.",
       icon: Package,
     },
     {
       number: "03",
       title: "Recibe solicitudes",
-      description: "Compradores interesados te contactarán directamente para negociar.",
+      description: "Te conectamos con compradores mayoristas interesados y coordinamos las propuestas.",
       icon: BarChart,
     },
     {
       number: "04",
       title: "Cierra ventas",
-      description: "Acuerda términos y finaliza la venta.",
+      description: "Acuerda términos con nuestro respaldo y finaliza la venta.",
       icon: CheckCircle2,
     },
   ]
@@ -70,8 +69,8 @@ export default function ParaVendedores() {
   const features = [
     {
       icon: Package,
-      title: "Gestión de publicaciones",
-      description: "Panel intuitivo para administrar tus productos, inventario y precios.",
+      title: "Administración de inventario",
+      description: "Panel intuitivo para administrar tus productos, disponibilidad, lotes y precios.",
     },
     {
       icon: BarChart,
@@ -80,8 +79,8 @@ export default function ParaVendedores() {
     },
     {
       icon: Clock,
-      title: "Respuesta rápida",
-      description: "Sistema de mensajería directo para responder consultas de compradores.",
+      title: "Gestión acompañada",
+      description: "Nuestro equipo gestiona y da seguimiento a las solicitudes de compradores verificados.",
     },
   ]
 
@@ -97,8 +96,7 @@ export default function ParaVendedores() {
                 Vende tus productos agrícolas al mundo
               </h1>
               <p className="text-xl text-muted-foreground mb-8 text-pretty">
-                Conecta directamente con compradores mayoristas internacionales. Sin intermediarios, con mejores precios
-                y control total de tu negocio.
+                Conecta con compradores mayoristas internacionales. Del campo a su negocio, nosotros gestionamos todo con mejores precios y respaldo comercial.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/vendedor/registro">
@@ -216,7 +214,7 @@ export default function ParaVendedores() {
             <CardContent className="pt-12 pb-12 text-center">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">¿Listo para expandir tu negocio?</h2>
               <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Únete a Agrilpa hoy y comienza a conectar con compradores de todo el mundo. Es gratis y solo toma unos
+                Únete a Agrilpa hoy y comienza a conectar con compradores mayoristas de todo el mundo. Es gratis y solo toma unos
                 minutos.
               </p>
               <Link href="/vendedor/registro">

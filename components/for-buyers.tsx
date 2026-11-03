@@ -14,18 +14,18 @@ export function ForBuyers() {
     },
     {
       icon: Zap,
-      title: "Proceso ágil",
-      description: "Negocia, contrata y recibe directamente sin intermediarios innecesarios.",
+      title: "Del campo a tu negocio",
+      description: "Nosotros gestionamos todo el proceso comercial para que cotices, acuerdes y recibas tu pedido.",
     },
     {
       icon: Lock,
-      title: "Conexiones confiables",
-      description: "Conecta con vendedores profesionales del sector que cumplen con estándares de calidad.",
+      title: "Vendedores verificados",
+      description: "Te conectamos con productores y proveedores profesionales que cumplen con estándares de calidad.",
     },
     {
       icon: DollarSign,
       title: "Precios competitivos",
-      description: "Obtén los mejores costos negociando directamente con productores desde el origen.",
+      description: "Obtén mejores costos abasteciéndote con productores desde el origen a través de nuestra red.",
     },
   ]
 
@@ -71,11 +71,11 @@ export function ForBuyers() {
               Para Compradores
             </div>
             <h2 className="text-3xl md:text-4xl font-extrabold text-foreground mb-6 tracking-tight leading-tight">
-              Sourcing inteligente y directo
+              Sourcing agrícola inteligente
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed">
-              Encuentra proveedores agrícolas de confianza, solicita cotizaciones y cierra acuerdos directamente
-              desde la fuente.
+              Encuentra proveedores agrícolas de confianza, solicita cotizaciones y abastece tu negocio desde la fuente
+              con nuestra gestión integral.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4 mb-10 w-full">

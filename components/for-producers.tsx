@@ -9,23 +9,23 @@ export function ForProducers() {
   const benefits = [
     {
       icon: Megaphone,
-      title: "Exposición Directa",
-      description: "Haz que tu inventario sea visto por industrias mayoristas sin necesidad de intermediarios.",
+      title: "Exposición Comercial",
+      description: "Haz que tu inventario llegue a compradores mayoristas e industrias con nuestro respaldo comercial.",
     },
     {
       icon: Globe,
       title: "Mercados globales",
-      description: "Expande tu negocio a compradores internacionales sin necesidad de importadores.",
+      description: "Expande tu negocio y lleva tu producción a compradores internacionales con gestión acompañada.",
     },
     {
       icon: TrendingUp,
       title: "Crecimiento escalable",
-      description: "Crece a tu ritmo con acceso a compradores de múltiples sectores e industrias.",
+      description: "Crece a tu ritmo con acceso a compradores verificados de múltiples sectores e industrias.",
     },
     {
       icon: Handshake,
-      title: "Venta sin intermediarios",
-      description: "Conecta directamente con el comprador final y obtén el valor real de tu producción.",
+      title: "Del campo a su negocio",
+      description: "Nosotros gestionamos la conexión con el comprador mayorista para asegurar el valor de tu producción.",
     },
   ]
 
@@ -53,8 +53,8 @@ export function ForProducers() {
               Expande tus fronteras agrícolas
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed">
-              Accede a oportunidades de negocio sin intermediarios. Conecta directamente con compradores mayoristas y
-              empresas industriales en todo el mundo.
+              Conecta con compradores mayoristas en todo el mundo. Del campo a su negocio, nosotros gestionamos todo el
+              enlace comercial por ti.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4 mb-10 w-full">

@@ -21,7 +21,7 @@ export function HowWorks() {
     {
       number: 4,
       title: "Negocia y cierra",
-      description: "Comunícate directamente con compradores o vendedores para acordar términos.",
+      description: "Te conectamos con compradores o vendedores verificados para acordar términos.",
     },
   ]
 

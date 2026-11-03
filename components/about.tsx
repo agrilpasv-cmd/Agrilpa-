@@ -17,8 +17,8 @@ export function About() {
         >
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Sobre Agrilpa</h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Somos la plataforma digital que revoluciona el comercio agrícola global eliminando intermediarios
-            innecesarios y creando conexiones directas entre vendedores y compradores.
+            Somos la plataforma digital que impulsa el comercio agrícola global. Del campo a tu negocio, te conectamos
+            con compradores y vendedores verificados y gestionamos todo el proceso.
           </p>
         </motion.div>
 
@@ -35,7 +35,7 @@ export function About() {
             </div>
             <h3 className="text-xl font-bold text-foreground mb-3">Visibilidad Global</h3>
             <p className="text-muted-foreground">
-              Publica tus productos y llega a una red de compradores globales de todo el mundo sin salir de la plataforma.
+              Muestra tu inventario y llega a una red de compradores mayoristas de todo el mundo desde la plataforma.
             </p>
           </motion.div>
 
@@ -49,9 +49,9 @@ export function About() {
             <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
               <MessageSquare className="w-6 h-6 text-primary group-hover:text-white transition-colors duration-300" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-3">Negociación Directa</h3>
+            <h3 className="text-xl font-bold text-foreground mb-3">Conexión Comercial</h3>
             <p className="text-muted-foreground">
-              Gestiona tus tratos, envía y recibe cotizaciones sin salir de la plataforma. Directo entre vendedor y comprador.
+              Conectamos a vendedores y compradores verificados, gestionando cotizaciones y acuerdos comerciales paso a paso.
             </p>
           </motion.div>
 
@@ -67,7 +67,7 @@ export function About() {
             </div>
             <h3 className="text-xl font-bold text-foreground mb-3">Seguridad en Identidad</h3>
             <p className="text-muted-foreground">
-              Conectamos perfiles profesionales de empresas para que puedas negociar con confianza en cada transacción.
+              Validamos perfiles empresariales para que operes con confianza y acompañamiento en cada transacción.
             </p>
           </motion.div>
         </div>
@@ -99,8 +99,8 @@ export function About() {
               </h3>
 
               <p className="text-foreground/75 text-sm sm:text-base leading-relaxed font-normal mb-5">
-                Administra tus operaciones comerciales en un solo lugar: publicaciones, cotizaciones y contactos, todo
-                integrado para que puedas enfocarte en crecer.
+                Administra tus operaciones comerciales en un solo lugar: inventario, cotizaciones y enlaces comerciales,
+                todo integrado para que puedas enfocarte en crecer.
               </p>
               <p className="text-foreground/70 font-bold text-xs uppercase tracking-widest mb-2.5">
                 Cómo funciona Agrilpa
@@ -110,18 +110,18 @@ export function About() {
                 {[
                   {
                     Icon: Lightbulb,
-                    title: "Administra tus publicaciones",
-                    desc: "Crea, edita y gestiona tu catálogo de productos de forma sencilla desde el dashboard.",
+                    title: "Administra tu inventario",
+                    desc: "Organiza, actualiza y controla tu catálogo de productos y disponibilidad de forma sencilla desde el panel.",
                   },
                   {
                     Icon: MessageSquare,
                     title: "Cotizaciones en tiempo real",
-                    desc: "Recibe alertas de nuevas cotizaciones y responde a compradores directamente desde la plataforma.",
+                    desc: "Recibe alertas de nuevas solicitudes y gestiona propuestas comerciales desde la plataforma.",
                   },
                   {
                     Icon: ShieldCheck,
-                    title: "Contacto directo garantizado",
-                    desc: "Contacta directamente a compradores y vendedores interesados sin intermediarios.",
+                    title: "Del campo a tu negocio",
+                    desc: "Te conectamos con compradores y vendedores verificados; nosotros gestionamos todo el proceso.",
                   },
                   {
                     Icon: Building2,

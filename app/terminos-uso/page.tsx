@@ -51,7 +51,7 @@ export default function TerminosUso() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-4">5. Transacciones Comerciales</h2>
             <p className="text-foreground/80 leading-relaxed mb-4">
-              Agrilpa facilita el contacto entre compradores y vendedores. Cada transacción está sujeta a los términos acordados directamente entre las partes. Agrilpa no es responsable por disputas, incumplimientos o fraudes entre usuarios.
+              Agrilpa facilita el contacto entre compradores y vendedores. Cada transacción está sujeta a los términos acordados entre las partes con el acompañamiento de la plataforma. Agrilpa no es responsable por disputas, incumplimientos o fraudes entre usuarios.
             </p>
           </section>
 

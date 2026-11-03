@@ -20,7 +20,7 @@ export default function ComoFunciona() {
             </h1>
             <p className="text-xl text-muted-foreground text-balance">
               Conectamos productores agrícolas con compradores mayoristas en simples pasos. 
-              Descubre lo fácil que es comprar y vender productos agrícolas de calidad.
+              Del campo a tu negocio, nosotros gestionamos todo para comprar y vender productos agrícolas de calidad.
             </p>
           </div>
         </div>
@@ -34,7 +34,7 @@ export default function ComoFunciona() {
               Para Vendedores
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Vende tus productos agrícolas de manera directa y eficiente
+              Vende tus productos agrícolas a compradores mayoristas con nuestra gestión
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export default function ComoFunciona() {
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Gestión de inventario en tiempo real</span>
+                    <span className="text-muted-foreground">Administración de inventario en tiempo real</span>
                   </li>
                 </ul>
               </div>
@@ -121,8 +121,8 @@ export default function ComoFunciona() {
                   <h3 className="text-3xl font-bold text-foreground">Recibe Cotizaciones</h3>
                 </div>
                 <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-                  Los compradores interesados envían solicitudes de cotización directamente. 
-                  Revisa las ofertas, negocia términos y condiciones, y elige las mejores 
+                  Te conectamos con compradores interesados que envían solicitudes de cotización. 
+                  Revisa las ofertas, acuerda términos y condiciones con nuestro acompañamiento, y elige las mejores 
                   oportunidades para tu negocio.
                 </p>
                 <ul className="space-y-3">
@@ -132,11 +132,11 @@ export default function ComoFunciona() {
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Chat directo con compradores</span>
+                    <span className="text-muted-foreground">Compradores mayoristas verificados</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Negociación transparente</span>
+                    <span className="text-muted-foreground">Negociación transparente y gestionada</span>
                   </li>
                 </ul>
               </div>
@@ -172,16 +172,16 @@ export default function ComoFunciona() {
                   <h3 className="text-3xl font-bold text-foreground">Vende y Entrega</h3>
                 </div>
                 <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-                  Cierra el trato y finaliza la venta. Agrilpa brinda soporte en cada paso del proceso.
+                  Cierra el trato y finaliza la venta. Del campo a su negocio, Agrilpa gestiona y brinda soporte en cada paso del proceso.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <CheckCircle className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Comunicación directa con el comprador</span>
+                    <span className="text-muted-foreground">Compradores verificados en cada operación</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Acuerdos flexibles entre las partes</span>
+                    <span className="text-muted-foreground">Acuerdos flexibles con gestión integral</span>
                   </li>
                 </ul>
               </div>
@@ -201,7 +201,7 @@ export default function ComoFunciona() {
               Para Compradores
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Encuentra y compra productos agrícolas de calidad directamente de los productores
+              Del campo a tu negocio: encuentra productos agrícolas de calidad con vendedores verificados
             </p>
           </div>
 
@@ -293,9 +293,9 @@ export default function ComoFunciona() {
                   <h3 className="text-3xl font-bold text-foreground">Compara y Negocia</h3>
                 </div>
                 <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-                  Revisa las ofertas recibidas, compara precios y condiciones. Comunícate 
-                  directamente con los vendedores a través de nuestro sistema de mensajería 
-                  para negociar los mejores términos.
+                  Revisa las ofertas recibidas, compara precios y condiciones. Te conectamos 
+                  con vendedores verificados y coordinamos las propuestas para acordar 
+                  los mejores términos para tu empresa.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
@@ -304,11 +304,11 @@ export default function ComoFunciona() {
                   </li>
                   <li className="flex items-start gap-3">
                     <MessageSquare className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Chat en tiempo real</span>
+                    <span className="text-muted-foreground">Vendedores y productores verificados</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <MessageSquare className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Historial de conversaciones</span>
+                    <span className="text-muted-foreground">Seguimiento completo de cotizaciones</span>
                   </li>
                 </ul>
               </div>
@@ -339,13 +339,13 @@ export default function ComoFunciona() {
                   <h3 className="text-3xl font-bold text-foreground">Compra y Acuerda</h3>
                 </div>
                 <p className="text-lg leading-relaxed text-muted-foreground mb-6">
-                  Confirma tu pedido y acuerda los términos directamente con el vendedor. 
-                  Coordina la entrega y finaliza la compra de manera sencilla.
+                  Confirma tu pedido y acuerda los términos con el respaldo de Agrilpa. 
+                  Del campo a tu negocio, nosotros gestionamos todo para que finalices tu compra de manera sencilla.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <Shield className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Comunicación directa con vendedores</span>
+                    <span className="text-muted-foreground">Vendedores verificados en cada pedido</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Shield className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
@@ -353,7 +353,7 @@ export default function ComoFunciona() {
                   </li>
                   <li className="flex items-start gap-3">
                     <Shield className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                    <span className="text-muted-foreground">Productos de calidad directo del productor</span>
+                    <span className="text-muted-foreground">Del campo a tu negocio, nosotros gestionamos todo</span>
                   </li>
                 </ul>
               </div>
@@ -381,7 +381,7 @@ export default function ComoFunciona() {
               </div>
               <h3 className="mb-3 text-xl font-bold text-foreground">Mejores Precios</h3>
               <p className="leading-relaxed text-muted-foreground">
-                Sin intermediarios, tanto vendedores como compradores obtienen mejores márgenes
+                Conectamos el campo con compradores mayoristas para lograr condiciones justas y márgenes competitivos
               </p>
             </div>
 
@@ -409,9 +409,9 @@ export default function ComoFunciona() {
               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <MessageSquare className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="mb-3 text-xl font-bold text-foreground">Comunicación Directa</h3>
+              <h3 className="mb-3 text-xl font-bold text-foreground">Compradores y Vendedores Verificados</h3>
               <p className="leading-relaxed text-muted-foreground">
-                Chatea directamente con compradores o vendedores para resolver dudas al instante
+                Te conectamos con empresas y productores verificados; nosotros gestionamos todo el enlace comercial
               </p>
             </div>
 

@@ -338,8 +338,8 @@ export function ProductContactDialog({
               ? "El equipo de Agrilpa recibió tus datos y coordinará el contacto comercial."
               : phase === "auth"
                 ? target.isPurchaseRequest
-                  ? "Usa tu cuenta de Agrilpa para hablar directamente con el comprador."
-                  : "Usa tu cuenta de Agrilpa para hablar directamente con el vendedor."
+                  ? "Usa tu cuenta de Agrilpa para gestionar el contacto con el comprador."
+                  : "Usa tu cuenta de Agrilpa para gestionar el contacto con el vendedor."
                 : target.isPurchaseRequest
                   ? "Déjanos tus datos y tu propuesta para que el equipo de Agrilpa coordine el contacto con el comprador."
                   : "Déjanos tus datos para que el equipo de Agrilpa gestione tu consulta."}

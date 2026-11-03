@@ -5,105 +5,117 @@ import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 
 const testimonials = [
   {
-    company: "Finca El Roble",
-    type: "Granja Familiar",
+    name: "Alfredo Gruber",
+    initials: "AG",
+    color: "#1f6f43",
+    type: "Productor de Café",
     country: "Guatemala",
     quote: "Gracias a Agrilpa, logramos exportar nuestro café orgánico a Francia. En 3 meses duplicamos nuestros ingresos.",
     achievement: "Acceso al mercado europeo",
-    logo: "/finca-el-roble-logo.jpg",
   },
   {
-    company: "Agroindustrias del Pacífico",
-    type: "Procesadora de Frutas",
+    name: "Mateo Lindqvist",
+    initials: "ML",
+    color: "#1e4d8c",
+    type: "Exportador de Frutas",
     country: "Ecuador",
     quote: "Conectamos con compradores en Alemania que buscaban piña golden. Ahora exportamos 100 toneladas mensuales.",
     achievement: "Nuevo mercado en Alemania",
-    logo: "/agroindustrias-pacifico-logo.jpg",
   },
   {
-    company: "Cooperativa Los Andes",
-    type: "Cooperativa Agrícola",
+    name: "Carlos Mendoza",
+    initials: "CM",
+    color: "#b45309",
+    type: "Productor de Quinoa",
     country: "Perú",
     quote: "Encontramos compradores para nuestra quinoa orgánica en España e Italia. La plataforma nos cambió el negocio.",
     achievement: "Expansión a 2 países europeos",
-    logo: "/cooperativa-los-andes-logo.jpg",
   },
   {
-    company: "Finca Verde S.A.",
+    name: "Sofía Keller",
+    initials: "SK",
+    color: "#6d28d9",
     type: "Productora de Aguacate",
     country: "México",
     quote: "Agrilpa nos ayudó a llegar a distribuidores en Reino Unido. Nuestra producción tiene ahora un mercado asegurado.",
     achievement: "Contrato anual en UK",
-    logo: "/finca-verde-logo.jpg",
   },
   {
-    company: "Tropical Exports",
-    type: "Exportadora",
+    name: "Diego Santamaría",
+    initials: "DS",
+    color: "#0f766e",
+    type: "Comercializador Agrícola",
     country: "Honduras",
     quote: "Cerramos un acuerdo con una cadena hotelera en Dubái para suministrar frutas tropicales todo el año.",
     achievement: "Mercado en Medio Oriente",
-    logo: "/tropical-exports-logo.jpg",
   },
   {
-    company: "Hacienda San Martín",
-    type: "Granja Ganadera",
+    name: "Elena Moreau",
+    initials: "EM",
+    color: "#9d174d",
+    type: "Productora Pecuaria",
     country: "Colombia",
     quote: "Vendemos carne premium a restaurantes en Suiza. La trazabilidad de Agrilpa nos dio credibilidad internacional.",
     achievement: "Exportación a Suiza",
-    logo: "/hacienda-san-martin-logo.jpg",
   },
   {
-    company: "BioFarms Nicaragua",
+    name: "Henrik Becker",
+    initials: "HB",
+    color: "#374151",
     type: "Cultivos Orgánicos",
     country: "Nicaragua",
     quote: "Accedimos a certificadores y compradores europeos que valoraron nuestras prácticas sostenibles.",
     achievement: "Certificación europea",
-    logo: "/biofarms-nicaragua-logo.jpg",
   },
   {
-    company: "Azúcar del Valle",
-    type: "Ingenio Azucarero",
+    name: "Valeria Castellanos",
+    initials: "VC",
+    color: "#0369a1",
+    type: "Productora de Caña",
     country: "El Salvador",
-    quote: "Negociamos directamente con importadores en Japón. Eliminamos 3 intermediarios y mejoramos nuestros márgenes.",
-    achievement: "Comercio directo con Japón",
-    logo: "/azucar-del-valle-logo.jpg",
+    quote: "Conectamos con importadores en Japón a través de Agrilpa. Su equipo gestionó el proceso comercial y mejoramos nuestros márgenes.",
+    achievement: "Exportación a Japón",
   },
   {
-    company: "Finca Los Cerezos",
-    type: "Granja Familiar",
+    name: "Lucas Vandergucht",
+    initials: "LV",
+    color: "#4338ca",
+    type: "Productor de Mango",
     country: "Costa Rica",
     quote: "Exportamos mango a Canadá por primera vez. Agrilpa nos conectó con el comprador ideal en menos de 2 semanas.",
     achievement: "Primer envío a Canadá",
-    logo: "/finca-los-cerezos-logo.jpg",
   },
   {
-    company: "Grupo Agrícola del Sur",
-    type: "Holding Agroindustrial",
+    name: "Andrés Montenegro",
+    initials: "AM",
+    color: "#15803d",
+    type: "Exportador de Berries",
     country: "Chile",
     quote: "Consolidamos ventas de arándanos a 5 países europeos. La plataforma centralizó toda nuestra operación de exportación.",
     achievement: "5 mercados europeos",
-    logo: "/grupo-agricola-del-sur-logo.jpg",
   },
   {
-    company: "Procesadora Andina",
-    type: "Industria de Alimentos",
+    name: "Gabriela Salvatierra",
+    initials: "GS",
+    color: "#b91c1c",
+    type: "Procesadora de Granos",
     country: "Bolivia",
     quote: "Vendemos harina de quinoa a distribuidores en Australia. Nunca pensamos llegar tan lejos.",
     achievement: "Expansión a Oceanía",
-    logo: "/procesadora-andina-logo.jpg",
   },
   {
-    company: "Viñedos del Sol",
-    type: "Bodega",
+    name: "Camila Rossi",
+    initials: "CR",
+    color: "#7e22ce",
+    type: "Productora Vitivinícola",
     country: "Argentina",
     quote: "Conectamos con importadores premium en Dinamarca y Noruega. Nuestros vinos ya están en tiendas escandinavas.",
     achievement: "Mercados nórdicos",
-    logo: "/vinedos-del-sol-logo.jpg",
   },
 ];
 
 const getVisibleCount = (width: number): number => {
-  if (width >= 1280) return 6; // Changed to 6 for large screens
+  if (width >= 1280) return 6;
   if (width >= 1024) return 4;
   if (width >= 768) return 2;
   return 1;
@@ -147,7 +159,6 @@ export function SuccessStories() {
         const maxIndex = Math.max(0, testimonials.length - visibleCount);
 
         setCurrentIndex((prev) => {
-          // Loop continuously left to right
           if (prev >= maxIndex) {
             return 0;
           }
@@ -216,7 +227,7 @@ export function SuccessStories() {
             Lo que Dicen Nuestros Clientes
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Testimonios reales de granjas, industrias y empresas que han alcanzado nuevos mercados con Agrilpa
+            Testimonios reales de productores y exportadores que han alcanzado nuevos mercados con Agrilpa
           </p>
         </motion.div>
       </div>
@@ -258,7 +269,7 @@ export function SuccessStories() {
             {testimonials.map((testimonial, idx) => (
               <motion.div
                 key={idx}
-                className={`flex-shrink-0 px-2`}
+                className="flex-shrink-0 px-2"
                 style={{ width: `${100 / visibleCount}%` }}
                 initial={{ opacity: 0.5, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -295,39 +306,21 @@ export function SuccessStories() {
                     <div className="mt-auto pt-4 border-t border-gray-100">
                       <div className="flex items-center">
                         <div className="relative flex-shrink-0">
-                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0 bg-gray-50 flex items-center justify-center text-primary font-bold">
-                            {testimonial.logo ? (
-                              <img
-                                src={testimonial.logo}
-                                alt={testimonial.company}
-                                loading="lazy"
-                                decoding="async"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = testimonial.company.charAt(0);
-                                }}
-                              />
-                            ) : (
-                              testimonial.company.charAt(0)
-                            )}
+                          <div
+                            className="w-10 h-10 rounded-full border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center text-white font-bold text-xs tracking-wide select-none"
+                            style={{ backgroundColor: testimonial.color }}
+                            aria-hidden="true"
+                          >
+                            {testimonial.initials}
                           </div>
-                          <motion.div 
-                            className="absolute inset-0 rounded-full bg-primary/20"
-                            animate={{ 
-                              scale: [1, 1.2, 1],
-                              opacity: [0, 0.3, 0] 
-                            }}
-                            transition={{ 
-                              duration: 2,
-                              repeat: Infinity,
-                              repeatDelay: 1
-                            }}
-                          />
                         </div>
                         <div className="ml-3">
-                          <h4 className="font-bold text-sm text-gray-900 leading-tight line-clamp-1" title={testimonial.company}>{testimonial.company}</h4>
-                          <p className="text-gray-500 text-[11px] mt-0.5 line-clamp-1">{testimonial.type} · {testimonial.country}</p>
+                          <h4 className="font-bold text-sm text-gray-900 leading-tight line-clamp-1" title={testimonial.name}>
+                            {testimonial.name}
+                          </h4>
+                          <p className="text-gray-500 text-[11px] mt-0.5 line-clamp-1">
+                            {testimonial.type} · {testimonial.country}
+                          </p>
                         </div>
                       </div>
                     </div>
