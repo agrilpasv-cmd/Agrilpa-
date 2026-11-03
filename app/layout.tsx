@@ -13,6 +13,7 @@ import "./globals.css"
 import { ChatProvider } from "@/components/chat/chat-context"
 import { GlobalChatWrapper } from "@/components/chat/global-chat-wrapper"
 import { AutoCapitalizeProvider } from "@/components/utils/auto-capitalize-provider"
+import { GlobalTranslator } from "@/components/global-translator"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -46,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`font-sans antialiased`}>
+        <GlobalTranslator />
         <ChatProvider>
           <AutoCapitalizeProvider />
           <RouteTracker />

@@ -274,9 +274,14 @@ export function Contact() {
                   <Phone className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground mb-1">Teléfono</p>
-                  <a href="tel:+50360402125" className="text-primary hover:text-primary/80 transition text-sm block">
-                    +503 6040-2125
+                  <p className="font-semibold text-foreground mb-1">Teléfono (vía WhatsApp)</p>
+                  <a
+                    href="https://wa.me/50374899726"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:text-primary/80 font-medium transition text-sm inline-flex items-center gap-1.5"
+                  >
+                    +503 74899726
                   </a>
                   <p className="text-xs text-muted-foreground mt-1">Lunes - Viernes, 8am - 5pm</p>
                 </div>

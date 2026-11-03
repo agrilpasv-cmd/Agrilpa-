@@ -147,3 +147,46 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   CLEAN GOOGLE TRANSLATE STYLES (No banners, tooltips or shifts)
+   ═══════════════════════════════════════════════════════════ */
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+iframe.VIpgJd-ZVi9od-ORHb-OEVmcd,
+iframe[id*=":1.container"],
+iframe[id*="goog"],
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+.VIpgJd-ZVi9od-aZ2wEe-OiiCO,
+.VIpgJd-yAWNEb-L7lbkb {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0px !important;
+  width: 0px !important;
+  position: absolute !important;
+  z-index: -9999 !important;
+}
+
+html,
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+#google_translate_element {
+  display: none !important;
+}
+
+/* Prevent unwanted yellow/blue text highlighting on hover from translation elements */
+.goog-text-highlight {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}

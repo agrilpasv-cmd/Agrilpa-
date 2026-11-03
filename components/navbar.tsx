@@ -15,6 +15,7 @@ import {
 import Image from "next/image"
 import { AuthStorage } from "@/lib/auth-storage"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -138,17 +139,21 @@ export function Navbar() {
       ])
 
       // Clear auth storage and browser storage
+      const savedLang = localStorage.getItem("agrilpa_language")
       AuthStorage.clearSession()
       localStorage.clear()
       sessionStorage.clear()
+      if (savedLang) localStorage.setItem("agrilpa_language", savedLang)
 
       // Use window.location.replace to prevent back button from restoring session
       window.location.replace("/")
     } catch (error) {
       console.error("[Navbar] Logout error:", error)
+      const savedLang = localStorage.getItem("agrilpa_language")
       AuthStorage.clearSession()
       localStorage.clear()
       sessionStorage.clear()
+      if (savedLang) localStorage.setItem("agrilpa_language", savedLang)
       window.location.replace("/")
     } finally {
       // If redirection fails for some reason
@@ -251,6 +256,7 @@ export function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center space-x-3">
+            <LanguageSwitcher />
             {isLoggedIn ? (
               <>
                 <Link
@@ -285,13 +291,17 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-muted"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile Controls: Language Switcher next to Hamburger */}
+          <div className="md:hidden flex items-center gap-1">
+            <LanguageSwitcher />
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-muted"
+              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Menu */}
@@ -327,7 +337,7 @@ export function Navbar() {
               {contactLink.label}
             </Link>
 
-            <div className="space-y-2 pt-2 border-t border-border">
+            <div className="pt-2 mt-2 border-t border-border space-y-1">
               {isLoggedIn ? (
                 <>
                   <Link

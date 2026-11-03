@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Search, LogOut, LockKeyhole, Menu, type LucideIcon } from "lucide-react"
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 export interface PanelMenuItem { href: string; label: string; icon: LucideIcon; notifications?: number }
 interface Props {
@@ -69,7 +70,7 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
       </nav>
       <div className="space-y-0.5 border-t border-border px-3 py-3">{footer.map(row)}</div>
     </>}
-    <div className="px-3 pb-4"><button type="button" onClick={onLogout} disabled={loggingOut} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-base text-muted-foreground hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"><LogOut className="h-[22px] w-[22px]" aria-hidden="true" />{loggingOut ? "Cerrando sesión…" : "Cerrar Sesión"}</button></div>
+    <div className="px-3 pb-4 space-y-2"><LanguageSwitcher variant="mobile" /><button type="button" onClick={onLogout} disabled={loggingOut} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-base text-muted-foreground hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"><LogOut className="h-[22px] w-[22px]" aria-hidden="true" />{loggingOut ? "Cerrando sesión…" : "Cerrar Sesión"}</button></div>
   </>
   return <>
     <button id="panel-menu-toggle" type="button" aria-label={admin ? "Abrir menú de administración" : "Abrir menú del panel"} aria-expanded={open} aria-controls="panel-mobile-menu" onClick={() => onOpenChange(!open)} className="fixed left-4 top-3 z-40 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-background text-foreground shadow-sm focus-visible:ring-2 focus-visible:ring-primary md:hidden"><Menu size={24} aria-hidden="true" /></button>

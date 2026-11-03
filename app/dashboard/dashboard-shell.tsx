@@ -390,16 +390,20 @@ export default function DashboardShell({
             ])
 
             // Clear all local storage and session storage to ensure complete logout
+            const savedLang = localStorage.getItem("agrilpa_language")
             localStorage.clear()
             sessionStorage.clear()
+            if (savedLang) localStorage.setItem("agrilpa_language", savedLang)
 
             // Use window.location.replace to prevent back button from restoring session
             window.location.replace("/")
         } catch (error) {
             console.error("[Dashboard] Error al cerrar sesión:", error)
             // Clear storage even on error
+            const savedLang = localStorage.getItem("agrilpa_language")
             localStorage.clear()
             sessionStorage.clear()
+            if (savedLang) localStorage.setItem("agrilpa_language", savedLang)
             window.location.replace("/")
         } finally {
             setIsLoggingOut(false)
