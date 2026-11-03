@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { notFound, useParams } from "next/navigation"
+import { notFound, useParams, useRouter } from "next/navigation"
+import { ENABLE_DIRECT_PURCHASE } from "@/lib/constants"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
@@ -41,6 +42,7 @@ const isValidId = (str: string): boolean => {
 }
 
 export default function PurchasePage() {
+  const router = useRouter()
   const params = useParams()
   const slug = typeof params?.slug === "string" ? params.slug : ""
 
@@ -76,6 +78,10 @@ export default function PurchasePage() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    if (!ENABLE_DIRECT_PURCHASE && slug) {
+      router.replace(`/producto/${slug}`)
+      return
+    }
 
     if (isValidId(slug) && !staticProduct) {
       setIsLoading(true)

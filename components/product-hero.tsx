@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ENABLE_DIRECT_PURCHASE } from "@/lib/constants"
 
 function SellerAvatar({ name, src }: { name?: string; src?: string }) {
   const label = name?.trim() || "Vendedor"
@@ -230,9 +231,9 @@ export function ProductHero({
               <Package className="w-4 h-4" />
               Este es tu producto
             </Button>
-            <p className="text-xs text-center text-slate-400">No puedes comprar ni cotizar tus propios productos.</p>
+            <p className="text-xs text-center text-slate-400">{ENABLE_DIRECT_PURCHASE ? "No puedes comprar ni cotizar tus propios productos." : "No puedes solicitar cotizaciones para tus propios productos."}</p>
           </div>
-        ) : product.price === "Por Cotizar" ? (
+        ) : !ENABLE_DIRECT_PURCHASE || product.price === "Por Cotizar" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Button
               onClick={() => {

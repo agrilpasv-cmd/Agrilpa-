@@ -2,7 +2,7 @@
 
 import { notFound, useRouter, useParams } from "next/navigation"
 import Link from "next/link"
-import { UNIDADES_MEDIDA } from "@/lib/constants"
+import { UNIDADES_MEDIDA, ENABLE_DIRECT_PURCHASE } from "@/lib/constants"
 import Image from "next/image"
 import { ProductImage } from "@/components/product-image"
 import { useState, useEffect, useMemo } from "react"
