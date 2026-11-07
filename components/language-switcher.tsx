@@ -5,9 +5,10 @@ import { ChevronDown, Check } from "lucide-react"
 
 interface LanguageSwitcherProps {
   className?: string
+  variant?: "default" | "compact" | "mobile"
 }
 
-export function LanguageSwitcher({ className = "" }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ className = "", variant = "default" }: LanguageSwitcherProps) {
   const [currentLang, setCurrentLang] = useState<"es" | "en">("es")
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -38,8 +39,10 @@ export function LanguageSwitcher({ className = "" }: LanguageSwitcherProps) {
     }
 
     window.addEventListener("agrilpa:language_change", handleLangChange)
+    window.addEventListener("storage", handleLangChange)
     return () => {
       window.removeEventListener("agrilpa:language_change", handleLangChange)
+      window.removeEventListener("storage", handleLangChange)
     }
   }, [])
 
@@ -71,17 +74,20 @@ export function LanguageSwitcher({ className = "" }: LanguageSwitcherProps) {
       // storage fallback
     }
 
+    // Broadcast change to other switchers and components on the page
+    window.dispatchEvent(new CustomEvent("agrilpa:language_change", { detail: lang }))
+
     // Trigger Google Translate combo if present
     const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null
     if (select) {
       select.value = lang
       select.dispatchEvent(new Event("change"))
-    } else {
-      window.location.reload()
     }
 
-    // Broadcast change to other switchers on the page
-    window.dispatchEvent(new CustomEvent("agrilpa:language_change", { detail: lang }))
+    // Refresh cleanly after state commit so Google Translate and React apply full translation
+    setTimeout(() => {
+      window.location.reload()
+    }, 150)
   }
 
   return (

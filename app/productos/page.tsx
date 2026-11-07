@@ -69,6 +69,16 @@ export default function ProductosPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const catParam = params.get("categoria") || params.get("category")
+      const searchParam = params.get("search") || params.get("q")
+      if (catParam) setSelectedCategory(catParam)
+      if (searchParam) {
+        setSearchTerm(searchParam)
+        setSearchContent(searchParam)
+      }
+    }
     fetchUserProducts()
   }, [])
 

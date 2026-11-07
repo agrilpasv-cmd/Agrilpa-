@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { TrendingUp, Globe, Megaphone, ArrowRight, Handshake } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { motion } from "framer-motion"
 
 export function ForProducers() {
@@ -50,11 +51,10 @@ export function ForProducers() {
               Para Vendedores
             </div>
             <h2 className="text-3xl md:text-5xl font-extrabold text-foreground mb-6 tracking-tight leading-tight">
-              Expande tus fronteras agrícolas
+              Cómo vender y exportar tu producción agrícola
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed">
-              Conecta con compradores mayoristas en todo el mundo. Del campo a su negocio, nosotros gestionamos todo el
-              enlace comercial por ti.
+              Conecta con compradores mayoristas en todo el mundo. Del campo a su negocio, nosotros gestionamos todo el enlace comercial por ti.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4 mb-10 w-full">
@@ -90,11 +90,13 @@ export function ForProducers() {
           >
             <div className="absolute -inset-4 bg-gradient-to-bl from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[2rem] blur-xl" />
             <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-border/50 bg-background/50 rotate-1 group-hover:rotate-0 transition-transform duration-500">
-              <img
-                src="/para-compradores-manzanas.jpg"
-                alt="Cosecha de manzanas para vendedores"
+              <Image
+                src="/para-vendedores-camion.jpg"
+                alt="Productor agrícola preparando transporte de carga para venta mayorista y exportación en Agrilpa"
+                width={640}
+                height={440}
+                sizes="(max-width: 768px) 100vw, 50vw"
                 loading="lazy"
-                decoding="async"
                 className="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-[2rem]" />

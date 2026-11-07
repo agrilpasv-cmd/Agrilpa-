@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { MessageCircle, X, Box } from 'lucide-react'
@@ -45,6 +45,39 @@ export function GlobalChatWrapper() {
   } = useGlobalChat()
   const pathname = usePathname()
   const router = useRouter()
+  const [lang, setLang] = useState<"es" | "en">("es")
+
+  useEffect(() => {
+    const readCurrentLang = (): "es" | "en" => {
+      try {
+        const saved = localStorage.getItem("agrilpa_language") as "es" | "en" | null
+        if (saved === "en" || saved === "es") return saved
+        const match = document.cookie.match(/googtrans=\/es\/(en|es)/)
+        if (match && match[1]) return match[1] as "es" | "en"
+      } catch {}
+      return "es"
+    }
+
+    setLang(readCurrentLang())
+
+    const handleLangChange = (event: Event) => {
+      const customEvent = event as CustomEvent<"es" | "en">
+      if (customEvent.detail && (customEvent.detail === "es" || customEvent.detail === "en")) {
+        setLang(customEvent.detail)
+      } else {
+        setLang(readCurrentLang())
+      }
+    }
+
+    window.addEventListener("agrilpa:language_change", handleLangChange)
+    window.addEventListener("storage", handleLangChange)
+    return () => {
+      window.removeEventListener("agrilpa:language_change", handleLangChange)
+      window.removeEventListener("storage", handleLangChange)
+    }
+  }, [])
+
+  const isEn = lang === "en"
 
   // STRICT REQUIREMENT: Do not show on the full messages page (/dashboard/mensajes), admin panel (/admin), or auth pages (/auth)
   if (pathname?.startsWith('/dashboard/mensajes') || pathname?.startsWith('/dashboard/soporte') || pathname?.startsWith('/admin') || pathname?.startsWith('/auth')) {
@@ -218,20 +251,27 @@ export function GlobalChatWrapper() {
           {/* Quick Help WhatsApp Circular Button with label below - Hidden for admin users */}
           {!isAdmin && (
             <a
-              href={`https://wa.me/${WHATSAPP_DIGITS}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`}
+              href={`https://wa.me/${WHATSAPP_DIGITS}?text=${encodeURIComponent(
+                isEn
+                  ? "Hello Agrilpa! I would like to get technical assistance or information."
+                  : WHATSAPP_MESSAGE
+              )}`}
               target="_blank"
               rel="noopener noreferrer"
               className={`pointer-events-auto flex flex-col items-center gap-1 group transition-transform ${
                 unreadCount > 0 ? 'mb-3' : 'mb-0'
               }`}
-              title="Contactar a Ayuda por WhatsApp"
-              aria-label="Contactar a Ayuda por WhatsApp"
+              title={isEn ? "Contact Support on WhatsApp" : "Contactar a Ayuda por WhatsApp"}
+              aria-label={isEn ? "Contact Support on WhatsApp" : "Contactar a Ayuda por WhatsApp"}
             >
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-xl shadow-[#25D366]/30 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-white">
                 <WhatsAppIcon className="w-6 h-6 sm:w-7 sm:h-7 text-white fill-white transition-transform group-hover:scale-110" />
               </div>
-              <span className="text-[10px] sm:text-[11px] font-bold text-foreground/90 bg-white/95 dark:bg-card/95 px-2 py-0.5 rounded-full shadow-sm border border-border/60 group-hover:text-[#25D366] transition-colors tracking-tight select-none">
-                Ayuda
+              <span
+                className="notranslate text-[10px] sm:text-[11px] font-bold text-foreground/90 bg-white/95 dark:bg-card/95 px-2 py-0.5 rounded-full shadow-sm border border-border/60 group-hover:text-[#25D366] transition-colors tracking-tight select-none"
+                translate="no"
+              >
+                {isEn ? "Help" : "Ayuda"}
               </span>
             </a>
           )}

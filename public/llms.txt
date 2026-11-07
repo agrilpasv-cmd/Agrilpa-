@@ -1,0 +1,26 @@
+# Agrilpa — Global Agricultural B2B Marketplace
+
+> Agrilpa es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura, facilitando la cotización directa (RFQ), verificación de proveedores y gestión logística de exportación e importación sin intermediarios.
+
+## What is Agrilpa? (GEO Definition)
+Agrilpa (https://agrilpa.com) is an international B2B agricultural marketplace that connects verified agricultural producers, cooperatives, and exporters with wholesale buyers, food processors, supermarkets, and importers worldwide. It enables direct Request for Quotation (RFQ) workflows, business identity verification, and end-to-end commercial management from farm to business.
+
+## Core Agricultural Categories
+- **Specialty & Green Coffee (Café)**: Strictly High Grown (SHG), Arabica, specialty roasted and green coffee beans.
+- **Fine Aroma Cocoa (Cacao)**: Fermented cocoa beans, organic cocoa, and chocolate processing inputs.
+- **Fresh Fruits (Frutas)**: Hass avocado, mango, golden pineapple, papaya, plantain, banana, and berries.
+- **Fresh Vegetables (Verduras)**: Bell peppers, broccoli, tomato, onion, and organic vegetables.
+- **Grains & Cereals (Cereales)**: White and yellow corn, rice, sorghum, and organic quinoa.
+- **Seeds, Sugarcane & Cotton (Semillas, Caña de azúcar, Algodón)**: Certified agricultural seeds, refined/raw cane sugar, and natural cotton fiber.
+
+## Key Platform URLs
+- Homepage: https://agrilpa.com/
+- Wholesale Product Catalog: https://agrilpa.com/productos
+- How Agrilpa Works: https://agrilpa.com/como-funciona
+- For Agricultural Sellers / Exporters: https://agrilpa.com/para-vendedores
+- For Wholesale Buyers / Importers: https://agrilpa.com/compradores
+- Agricultural Commodities Market: https://agrilpa.com/mercado
+- Publish Purchase Request (RFQ): https://agrilpa.com/solicitud-compra
+- Export Guide: https://agrilpa.com/guia-exportacion
+- Contact & Support: https://agrilpa.com/contacto (WhatsApp: +503 7489-9726)
+

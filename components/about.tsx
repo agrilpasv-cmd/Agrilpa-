@@ -15,10 +15,9 @@ export function About() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Sobre Agrilpa</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">¿Qué es Agrilpa?</h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Somos la plataforma digital que impulsa el comercio agrícola global. Del campo a tu negocio, te conectamos
-            con compradores y vendedores verificados y gestionamos todo el proceso.
+            Agrilpa es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura. Del campo a tu negocio, validamos perfiles empresariales, centralizamos cotizaciones y acompañamos todo el proceso comercial.
           </p>
         </motion.div>
 

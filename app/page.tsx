@@ -16,6 +16,7 @@ import { ForBuyers } from "@/components/for-buyers"
 import { ForProducers } from "@/components/for-producers"
 import { Products } from "@/components/products"
 import { SuccessStories } from "@/components/success-stories"
+import { HomeFaq } from "@/components/home-faq"
 import { Newsletter } from "@/components/newsletter"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -154,6 +155,7 @@ export default function ComingSoon() {
           <ForProducers />
           <Products />
           <SuccessStories />
+          <HomeFaq />
           <Newsletter />
         </main>
         <Footer />
@@ -198,9 +200,9 @@ export default function ComingSoon() {
                   PRÓXIMAMENTE
                 </div>
 
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight">
+                <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight">
                   La plataforma que optimiza el <span className="text-foreground">abastecimiento agrícola</span> mundial
-                </h1>
+                </h2>
 
                 <p className="text-sm md:text-base text-white/90 leading-relaxed max-w-xl mx-auto">
                   Negocia, cotiza y cierra acuerdos en un entorno seguro y transparente.

@@ -12,12 +12,17 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           <div>
             <Link href="/" className="inline-flex items-center gap-2 mb-4 hover:opacity-80 transition">
-              <Image src="/agrilpa-logo-white.svg" alt="Agrilpa Logo" width={100} height={100} />
+              <Image src="/agrilpa-logo-white.svg" alt="Agrilpa - Marketplace B2B Agrícola" width={100} height={100} />
             </Link>
             <ul className="space-y-2 text-sm opacity-80">
               <li>
                 <Link href="/sobre-nosotros" className="hover:opacity-100">
                   Sobre nosotros
+                </Link>
+              </li>
+              <li>
+                <Link href="/como-funciona" className="hover:opacity-100">
+                  Cómo funciona
                 </Link>
               </li>
               <li>
@@ -30,16 +35,21 @@ export function Footer() {
                   Para compradores
                 </Link>
               </li>
-              <li>
-                <Link href="/" className="hover:opacity-100">
-                  Reserva tu lugar
-                </Link>
-              </li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold mb-4">Vendedores</h4>
             <ul className="space-y-2 text-sm opacity-80">
+              <li>
+                <Link href="/para-vendedores" className="hover:opacity-100">
+                  Vender en Agrilpa
+                </Link>
+              </li>
+              <li>
+                <Link href="/guia-exportacion" className="hover:opacity-100">
+                  Guía de exportación
+                </Link>
+              </li>
               <li>
                 <Link href="/casos-exito" className="hover:opacity-100">
                   Casos de éxito
@@ -51,19 +61,29 @@ export function Footer() {
             <h4 className="font-bold mb-4">Compradores</h4>
             <ul className="space-y-2 text-sm opacity-80">
               <li>
-                <Link href="/mercado" className="hover:opacity-100">
-                  Mercado
+                <Link href="/productos" className="hover:opacity-100">
+                  Catálogo de productos
                 </Link>
               </li>
               <li>
-                <Link href="/productos" className="hover:opacity-100">
-                  Productos
+                <Link href="/mercado" className="hover:opacity-100">
+                  Mercado y precios
+                </Link>
+              </li>
+              <li>
+                <Link href="/solicitud-compra" className="hover:opacity-100">
+                  Solicitar cotización
+                </Link>
+              </li>
+              <li>
+                <Link href="/socios-logisticos" className="hover:opacity-100">
+                  Logística internacional
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold mb-4">Legal</h4>
+            <h4 className="font-bold mb-4">Legal y Soporte</h4>
             <ul className="space-y-2 text-sm opacity-80">
               <li>
                 <Link href="/terminos-uso" className="hover:opacity-100">
@@ -92,7 +112,7 @@ export function Footer() {
         <div className="border-t border-primary-foreground/20 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm opacity-80">
-              © {currentYear} Agrilpa. Todos los derechos reservados. Conectando vendedores con el mundo.
+              © {currentYear} Agrilpa. Todos los derechos reservados. Marketplace B2B agrícola global.
             </p>
             <div className="flex gap-4">
               <a
@@ -103,12 +123,12 @@ export function Footer() {
               >
                 LinkedIn
               </a>
-              <a href="#" className="text-sm opacity-80 hover:opacity-100">
-                Twitter
-              </a>
-              <a href="#" className="text-sm opacity-80 hover:opacity-100">
-                Instagram
-              </a>
+              <Link
+                href="/contacto"
+                className="text-sm opacity-80 hover:opacity-100"
+              >
+                Soporte B2B
+              </Link>
             </div>
           </div>
         </div>

@@ -133,16 +133,19 @@ export function Hero() {
           initial="hidden"
           animate="visible"
         >
-          {/* Main Title */}
-          <motion.h1 variants={itemVariants} className="text-[3.5rem] sm:text-7xl lg:text-[5rem] xl:text-[6rem] font-black text-white leading-[1.05] tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
-            Conecta<br />
-            el campo<br />
-            con el mundo.
+          {/* Slogan as visual subtitle */}
+          <motion.p variants={itemVariants} className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-md border border-white/20 px-4 py-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest text-primary">
+            Conecta el campo con el mundo
+          </motion.p>
+
+          {/* Main Transactional H1 */}
+          <motion.h1 variants={itemVariants} className="text-3xl sm:text-5xl lg:text-[3.35rem] xl:text-[3.85rem] font-black text-white leading-[1.08] tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
+            Marketplace B2B agrícola: conecta productores y compradores de todo el mundo
           </motion.h1>
 
-          {/* Description */}
+          {/* Citable GEO Definition */}
           <motion.p variants={itemVariants} className="text-base sm:text-lg text-white leading-relaxed max-w-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-            La plataforma B2B agrícola global que conecta a productores y compradores mayoristas internacionales. Del campo a tu negocio, nosotros gestionamos todo el proceso con total transparencia.
+            <strong>Agrilpa</strong> es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura. Cotiza café, cacao, frutas, verduras y cereales al por mayor sin intermediarios.
           </motion.p>
 
           {/* Buttons */}
@@ -187,19 +190,21 @@ export function Hero() {
                     <Link href={images[currentIndex].link_url as string} className="w-full h-full block">
                       <Image
                         src={images[currentIndex].image_url}
-                        alt="Promotional Banner"
+                        alt={`Oferta destacada de comercio agrícola mayorista B2B en Agrilpa - Banner ${currentIndex + 1}`}
                         fill
+                        sizes="(max-width: 1024px) 100vw, 55vw"
                         className="object-cover transition-transform duration-700 hover:scale-105"
-                        priority
+                        priority={currentIndex === 0}
                       />
                     </Link>
                   ) : (
                     <Image
                       src={images[currentIndex].image_url}
-                      alt="Promotional Banner"
+                      alt={`Oferta destacada de comercio agrícola mayorista B2B en Agrilpa - Banner ${currentIndex + 1}`}
                       fill
+                      sizes="(max-width: 1024px) 100vw, 55vw"
                       className="object-cover"
-                      priority
+                      priority={currentIndex === 0}
                     />
                   )}
                 </motion.div>

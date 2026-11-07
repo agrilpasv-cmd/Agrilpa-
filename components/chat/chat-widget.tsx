@@ -59,6 +59,32 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [lang, setLang] = useState<"es" | "en">("es")
+
+  useEffect(() => {
+    const readCurrentLang = (): "es" | "en" => {
+      try {
+        const saved = localStorage.getItem("agrilpa_language") as "es" | "en" | null
+        if (saved === "en" || saved === "es") return saved
+        const match = document.cookie.match(/googtrans=\/es\/(en|es)/)
+        if (match && match[1]) return match[1] as "es" | "en"
+      } catch {}
+      return "es"
+    }
+    setLang(readCurrentLang())
+    const handleLangChange = (event: Event) => {
+      const customEvent = event as CustomEvent<"es" | "en">
+      if (customEvent.detail === "es" || customEvent.detail === "en") setLang(customEvent.detail)
+      else setLang(readCurrentLang())
+    }
+    window.addEventListener("agrilpa:language_change", handleLangChange)
+    window.addEventListener("storage", handleLangChange)
+    return () => {
+      window.removeEventListener("agrilpa:language_change", handleLangChange)
+      window.removeEventListener("storage", handleLangChange)
+    }
+  }, [])
+  const isEn = lang === "en"
 
   const chatKey = `${buyerId || ''}_${vendorId || ''}_${isActualSupport ? 'support' : (product?.id || 'generic')}`
   const [isLoadingHistory, setIsLoadingHistory] = useState(() => {
@@ -558,10 +584,12 @@ export function ChatWidget({ sellerName, sellerOnline = false, product, isOpen, 
                     size="sm"
                     className="text-white hover:bg-white/20 h-7 px-2 text-xs rounded-lg gap-1"
                     onClick={() => openSupportChat()}
-                    title="Pedir ayuda a Soporte Agrilpa"
+                    title={isEn ? "Get help from Agrilpa Support" : "Pedir ayuda a Soporte Agrilpa"}
                   >
                     <Headphones className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline text-[11px]">Ayuda</span>
+                    <span className="notranslate hidden sm:inline text-[11px]" translate="no">
+                      {isEn ? "Help" : "Ayuda"}
+                    </span>
                   </Button>
                 )}
                 <Button

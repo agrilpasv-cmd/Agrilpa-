@@ -89,10 +89,12 @@ export function GlobalTranslator() {
     }
   }, [])
 
-  // Re-check and re-trigger translation on SPA page transitions
+  // Manage language sync and full translation on SPA transitions
   useEffect(() => {
     try {
       const saved = localStorage.getItem("agrilpa_language")
+      const isPanel = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+
       if (saved === "en") {
         document.cookie = "googtrans=/es/en; path=/;"
         const host = window.location.hostname
@@ -100,13 +102,20 @@ export function GlobalTranslator() {
           document.cookie = `googtrans=/es/en; path=/; domain=.${host};`
         }
 
+        // When entering panel from outside via client-side routing, refresh once so Google Translate captures all dashboard content
+        if (isPanel) {
+          if (!sessionStorage.getItem("agrilpa_panel_translated")) {
+            sessionStorage.setItem("agrilpa_panel_translated", "true")
+            window.location.reload()
+            return
+          }
+        }
+
         const triggerTranslate = () => {
           const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null
-          if (select) {
-            if (select.value !== "en") {
-              select.value = "en"
-              select.dispatchEvent(new Event("change"))
-            }
+          if (select && select.value !== "en") {
+            select.value = "en"
+            select.dispatchEvent(new Event("change"))
           }
         }
 
@@ -116,12 +125,16 @@ export function GlobalTranslator() {
           clearTimeout(t1)
           clearTimeout(t2)
         }
+      } else {
+        // In Spanish mode, reset the panel translation session marker
+        if (!isPanel) {
+          sessionStorage.removeItem("agrilpa_panel_translated")
+        }
       }
     } catch {
-      // ignore
+      // storage fallback
     }
   }, [pathname])
 
   return null
 }
-

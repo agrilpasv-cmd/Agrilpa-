@@ -221,13 +221,13 @@ export function SuccessStories() {
           className="text-center"
         >
           <span className="inline-block py-1 px-3 rounded-full bg-primary/10 text-primary font-medium text-xs sm:text-sm uppercase tracking-wider mb-3">
-            Casos de Éxito
+            Impacto en Comercio Internacional
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Lo que Dicen Nuestros Clientes
+            Escenarios de Éxito en Exportación e Importación Agrícola
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Testimonios reales de productores y exportadores que han alcanzado nuevos mercados con Agrilpa
+            Ejemplos representativos de cómo productores y exportadores conectan con compradores mayoristas internacionales a través de Agrilpa
           </p>
         </motion.div>
       </div>

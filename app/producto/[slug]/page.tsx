@@ -418,6 +418,77 @@ export default function ProductPage() {
 
   if (!product) return null
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://agrilpa.com"
+  const productUrl = `${siteUrl}/producto/${product.slug || product.id || slug}`
+  const numericPrice =
+    product.price &&
+    product.price !== "Por Cotizar" &&
+    !isNaN(Number(String(product.price).replace(/[^0-9.]/g, "")))
+      ? Number(String(product.price).replace(/[^0-9.]/g, ""))
+      : undefined
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Inicio", item: siteUrl },
+          { "@type": "ListItem", position: 2, name: "Productos Agrícolas", item: `${siteUrl}/productos` },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: product.category || "Catálogo",
+            item: `${siteUrl}/productos?categoria=${encodeURIComponent(product.category || "")}`,
+          },
+          { "@type": "ListItem", position: 4, name: product.name, item: productUrl },
+        ],
+      },
+      {
+        "@type": "Product",
+        "@id": `${productUrl}#product`,
+        name: product.name,
+        description: product.fullDescription || product.description || `${product.name} al por mayor en Agrilpa`,
+        category: product.category,
+        image:
+          product.image && product.image.startsWith("http")
+            ? product.image
+            : `${siteUrl}${product.image || "/placeholder.svg"}`,
+        brand: {
+          "@type": "Brand",
+          name: "Productor Verificado en Agrilpa",
+        },
+        countryOfOrigin: {
+          "@type": "Country",
+          name: product.country || product.location || "Internacional",
+        },
+        offers: {
+          "@type": "Offer",
+          url: productUrl,
+          availability: "https://schema.org/InStock",
+          businessFunction: "http://purl.org/goodrelations/v1#Sell",
+          ...(numericPrice
+            ? {
+                price: numericPrice.toFixed(2),
+                priceCurrency: "USD",
+              }
+            : {
+                priceSpecification: {
+                  "@type": "PriceSpecification",
+                  priceCurrency: "USD",
+                  description: `Cotización B2B al por mayor. Pedido mínimo: ${product.minOrder || "A convenir"}`,
+                },
+              }),
+          seller: {
+            "@type": "Organization",
+            name: "Productor Agrícola Verificado (Vía Agrilpa B2B)",
+            url: siteUrl,
+          },
+        },
+      },
+    ],
+  }
+
   const specificContactButton = (className: string) => {
     return (
       <button
@@ -433,6 +504,10 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/productos">
           <button className="flex items-center gap-2 text-primary hover:underline mb-8 font-medium">

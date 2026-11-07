@@ -50,8 +50,23 @@ export default function DashboardShell({
     const [isAdmin, setIsAdmin] = useState(false)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const [lang, setLang] = useState<"es" | "en">("es")
     const { counts } = useDashboard()
     const { b2bUnreadCount, supportUnreadCount } = useGlobalChat()
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem("agrilpa_language")
+            if (saved === "en" || saved === "es") setLang(saved)
+            else if (document.cookie.includes("googtrans=/es/en")) setLang("en")
+        } catch {}
+        const handleLangChange = (e: Event) => {
+            const ce = e as CustomEvent<"es" | "en">
+            if (ce.detail === "es" || ce.detail === "en") setLang(ce.detail)
+        }
+        window.addEventListener("agrilpa:language_change", handleLangChange)
+        return () => window.removeEventListener("agrilpa:language_change", handleLangChange)
+    }, [])
 
     // Profile Setup Wizard states (for incomplete/OAuth registrations)
     const [isVerifyingSession, setIsVerifyingSession] = useState(true)  // block render until DB check completes
@@ -419,7 +434,7 @@ export default function DashboardShell({
                 <div className="flex flex-col items-center gap-4">
                     <Image src="/agrilpa-logo.svg" alt="Agrilpa" width={140} height={50} priority />
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mt-4" />
-                    <p className="text-sm text-muted-foreground">Verificando sesión...</p>
+                    <p className="text-sm text-muted-foreground">{lang === "en" ? "Verifying session..." : "Verificando sesión..."}</p>
                 </div>
             </div>
         )
