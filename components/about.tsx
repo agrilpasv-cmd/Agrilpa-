@@ -3,10 +3,70 @@
 import { Globe, MessageSquare, ShieldCheck, Lightbulb, Building2, ArrowLeftRight } from "lucide-react"
 import { motion } from "framer-motion"
 import { ControlCenterVideo } from "./control-center-video"
+import { useLanguage } from "@/lib/i18n"
 
 export function About() {
+  const lang = useLanguage()
+  const isEn = lang === "en"
+
+  const features = isEn
+    ? [
+        {
+          Icon: Lightbulb,
+          title: "Wholesale Inventory Management",
+          desc: "Organize, update, and manage your exportable supply catalog and seasonal availability from one dashboard.",
+        },
+        {
+          Icon: MessageSquare,
+          title: "Real-Time RFQ & Quote Management",
+          desc: "Receive instant alerts for new Requests for Quotation (RFQs) and negotiate commercial proposals directly.",
+        },
+        {
+          Icon: ShieldCheck,
+          title: "Connecting the Farm to Your Business",
+          desc: "We match you with verified producers and wholesale buyers while supporting end-to-end trade execution.",
+        },
+        {
+          Icon: Building2,
+          title: "Verified Corporate Profile",
+          desc: "Build a trusted B2B company profile with certifications and export capacity for global buyers and suppliers.",
+        },
+        {
+          Icon: ArrowLeftRight,
+          title: "Verified Supplier Directory",
+          desc: "Search and filter agricultural producers by commodity, origin country, or volume to find your ideal trade partner.",
+        },
+      ]
+    : [
+        {
+          Icon: Lightbulb,
+          title: "Administra tu inventario",
+          desc: "Organiza, actualiza y controla tu catálogo de productos y disponibilidad de forma sencilla desde el panel.",
+        },
+        {
+          Icon: MessageSquare,
+          title: "Cotizaciones en tiempo real",
+          desc: "Recibe alertas de nuevas solicitudes y gestiona propuestas comerciales desde la plataforma.",
+        },
+        {
+          Icon: ShieldCheck,
+          title: "Del campo a tu negocio",
+          desc: "Te conectamos con compradores y vendedores verificados; nosotros gestionamos todo el proceso.",
+        },
+        {
+          Icon: Building2,
+          title: "Perfil de empresa completo",
+          desc: "Completa y gestiona tu perfil empresarial profesional para generar confianza ante compradores y vendedores.",
+        },
+        {
+          Icon: ArrowLeftRight,
+          title: "Directorio de proveedores",
+          desc: "Explora y filtra empresas agrícolas por categoría, región o producto para encontrar al aliado ideal.",
+        },
+      ]
+
   return (
-    <section id="sobre" className="pt-0 pb-10 md:pb-14 bg-background">
+    <section id="sobre" className="notranslate pt-0 pb-10 md:pb-14 bg-background" translate="no">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
@@ -15,9 +75,13 @@ export function About() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">¿Qué es Agrilpa?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+            {isEn ? "What Is Agrilpa?" : "¿Qué es Agrilpa?"}
+          </h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Agrilpa es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura. Del campo a tu negocio, validamos perfiles empresariales, centralizamos cotizaciones y acompañamos todo el proceso comercial.
+            {isEn
+              ? "Agrilpa is a global B2B agricultural marketplace connecting verified producers with international wholesale buyers through secure trade. Connecting the farm to your business, we verify corporate profiles, centralize RFQs, and support the entire commercial process."
+              : "Agrilpa es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura. Del campo a tu negocio, validamos perfiles empresariales, centralizamos cotizaciones y acompañamos todo el proceso comercial."}
           </p>
         </motion.div>
 
@@ -32,9 +96,13 @@ export function About() {
             <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
               <Globe className="w-6 h-6 text-primary group-hover:text-white transition-colors duration-300" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-3">Visibilidad Global</h3>
+            <h3 className="text-xl font-bold text-foreground mb-3">
+              {isEn ? "Global Market Reach" : "Visibilidad Global"}
+            </h3>
             <p className="text-muted-foreground">
-              Muestra tu inventario y llega a una red de compradores mayoristas de todo el mundo desde la plataforma.
+              {isEn
+                ? "Showcase your wholesale supply and reach qualified international buyers, importers, and distributors worldwide."
+                : "Muestra tu inventario y llega a una red de compradores mayoristas de todo el mundo desde la plataforma."}
             </p>
           </motion.div>
 
@@ -48,9 +116,13 @@ export function About() {
             <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
               <MessageSquare className="w-6 h-6 text-primary group-hover:text-white transition-colors duration-300" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-3">Conexión Comercial</h3>
+            <h3 className="text-xl font-bold text-foreground mb-3">
+              {isEn ? "Direct B2B Trade & RFQs" : "Conexión Comercial"}
+            </h3>
             <p className="text-muted-foreground">
-              Conectamos a vendedores y compradores verificados, gestionando cotizaciones y acuerdos comerciales paso a paso.
+              {isEn
+                ? "We connect verified suppliers and wholesale buyers, streamlining RFQs, commercial terms, and supply agreements step by step."
+                : "Conectamos a vendedores y compradores verificados, gestionando cotizaciones y acuerdos comerciales paso a paso."}
             </p>
           </motion.div>
 
@@ -64,9 +136,13 @@ export function About() {
             <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
               <ShieldCheck className="w-6 h-6 text-primary group-hover:text-white transition-colors duration-300" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-3">Seguridad en Identidad</h3>
+            <h3 className="text-xl font-bold text-foreground mb-3">
+              {isEn ? "Verified Trade Security" : "Seguridad en Identidad"}
+            </h3>
             <p className="text-muted-foreground">
-              Validamos perfiles empresariales para que operes con confianza y acompañamiento en cada transacción.
+              {isEn
+                ? "We verify corporate identities and producer credentials so you can source and trade with confidence across borders."
+                : "Validamos perfiles empresariales para que operes con confianza y acompañamiento en cada transacción."}
             </p>
           </motion.div>
         </div>
@@ -93,46 +169,30 @@ export function About() {
           >
             <div className="min-w-0">
               <h3 className="text-2xl sm:text-3xl lg:text-[2.25rem] font-extrabold text-foreground leading-[1.18] mb-3 tracking-tight">
-                Tu centro de control{" "}
-                <span className="text-primary block sm:inline">agrícola.</span>
+                {isEn ? (
+                  <>
+                    Your agricultural{" "}
+                    <span className="text-primary block sm:inline">trade control center.</span>
+                  </>
+                ) : (
+                  <>
+                    Tu centro de control{" "}
+                    <span className="text-primary block sm:inline">agrícola.</span>
+                  </>
+                )}
               </h3>
 
               <p className="text-foreground/75 text-sm sm:text-base leading-relaxed font-normal mb-5">
-                Administra tus operaciones comerciales en un solo lugar: inventario, cotizaciones y enlaces comerciales,
-                todo integrado para que puedas enfocarte en crecer.
+                {isEn
+                  ? "Manage all your wholesale trade operations in one place: supply inventory, buyer RFQs, and commercial negotiations—built to help your agribusiness scale globally."
+                  : "Administra tus operaciones comerciales en un solo lugar: inventario, cotizaciones y enlaces comerciales, todo integrado para que puedas enfocarte en crecer."}
               </p>
               <p className="text-foreground/70 font-bold text-xs uppercase tracking-widest mb-2.5">
-                Cómo funciona Agrilpa
+                {isEn ? "How Agrilpa Works" : "Cómo funciona Agrilpa"}
               </p>
 
               <ul className="space-y-3">
-                {[
-                  {
-                    Icon: Lightbulb,
-                    title: "Administra tu inventario",
-                    desc: "Organiza, actualiza y controla tu catálogo de productos y disponibilidad de forma sencilla desde el panel.",
-                  },
-                  {
-                    Icon: MessageSquare,
-                    title: "Cotizaciones en tiempo real",
-                    desc: "Recibe alertas de nuevas solicitudes y gestiona propuestas comerciales desde la plataforma.",
-                  },
-                  {
-                    Icon: ShieldCheck,
-                    title: "Del campo a tu negocio",
-                    desc: "Te conectamos con compradores y vendedores verificados; nosotros gestionamos todo el proceso.",
-                  },
-                  {
-                    Icon: Building2,
-                    title: "Perfil de empresa completo",
-                    desc: "Completa y gestiona tu perfil empresarial profesional para generar confianza ante compradores y vendedores.",
-                  },
-                  {
-                    Icon: ArrowLeftRight,
-                    title: "Directorio de proveedores",
-                    desc: "Explora y filtra empresas agrícolas por categoría, región o producto para encontrar al aliado ideal.",
-                  },
-                ].map(({ Icon, title, desc }, i) => (
+                {features.map(({ Icon, title, desc }, i) => (
                   <li
                     key={i}
                     className="group flex items-center gap-3 sm:gap-3.5 bg-white rounded-xl sm:rounded-2xl px-4 py-3 border border-border hover:border-primary/50 shadow-sm transition-colors"

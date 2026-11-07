@@ -8,6 +8,7 @@ import { motion, Variants, AnimatePresence } from "framer-motion"
 import { AuthStorage } from "@/lib/auth-storage"
 import { useEffect, useRef, useState, useCallback } from "react"
 import Image from "next/image"
+import { useLanguage } from "@/lib/i18n"
 
 interface HeroImage {
   id: string
@@ -18,6 +19,8 @@ interface HeroImage {
 export function Hero() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const lang = useLanguage()
+  const isEn = lang === "en"
   
   const [images, setImages] = useState<HeroImage[]>([])
   const [intervalMs, setIntervalMs] = useState(3500)
@@ -128,19 +131,22 @@ export function Hero() {
         
         {/* Left Column: Text and Buttons */}
         <motion.div 
-          className="flex flex-col items-start text-left w-full lg:w-[50%] xl:w-[45%] space-y-6"
+          className="notranslate flex flex-col items-start text-left w-full lg:w-[50%] xl:w-[45%] space-y-6"
+          translate="no"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
           {/* Main Heading */}
           <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.06] tracking-tight drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)]">
-            Conecta el campo con el mundo.
+            {isEn ? "Connecting the farm to your business" : "Conecta el campo con el mundo."}
           </motion.h1>
 
           {/* Subtitle & B2B Value Proposition */}
           <motion.p variants={itemVariants} className="text-base sm:text-lg text-white leading-relaxed max-w-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)]">
-            Marketplace B2B agrícola que conecta productores con compradores mayoristas internacionales de forma segura. Cotiza café, cacao, frutas, verduras y cereales al por mayor sin intermediarios.
+            {isEn
+              ? "Global agricultural B2B marketplace connecting verified producers with wholesale buyers through secure trade. Request quotes (RFQs) for wholesale coffee, cocoa, fresh produce, and grains directly from the source."
+              : "Marketplace B2B agrícola que conecta productores con compradores mayoristas internacionales de forma segura. Cotiza café, cacao, frutas, verduras y cereales al por mayor sin intermediarios."}
           </motion.p>
 
           {/* Buttons */}
@@ -151,14 +157,16 @@ export function Hero() {
               className="bg-primary hover:bg-primary/90 text-white font-bold px-8 h-14 rounded-2xl shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-base"
             >
               <Link href="/productos">
-                Buscar Proveedores
+                {isEn ? "Find Verified Suppliers" : "Buscar Proveedores"}
               </Link>
             </Button>
             <button
               onClick={handleVenderClick}
               className="relative inline-flex items-center justify-center px-6 h-14 rounded-2xl font-semibold text-base text-white bg-black hover:bg-neutral-900 cursor-pointer select-none group hover:-translate-y-0.5 transition-all duration-200 shadow-lg border border-neutral-800"
             >
-              <span className="relative z-10">Vender mis productos</span>
+              <span className="relative z-10">
+                {isEn ? "Start Selling Wholesale" : "Vender mis productos"}
+              </span>
             </button>
           </motion.div>
         </motion.div>

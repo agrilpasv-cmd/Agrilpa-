@@ -113,17 +113,21 @@ export function GlobalTranslator() {
 
         const triggerTranslate = () => {
           const select = document.querySelector(".goog-te-combo") as HTMLSelectElement | null
-          if (select && select.value !== "en") {
-            select.value = "en"
+          if (select) {
+            if (select.value !== "en") {
+              select.value = "en"
+            }
             select.dispatchEvent(new Event("change"))
           }
         }
 
         const t1 = setTimeout(triggerTranslate, 300)
-        const t2 = setTimeout(triggerTranslate, 800)
+        const t2 = setTimeout(triggerTranslate, 900)
+        const t3 = setTimeout(triggerTranslate, 1800)
         return () => {
           clearTimeout(t1)
           clearTimeout(t2)
+          clearTimeout(t3)
         }
       } else {
         // In Spanish mode, reset the panel translation session marker

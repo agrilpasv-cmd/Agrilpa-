@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 const testimonials = [
   {
@@ -122,6 +123,8 @@ const getVisibleCount = (width: number): number => {
 };
 
 export function SuccessStories() {
+  const lang = useLanguage();
+  const isEn = lang === "en";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
@@ -220,15 +223,18 @@ export function SuccessStories() {
           transition={{ duration: 0.6 }}
           className="text-center"
         >
-          <span className="inline-block py-1 px-3 rounded-full bg-primary/10 text-primary font-medium text-xs sm:text-sm uppercase tracking-wider mb-3">
-            Impacto en Comercio Internacional
-          </span>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Escenarios de Éxito en Exportación e Importación Agrícola
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ejemplos representativos de cómo productores y exportadores conectan con compradores mayoristas internacionales a través de Agrilpa
-          </p>
+          <div className="notranslate" translate="no">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              {isEn
+                ? "International Agricultural Trade Case Studies"
+                : "Escenarios de Éxito en Exportación e Importación Agrícola"}
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              {isEn
+                ? "Representative scenarios of how verified producers and exporters connect with international wholesale buyers through Agrilpa."
+                : "Ejemplos representativos de cómo productores y exportadores conectan con compradores mayoristas internacionales a través de Agrilpa"}
+            </p>
+          </div>
         </motion.div>
       </div>
 

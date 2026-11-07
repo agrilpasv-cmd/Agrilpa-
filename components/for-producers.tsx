@@ -5,33 +5,60 @@ import { TrendingUp, Globe, Megaphone, ArrowRight, Handshake } from "lucide-reac
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { useLanguage } from "@/lib/i18n"
 
 export function ForProducers() {
-  const benefits = [
-    {
-      icon: Megaphone,
-      title: "Exposición Comercial",
-      description: "Haz que tu inventario llegue a compradores mayoristas e industrias con nuestro respaldo comercial.",
-    },
-    {
-      icon: Globe,
-      title: "Mercados globales",
-      description: "Expande tu negocio y lleva tu producción a compradores internacionales con gestión acompañada.",
-    },
-    {
-      icon: TrendingUp,
-      title: "Crecimiento escalable",
-      description: "Crece a tu ritmo con acceso a compradores verificados de múltiples sectores e industrias.",
-    },
-    {
-      icon: Handshake,
-      title: "Del campo a su negocio",
-      description: "Nosotros gestionamos la conexión con el comprador mayorista para asegurar el valor de tu producción.",
-    },
-  ]
+  const lang = useLanguage()
+  const isEn = lang === "en"
+
+  const benefits = isEn
+    ? [
+        {
+          icon: Megaphone,
+          title: "Global Commercial Exposure",
+          description: "Put your wholesale harvest and supply in front of international buyers, importers, and food processors.",
+        },
+        {
+          icon: Globe,
+          title: "International Export Markets",
+          description: "Expand your agribusiness and supply verified buyers across North America, Europe, Asia, and the Middle East.",
+        },
+        {
+          icon: TrendingUp,
+          title: "Scalable B2B Growth",
+          description: "Scale at your own pace with direct access to recurring wholesale RFQs and qualified corporate buyers.",
+        },
+        {
+          icon: Handshake,
+          title: "Connecting the Farm to Their Business",
+          description: "We facilitate the commercial link with wholesale buyers to maximize the value of your agricultural production.",
+        },
+      ]
+    : [
+        {
+          icon: Megaphone,
+          title: "Exposición Comercial",
+          description: "Haz que tu inventario llegue a compradores mayoristas e industrias con nuestro respaldo comercial.",
+        },
+        {
+          icon: Globe,
+          title: "Mercados globales",
+          description: "Expande tu negocio y lleva tu producción a compradores internacionales con gestión acompañada.",
+        },
+        {
+          icon: TrendingUp,
+          title: "Crecimiento escalable",
+          description: "Crece a tu ritmo con acceso a compradores verificados de múltiples sectores e industrias.",
+        },
+        {
+          icon: Handshake,
+          title: "Del campo a su negocio",
+          description: "Nosotros gestionamos la conexión con el comprador mayorista para asegurar el valor de tu producción.",
+        },
+      ]
 
   return (
-    <section id="vendedores" className="py-12 md:py-16 lg:py-20 relative overflow-hidden bg-background">
+    <section id="vendedores" className="notranslate py-12 md:py-16 lg:py-20 relative overflow-hidden bg-background" translate="no">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
 
@@ -43,14 +70,18 @@ export function ForProducers() {
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="flex flex-col items-start"
           >
-            <div className="inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary hover:bg-primary/20 mb-6">
-              Para Vendedores
-            </div>
+            <p className="text-sm font-bold uppercase tracking-wider text-primary mb-3">
+              {isEn ? "For Producers & Exporters" : "Para Vendedores"}
+            </p>
             <h2 className="text-3xl md:text-5xl font-extrabold text-foreground mb-6 tracking-tight leading-tight">
-              Cómo vender y exportar tu producción agrícola
+              {isEn
+                ? "Sell & Export Your Agricultural Supply Wholesale"
+                : "Cómo vender y exportar tu producción agrícola"}
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed">
-              Conecta con compradores mayoristas en todo el mundo. Del campo a su negocio, nosotros gestionamos todo el enlace comercial por ti.
+              {isEn
+                ? "Connect directly with international wholesale buyers. Connecting the farm to their business, we manage the entire B2B commercial link for you."
+                : "Conecta con compradores mayoristas en todo el mundo. Del campo a su negocio, nosotros gestionamos todo el enlace comercial por ti."}
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4 mb-10 w-full">
@@ -70,7 +101,7 @@ export function ForProducers() {
 
             <Link href="/auth" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground group px-8 py-7 rounded-2xl text-base shadow-lg hover:shadow-primary/25 transition-all">
-                Unirse como vendedor
+                {isEn ? "Join as a Verified Supplier" : "Unirse como vendedor"}
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -87,7 +118,11 @@ export function ForProducers() {
             <div className="relative rounded-[2rem] overflow-hidden shadow-xl border border-border/50 bg-background/50">
               <Image
                 src="/para-vendedores-camion.jpg"
-                alt="Productor agrícola preparando transporte de carga para venta mayorista y exportación en Agrilpa"
+                alt={
+                  isEn
+                    ? "Verified agricultural producer preparing wholesale freight for international export on Agrilpa"
+                    : "Productor agrícola preparando transporte de carga para venta mayorista y exportación en Agrilpa"
+                }
                 width={640}
                 height={440}
                 sizes="(max-width: 768px) 100vw, 50vw"

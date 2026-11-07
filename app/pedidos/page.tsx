@@ -23,6 +23,12 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { PRODUCT_CATEGORIES } from "@/lib/constants"
+import {
+  useLanguage,
+  translateCategory,
+  translateUnit,
+  formatB2BDate,
+} from "@/lib/i18n"
 import s from "./pedidos.module.css"
 
 interface PurchaseRequest {
@@ -91,6 +97,8 @@ function RequestPhoto({ src }: { src: string | null }) {
 }
 
 export default function PedidosPage() {
+  const lang = useLanguage()
+  const isEn = lang === "en"
   const [requests, setRequests] = useState<PurchaseRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -131,6 +139,7 @@ export default function PedidosPage() {
           [
             request.product_name,
             request.category,
+            translateCategory(request.category, "en"),
             request.country,
             request.delivery_state
           ]
@@ -149,7 +158,7 @@ export default function PedidosPage() {
       ...PRODUCT_CATEGORIES,
       ...requests.map((request) => request.category).filter(Boolean)
     ])
-  ].sort((a, b) => a.localeCompare(b, "es"))
+  ].sort((a, b) => a.localeCompare(b, isEn ? "en" : "es"))
   const hasFilters = !!(search || category || country)
   function clearFilters() {
     setSearch("")
@@ -160,23 +169,24 @@ export default function PedidosPage() {
   return (
     <main className={s.page}>
       <div className={s.container}>
-        <header className={s.header}>
+        <header className={`${s.header} notranslate`} translate="no">
           <div>
-            <h1>Pedidos de compra</h1>
+            <h1>{isEn ? "Active Buyer RFQs & Wholesale Orders" : "Pedidos de compra"}</h1>
             <p>
-              Consulta lo que buscan los compradores y encuentra pedidos que
-              puedes abastecer.
+              {isEn
+                ? "Explore active Requests for Quotation (RFQs) from international wholesale buyers and submit direct supply proposals."
+                : "Consulta lo que buscan los compradores y encuentra pedidos que puedes abastecer."}
             </p>
           </div>
           <Button asChild className={s.primary}>
             <Link href="/solicitud-compra">
               <Plus size={16} aria-hidden="true" />
-              Publicar un pedido
+              {isEn ? "Post a Buying Request (RFQ)" : "Publicar un pedido"}
             </Link>
           </Button>
         </header>
         <div className={s.layout}>
-          <div>
+          <div className="notranslate" translate="no">
             <Button
               variant="outline"
               className={s.filterToggle}
@@ -185,19 +195,22 @@ export default function PedidosPage() {
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal size={18} aria-hidden="true" />
-              Filtrar pedidos{category || country ? " · Activos" : ""}
+              {isEn ? "Filter RFQs" : "Filtrar pedidos"}
+              {category || country ? (isEn ? " · Active" : " · Activos") : ""}
             </Button>
             <aside
               id="purchase-filters"
-              aria-label="Filtros de pedidos"
+              aria-label={isEn ? "RFQ Filters" : "Filtros de pedidos"}
               className={`${s.filters} ${filtersOpen ? s.open : ""}`}
             >
               <div className={s.filterHeading}>
-                <h2>Filtrar pedidos</h2>
+                <h2>{isEn ? "Filter RFQs" : "Filtrar pedidos"}</h2>
                 <SlidersHorizontal size={17} aria-hidden="true" />
               </div>
               <div className={s.field}>
-                <label htmlFor="request-category">Categoría</label>
+                <label htmlFor="request-category">
+                  {isEn ? "Product Category" : "Categoría"}
+                </label>
                 <Select
                   value={category || "all"}
                   onValueChange={(value) =>
@@ -207,23 +220,27 @@ export default function PedidosPage() {
                   <SelectTrigger id="request-category" className={s.select}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las categorías</SelectItem>
+                  <SelectContent className="notranslate" translate="no">
+                    <SelectItem value="all">
+                      {isEn ? "All categories" : "Todas las categorías"}
+                    </SelectItem>
                     {categories.map((item) => (
                       <SelectItem key={item} value={item}>
-                        {item}
+                        {translateCategory(item, lang)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className={s.field}>
-                <label htmlFor="request-country">País de destino</label>
+                <label htmlFor="request-country">
+                  {isEn ? "Destination Country" : "País de destino"}
+                </label>
                 <CountryPicker
                   id="request-country"
                   value={country}
                   onChange={setCountry}
-                  placeholder="Todos los países"
+                  placeholder={isEn ? "All countries" : "Todos los países"}
                   className={s.country}
                 />
               </div>
@@ -236,34 +253,41 @@ export default function PedidosPage() {
                     setCountry("")
                   }}
                 >
-                  Quitar filtros
+                  {isEn ? "Clear filters" : "Quitar filtros"}
                 </Button>
               )}
               <div className={s.filterNote}>
-                <h3>¿Buscas un producto?</h3>
+                <h3>{isEn ? "Sourcing a specific product?" : "¿Buscas un producto?"}</h3>
                 <p>
-                  Publica la cantidad y el destino de tu pedido para que los
-                  proveedores puedan conocerlo.
+                  {isEn
+                    ? "Submit an RFQ with your target volume and destination so verified producers and suppliers can send you wholesale quotes."
+                    : "Publica la cantidad y el destino de tu pedido para que los proveedores puedan conocerlo."}
                 </p>
-                <Link href="/solicitud-compra">Crear una solicitud</Link>
+                <Link href="/solicitud-compra">
+                  {isEn ? "Submit an RFQ" : "Crear una solicitud"}
+                </Link>
               </div>
             </aside>
           </div>
           <section
             className={s.results}
-            aria-label="Pedidos disponibles"
+            aria-label={isEn ? "Available Buyer RFQs" : "Pedidos disponibles"}
             aria-busy={loading}
           >
-            <div className={s.search}>
+            <div className={`${s.search} notranslate`} translate="no">
               <Search size={17} aria-hidden="true" />
               <label className="sr-only" htmlFor="request-search">
-                Buscar pedidos
+                {isEn ? "Search RFQs" : "Buscar pedidos"}
               </label>
               <Input
                 id="request-search"
                 type="search"
                 data-no-auto-caps="true"
-                placeholder="Buscar por producto, categoría o destino"
+                placeholder={
+                  isEn
+                    ? "Search by product, category, or destination country..."
+                    : "Buscar por producto, categoría o destino"
+                }
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className={s.searchInput}
@@ -272,78 +296,108 @@ export default function PedidosPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Borrar búsqueda"
+                  aria-label={isEn ? "Clear search" : "Borrar búsqueda"}
                   onClick={() => setSearch("")}
                 >
                   <X size={18} />
                 </Button>
               )}
             </div>
-            <div className={s.resultHeader}>
+            <div className={`${s.resultHeader} notranslate`} translate="no">
               <p role="status" aria-live="polite">
                 {loading ? (
-                  "Cargando pedidos…"
+                  isEn ? "Loading active RFQs…" : "Cargando pedidos…"
                 ) : error ? (
-                  "Pedidos no disponibles"
+                  isEn ? "RFQs temporarily unavailable" : "Pedidos no disponibles"
                 ) : (
                   <>
                     <strong>{filtered.length}</strong>{" "}
                     {filtered.length === 1
-                      ? "pedido disponible"
-                      : "pedidos disponibles"}
+                      ? isEn
+                        ? "active RFQ available"
+                        : "pedido disponible"
+                      : isEn
+                        ? "active RFQs available"
+                        : "pedidos disponibles"}
                   </>
                 )}
               </p>
               <div className={s.sort}>
-                <label htmlFor="request-sort">Ordenar por</label>
+                <label htmlFor="request-sort">
+                  {isEn ? "Sort by" : "Ordenar por"}
+                </label>
                 <Select value={sort} onValueChange={setSort}>
                   <SelectTrigger id="request-sort" className={s.sortSelect}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="notranslate" translate="no">
                     <SelectItem value="recommended">
-                      Destacados primero
+                      {isEn ? "Featured first" : "Destacados primero"}
                     </SelectItem>
-                    <SelectItem value="newest">Más recientes</SelectItem>
-                    <SelectItem value="closing">Próximos a vencer</SelectItem>
+                    <SelectItem value="newest">
+                      {isEn ? "Most recent" : "Más recientes"}
+                    </SelectItem>
+                    <SelectItem value="closing">
+                      {isEn ? "Closing soon" : "Próximos a vencer"}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             {loading ? (
-              <div className={s.state} role="status">
-                <p>Estamos consultando los pedidos disponibles.</p>
+              <div className={`${s.state} notranslate`} translate="no" role="status">
+                <p>
+                  {isEn
+                    ? "Fetching active wholesale buying requests..."
+                    : "Estamos consultando los pedidos disponibles."}
+                </p>
               </div>
             ) : error ? (
-              <div className={s.state} role="alert">
-                <h2>No pudimos cargar los pedidos</h2>
+              <div className={`${s.state} notranslate`} translate="no" role="alert">
+                <h2>
+                  {isEn
+                    ? "Unable to load buyer RFQs"
+                    : "No pudimos cargar los pedidos"}
+                </h2>
                 <p>
-                  Intenta de nuevo para consultar las solicitudes de compra.
+                  {isEn
+                    ? "Please try again to view active wholesale buying requests."
+                    : "Intenta de nuevo para consultar las solicitudes de compra."}
                 </p>
                 <Button variant="outline" onClick={() => void fetchRequests()}>
-                  Volver a intentar
+                  {isEn ? "Try again" : "Volver a intentar"}
                 </Button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className={s.state}>
+              <div className={`${s.state} notranslate`} translate="no">
                 <Package size={36} strokeWidth={1.4} aria-hidden="true" />
                 <h2>
                   {hasFilters
-                    ? "No hay pedidos con estos filtros"
-                    : "Todavía no hay pedidos disponibles"}
+                    ? isEn
+                      ? "No buyer RFQs match these filters"
+                      : "No hay pedidos con estos filtros"
+                    : isEn
+                      ? "No active buyer RFQs yet"
+                      : "Todavía no hay pedidos disponibles"}
                 </h2>
                 <p>
                   {hasFilters
-                    ? "Prueba otro producto o amplía la categoría y el país de destino."
-                    : "Cuando se publiquen solicitudes de compra activas, las encontrarás aquí."}
+                    ? isEn
+                      ? "Try another product keyword or broaden your category and destination country filters."
+                      : "Prueba otro producto o amplía la categoría y el país de destino."
+                    : isEn
+                      ? "New wholesale Requests for Quotation (RFQs) from international buyers will appear here."
+                      : "Cuando se publiquen solicitudes de compra activas, las encontrarás aquí."}
                 </p>
                 {hasFilters ? (
                   <Button variant="outline" onClick={clearFilters}>
-                    Limpiar búsqueda y filtros
+                    {isEn ? "Reset search & filters" : "Limpiar búsqueda y filtros"}
                   </Button>
                 ) : (
                   <Button asChild className={s.primary}>
-                    <Link href="/solicitud-compra">Publicar un pedido</Link>
+                    <Link href="/solicitud-compra">
+                      {isEn ? "Post a Buying Request (RFQ)" : "Publicar un pedido"}
+                    </Link>
                   </Button>
                 )}
               </div>
@@ -360,8 +414,10 @@ export default function PedidosPage() {
                       <RequestPhoto src={request.image_url} />
                     </Link>
                     <div className={s.description}>
-                      <div className={s.category}>
-                        <span>{request.category || "Sin categoría"}</span>
+                      <div className={`${s.category} notranslate`} translate="no">
+                        <span>
+                          {translateCategory(request.category || "Sin categoría", lang)}
+                        </span>
                         {request.is_pro && <ProBadge />}
                       </div>
                       <h2>
@@ -372,49 +428,62 @@ export default function PedidosPage() {
                       {request.specs && (
                         <p className={s.specs}>{request.specs}</p>
                       )}
-                      <div className={s.metadata}>
+                      <div className={`${s.metadata} notranslate`} translate="no">
                         <span>
                           <MapPin size={15} aria-hidden="true" />
                           {[request.country, request.delivery_state]
                             .filter(Boolean)
-                            .join(", ") || "Destino sin indicar"}
+                            .join(", ") ||
+                            (isEn ? "Destination TBD" : "Destino sin indicar")}
                         </span>
                         {request.desired_date && (
                           <span>
                             <CalendarDays size={15} aria-hidden="true" />
-                            Entrega: {dateLabel(request.desired_date)}
+                            {isEn ? "Target delivery:" : "Entrega:"}{" "}
+                            {formatB2BDate(request.desired_date, lang)}
                           </span>
                         )}
                       </div>
-                      <p className={s.published}>
-                        Publicado el {dateLabel(request.created_at)}
+                      <p className={`${s.published} notranslate`} translate="no">
+                        {isEn ? "Posted" : "Publicado el"}{" "}
+                        {formatB2BDate(request.created_at, lang)}
                       </p>
                     </div>
-                    <div className={s.requestAction}>
+                    <div className={`${s.requestAction} notranslate`} translate="no">
                       <div>
                         <span className={s.quantityLabel}>
-                          Cantidad solicitada
+                          {isEn ? "Requested Volume" : "Cantidad solicitada"}
                         </span>
                         <p className={s.quantity}>
                           {request.quantity}{" "}
                           <span>
-                            {unitLabels[request.unit] || request.unit}
+                            {translateUnit(request.unit, lang)}
                           </span>
                         </p>
                       </div>
                       <p className={s.expiry}>
                         {request.days_remaining <= 0
-                          ? "Vence hoy"
+                          ? isEn
+                            ? "Closes today"
+                            : "Vence hoy"
                           : request.days_remaining === 1
-                            ? "Vence en 1 día"
-                            : `Vence en ${request.days_remaining} días`}
+                            ? isEn
+                              ? "Closes in 1 day"
+                              : "Vence en 1 día"
+                            : isEn
+                              ? `Closes in ${request.days_remaining} days`
+                              : `Vence en ${request.days_remaining} días`}
                       </p>
                       <Button asChild variant="outline" className={s.details}>
                         <Link
                           href={`/pedidos/${request.id}`}
-                          aria-label={`Ver pedido: ${request.product_name}`}
+                          aria-label={
+                            isEn
+                              ? `View RFQ: ${request.product_name}`
+                              : `Ver pedido: ${request.product_name}`
+                          }
                         >
-                          Ver pedido
+                          {isEn ? "View RFQ & Quote" : "Ver pedido"}
                         </Link>
                       </Button>
                     </div>
