@@ -140,15 +140,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <head>
+      <body className="font-sans antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(organizationAndWebsiteSchema),
           }}
         />
-      </head>
-      <body className="font-sans antialiased">
         <GlobalTranslator />
         <ChatProvider>
           <AutoCapitalizeProvider />

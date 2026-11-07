@@ -9,6 +9,7 @@ export function FooterWrapper() {
   const shouldHideFooter =
     pathname === "/" ||
     pathname?.startsWith("/dashboard") ||
+    pathname?.startsWith("/admin") ||
     pathname === "/auth" ||
     pathname?.startsWith("/productor/registro")
 

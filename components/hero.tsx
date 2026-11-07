@@ -128,32 +128,27 @@ export function Hero() {
         
         {/* Left Column: Text and Buttons */}
         <motion.div 
-          className="flex flex-col items-start text-left w-full lg:w-[50%] xl:w-[45%] space-y-7"
+          className="flex flex-col items-start text-left w-full lg:w-[50%] xl:w-[45%] space-y-6"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {/* Slogan as visual subtitle */}
-          <motion.p variants={itemVariants} className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur-md border border-white/20 px-4 py-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest text-primary">
-            Conecta el campo con el mundo
-          </motion.p>
-
-          {/* Main Transactional H1 */}
-          <motion.h1 variants={itemVariants} className="text-3xl sm:text-5xl lg:text-[3.35rem] xl:text-[3.85rem] font-black text-white leading-[1.08] tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
-            Marketplace B2B agrícola: conecta productores y compradores de todo el mundo
+          {/* Main Heading */}
+          <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.06] tracking-tight drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)]">
+            Conecta el campo con el mundo.
           </motion.h1>
 
-          {/* Citable GEO Definition */}
-          <motion.p variants={itemVariants} className="text-base sm:text-lg text-white leading-relaxed max-w-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-            <strong>Agrilpa</strong> es una plataforma B2B que conecta productores agrícolas con compradores mayoristas internacionales de forma segura. Cotiza café, cacao, frutas, verduras y cereales al por mayor sin intermediarios.
+          {/* Subtitle & B2B Value Proposition */}
+          <motion.p variants={itemVariants} className="text-base sm:text-lg text-white leading-relaxed max-w-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)]">
+            Marketplace B2B agrícola que conecta productores con compradores mayoristas internacionales de forma segura. Cotiza café, cacao, frutas, verduras y cereales al por mayor sin intermediarios.
           </motion.p>
 
           {/* Buttons */}
-          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-4 w-full">
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-3 w-full">
             <Button
               asChild
               size="lg"
-              className="bg-primary hover:bg-primary/85 text-white font-bold px-8 h-14 rounded-2xl shadow-[0_0_32px_rgba(139,198,70,0.35)] hover:shadow-[0_0_48px_rgba(139,198,70,0.5)] hover:-translate-y-1 transition-all duration-300 text-base"
+              className="bg-primary hover:bg-primary/90 text-white font-bold px-8 h-14 rounded-2xl shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-base"
             >
               <Link href="/productos">
                 Buscar Proveedores
@@ -161,7 +156,7 @@ export function Hero() {
             </Button>
             <button
               onClick={handleVenderClick}
-              className="relative inline-flex items-center justify-center px-6 h-14 rounded-2xl font-semibold text-base text-white bg-black hover:bg-neutral-900 cursor-pointer select-none group hover:-translate-y-1 transition-all duration-300 shadow-xl hover:shadow-2xl border border-neutral-800"
+              className="relative inline-flex items-center justify-center px-6 h-14 rounded-2xl font-semibold text-base text-white bg-black hover:bg-neutral-900 cursor-pointer select-none group hover:-translate-y-0.5 transition-all duration-200 shadow-lg border border-neutral-800"
             >
               <span className="relative z-10">Vender mis productos</span>
             </button>

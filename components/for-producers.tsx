@@ -32,10 +32,6 @@ export function ForProducers() {
 
   return (
     <section id="vendedores" className="py-12 md:py-16 lg:py-20 relative overflow-hidden bg-background">
-      {/* Decorative background blobs */}
-      <div className="absolute top-1/2 left-0 -mt-40 -ml-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-0 -mb-20 -mr-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
 
@@ -88,8 +84,7 @@ export function ForProducers() {
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="relative group"
           >
-            <div className="absolute -inset-4 bg-gradient-to-bl from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[2rem] blur-xl" />
-            <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-border/50 bg-background/50 rotate-1 group-hover:rotate-0 transition-transform duration-500">
+            <div className="relative rounded-[2rem] overflow-hidden shadow-xl border border-border/50 bg-background/50">
               <Image
                 src="/para-vendedores-camion.jpg"
                 alt="Productor agrícola preparando transporte de carga para venta mayorista y exportación en Agrilpa"

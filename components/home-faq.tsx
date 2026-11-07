@@ -57,9 +57,6 @@ export function HomeFaq() {
       />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <span className="inline-block py-1 px-3 rounded-full bg-primary/10 text-primary font-semibold text-xs uppercase tracking-wider mb-3">
-            Centro de Respuestas B2B
-          </span>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             Preguntas frecuentes sobre comercio agrícola mayorista
           </h2>

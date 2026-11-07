@@ -32,10 +32,6 @@ export function ForBuyers() {
 
   return (
     <section id="compradores" className="pt-8 md:pt-12 pb-12 md:pb-16 lg:pb-20 relative overflow-hidden bg-background">
-      {/* Decorative background blobs */}
-      <div className="absolute top-1/2 right-0 -mt-40 -mr-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 rounded-full bg-blue-500/5 blur-3xl pointer-events-none" />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
 
@@ -47,8 +43,7 @@ export function ForBuyers() {
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="relative group order-2 md:order-1"
           >
-            <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[2rem] blur-xl" />
-            <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-border/50 bg-background/50 -rotate-1 group-hover:rotate-0 transition-transform duration-500">
+            <div className="relative rounded-[2rem] overflow-hidden shadow-xl border border-border/50 bg-background/50">
               <Image
                 src="/para-compradores-manzanas.jpg"
                 alt="Compradores mayoristas abasteciéndose de frutas y productos agrícolas frescos desde el origen en Agrilpa"

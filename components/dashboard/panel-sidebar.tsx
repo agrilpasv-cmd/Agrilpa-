@@ -165,16 +165,11 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
     const active = pathname === item.href || (!["/", "/admin", "/dashboard"].includes(item.href) && pathname.startsWith(`${item.href}/`))
     const Icon = item.icon
     const label = t(item.label)
-    return (
-      <Link
-        key={item.href}
-        href={item.href}
-        aria-current={active ? "page" : undefined}
-        onClick={() => onOpenChange(false)}
-        className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-          active ? "bg-muted/40 text-foreground" : "text-foreground hover:bg-muted/40 hover:text-foreground"
-        }`}
-      >
+    const rowClassName = `flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      active ? "bg-muted/40 text-foreground" : "text-foreground hover:bg-muted/40 hover:text-foreground"
+    }`
+    const rowChildren = (
+      <>
         <Icon aria-hidden="true" className={`h-[22px] w-[22px] shrink-0 ${active ? "text-foreground" : "text-muted-foreground"}`} strokeWidth={1.7} />
         <span className="flex-1">{label}</span>
         {!!item.notifications && item.notifications > 0 && (
@@ -185,6 +180,32 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
             {item.notifications > 99 ? "99+" : item.notifications}
           </span>
         )}
+      </>
+    )
+
+    if (item.href === "/") {
+      return (
+        <a
+          key={item.href}
+          href="/"
+          aria-current={active ? "page" : undefined}
+          onClick={() => onOpenChange(false)}
+          className={rowClassName}
+        >
+          {rowChildren}
+        </a>
+      )
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        onClick={() => onOpenChange(false)}
+        className={rowClassName}
+      >
+        {rowChildren}
       </Link>
     )
   }
@@ -192,9 +213,9 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
   const contents = (mobile: boolean) => (
     <>
       <div className={`px-5 pt-6 ${admin ? "pb-4" : "flex flex-col items-center pb-4 text-center"}`}>
-        <Link href="/" aria-label="Agrilpa, inicio" onClick={() => onOpenChange(false)} className={admin ? "inline-block" : "flex justify-center"}>
+        <a href="/" aria-label="Agrilpa, inicio" onClick={() => onOpenChange(false)} className={admin ? "inline-block" : "flex justify-center"}>
           <Image src="/agrilpa-logo.svg" alt="Agrilpa" width={229} height={66} style={{ width: "auto", height: "auto", maxWidth: 145 }} priority />
-        </Link>
+        </a>
         <p className={`mt-2 text-sm text-muted-foreground ${admin ? "mb-5" : "mb-2 text-center"}`}>
           {t(admin ? "Administración" : "Tu espacio de negocio")}
         </p>
