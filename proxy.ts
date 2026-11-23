@@ -33,9 +33,13 @@ export async function proxy(request: NextRequest) {
 
     // This will refresh session if expired - required for Server Components
     // https://supabase.com/docs/guides/auth/server-side/nextjs
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
+    let user = null
+    try {
+        const { data } = await supabase.auth.getUser()
+        user = data.user
+    } catch (err) {
+        console.error("[Middleware] Error fetching user session:", err)
+    }
 
     // Protected routes - require authentication
     const protectedRoutes = ["/dashboard", "/admin"]

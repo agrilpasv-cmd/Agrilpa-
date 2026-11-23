@@ -15,6 +15,31 @@ export function GlobalTranslator() {
 
   // Initialize Google Translate globally on mount
   useEffect(() => {
+    // Guard against React 18 NotFoundError during SPA navigation when Google Translate wraps text nodes in <font>
+    if (typeof Node === "function" && Node.prototype) {
+      const win = window as Window & { __agrilpaDomPatched?: boolean }
+      if (!win.__agrilpaDomPatched) {
+        win.__agrilpaDomPatched = true
+        const originalRemoveChild = Node.prototype.removeChild
+        Node.prototype.removeChild = function <T extends Node>(child: T): T {
+          if (child && child.parentNode !== this) {
+            return child
+          }
+          return originalRemoveChild.call(this, child) as T
+        }
+        const originalInsertBefore = Node.prototype.insertBefore
+        Node.prototype.insertBefore = function <T extends Node>(
+          newNode: T,
+          referenceNode: Node | null
+        ): T {
+          if (referenceNode && referenceNode.parentNode !== this) {
+            return newNode
+          }
+          return originalInsertBefore.call(this, newNode, referenceNode) as T
+        }
+      }
+    }
+
     // Hidden container for Google Translate widget
     if (!document.getElementById("google_translate_element")) {
       const div = document.createElement("div")

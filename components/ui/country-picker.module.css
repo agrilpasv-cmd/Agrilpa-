@@ -77,7 +77,7 @@
   font-weight: 550;
 }
 .menu {
-  z-index: 70;
+  z-index: 150;
   width: var(--radix-popover-trigger-width);
   min-width: 230px;
   max-width: calc(100vw - 32px);
@@ -123,7 +123,7 @@
 .list {
   max-height: min(
     260px,
-    calc(var(--radix-popover-content-available-height) - 65px)
+    max(120px, calc(var(--radix-popover-content-available-height) - 65px))
   );
   overflow-y: auto;
   overscroll-behavior: contain;

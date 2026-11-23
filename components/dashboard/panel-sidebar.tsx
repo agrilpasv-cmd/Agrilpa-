@@ -201,6 +201,7 @@ export function PanelSidebar({ items, admin = false, open, onOpenChange, locked 
       <Link
         key={item.href}
         href={item.href}
+        prefetch={false}
         aria-current={active ? "page" : undefined}
         onClick={() => onOpenChange(false)}
         className={rowClassName}

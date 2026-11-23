@@ -672,7 +672,7 @@ export default function DashboardShell({
                                                 onChange={(phoneCode) => setSetupFormData(prev => ({ ...prev, countryCode: phoneCode }))}
                                                 className="w-36 shrink-0"
                                             />
-                                            <input type="text" name="phoneNumber" value={setupFormData.phoneNumber} onChange={handlePhoneInput} inputMode="numeric" placeholder="00000000" className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition" required />
+                                            <input type="text" name="phoneNumber" value={setupFormData.phoneNumber} onChange={handlePhoneInput} inputMode="numeric" placeholder="00000000" className="min-w-0 flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition" required />
                                         </div>
                                     </div>
                                 </div>
